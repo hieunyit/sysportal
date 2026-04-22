@@ -125,8 +125,8 @@ export default function DashboardPage() {
           }
         />
 
-        <div className="mt-5 space-y-5">
-          <Card>
+        <div className="mt-6 space-y-6">
+          <Card className="border-primary/20 bg-gradient-to-br from-card via-card to-card/95 shadow-[0_8px_32px_rgba(0,0,0,0.05)] dark:shadow-[0_8px_32px_rgba(65,184,255,0.08)] hover:border-primary/40 transition-all duration-300">
             <CardContent className="px-6 py-6">
               <div className="grid gap-6 xl:grid-cols-[1.3fr,0.95fr]">
                 <div className="space-y-5">
@@ -142,37 +142,37 @@ export default function DashboardPage() {
                     </div>
                   </div>
 
-                  <div className="grid gap-3 md:grid-cols-3">
+                  <div className="grid gap-4 md:grid-cols-3">
                     {[dashboardHero.shift, dashboardHero.sla, dashboardHero.release].map((item) => (
-                      <div key={item.label} className="rounded-xl border border-border/80 bg-muted/20 p-4">
-                        <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">{item.label}</p>
-                        <p className="mt-3 text-lg font-semibold text-foreground">{item.value}</p>
-                        <p className="mt-1 text-sm text-muted-foreground">{item.detail}</p>
+                      <div key={item.label} className="rounded-xl border border-primary/20 bg-gradient-to-br from-primary/5 to-primary/2 p-5 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/10 transition-all duration-300 group">
+                        <p className="text-xs uppercase tracking-[0.24em] text-primary/60 dark:text-primary/70 font-semibold">{item.label}</p>
+                        <p className="mt-4 text-2xl font-bold text-foreground group-hover:text-primary transition-colors">{item.value}</p>
+                        <p className="mt-2 text-sm text-muted-foreground">{item.detail}</p>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                <div className="rounded-xl border border-border/80 bg-muted/20 p-5">
+                <div className="rounded-xl border border-destructive/30 bg-gradient-to-br from-destructive/10 to-destructive/5 p-5 hover:border-destructive/50 transition-all duration-300">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-semibold text-foreground">Priority alerts</p>
-                      <p className="text-sm text-muted-foreground">Issues that can directly impact access delivery</p>
+                      <p className="text-sm font-bold text-foreground">Priority Alerts</p>
+                      <p className="text-sm text-muted-foreground mt-1">Critical issues requiring immediate attention</p>
                     </div>
-                    <Badge variant="outline" className="border-rose-500/20 bg-rose-500/10 text-rose-300">
-                      2 high priority
+                    <Badge className="border-destructive/50 bg-destructive/15 text-destructive font-bold animate-pulse-glow">
+                      2 Critical
                     </Badge>
                   </div>
 
-                  <div className="mt-5 space-y-4">
+                  <div className="mt-5 space-y-3">
                     {alertFeed.map((alert) => (
-                      <div key={alert.title} className="rounded-xl border border-border/80 bg-background p-4">
+                      <div key={alert.title} className="rounded-lg border border-destructive/20 bg-background/50 hover:bg-background dark:bg-background/30 hover:border-destructive/40 p-4 transition-all duration-200 group">
                         <div className="flex items-start justify-between gap-3">
                           <div>
-                            <p className="font-medium text-foreground">{alert.title}</p>
-                            <p className="mt-1 text-sm leading-6 text-muted-foreground">{alert.detail}</p>
+                            <p className="font-semibold text-foreground group-hover:text-destructive transition-colors">{alert.title}</p>
+                            <p className="mt-1.5 text-sm leading-6 text-muted-foreground">{alert.detail}</p>
                           </div>
-                          <span className={cn("shrink-0 text-xs font-semibold", getSeverityClass(alert.severity))}>
+                          <span className={cn("shrink-0 text-xs font-bold px-2 py-1 rounded-lg", alert.severity === "High" ? "bg-destructive/15 text-destructive" : "bg-amber-500/15 text-amber-500")}>
                             {alert.severity}
                           </span>
                         </div>
@@ -189,15 +189,15 @@ export default function DashboardPage() {
               const Icon = summaryIconMap[card.icon]
 
               return (
-                <Card key={card.title}>
-                  <CardContent className="px-5 py-5">
+                <Card key={card.title} className="border-primary/20 bg-gradient-to-br from-card via-card to-card/95 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/10 transition-all duration-300 group">
+                  <CardContent className="px-6 py-6">
                     <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <p className="text-sm text-muted-foreground">{card.title}</p>
-                        <p className="mt-3 text-3xl font-semibold tracking-tight text-foreground">{card.value}</p>
+                      <div className="flex-1">
+                        <p className="text-xs uppercase tracking-[0.22em] text-primary/60 dark:text-primary/70 font-semibold">{card.title}</p>
+                        <p className="mt-4 text-3xl font-bold tracking-tight text-foreground group-hover:text-primary transition-colors">{card.value}</p>
                         <p className="mt-2 text-sm text-muted-foreground">{card.detail}</p>
                       </div>
-                      <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/12 text-primary">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 text-primary group-hover:shadow-lg group-hover:shadow-primary/20 transition-all">
                         <Icon className="h-5 w-5" />
                       </div>
                     </div>
@@ -208,34 +208,34 @@ export default function DashboardPage() {
           </section>
 
           <section className="grid gap-4 xl:grid-cols-[1.45fr,0.95fr]">
-            <Card>
+            <Card className="border-primary/20 bg-gradient-to-br from-card via-card to-card/95 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/10 transition-all duration-300">
               <CardHeader>
-                <CardTitle className="text-lg">Connector health</CardTitle>
-                <CardDescription>Current synchronization state, ownership, and live workload across managed systems.</CardDescription>
+                <CardTitle className="text-xl font-bold">Connector Health</CardTitle>
+                <CardDescription className="text-muted-foreground mt-1">Current synchronization state, ownership, and live workload across managed systems.</CardDescription>
               </CardHeader>
               <CardContent>
                 <Table>
                   <TableHeader>
-                    <TableRow className="hover:bg-transparent">
-                      <TableHead>System</TableHead>
-                      <TableHead>Owner</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Last sync</TableHead>
-                      <TableHead className="text-right">Workload</TableHead>
+                    <TableRow className="hover:bg-transparent border-primary/20">
+                      <TableHead className="text-primary font-bold">System</TableHead>
+                      <TableHead className="text-primary font-bold">Owner</TableHead>
+                      <TableHead className="text-primary font-bold">Status</TableHead>
+                      <TableHead className="text-primary font-bold">Last Sync</TableHead>
+                      <TableHead className="text-right text-primary font-bold">Workload</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {systems.map((system) => (
-                      <TableRow key={system.id}>
-                        <TableCell className="font-medium text-foreground">{system.name}</TableCell>
+                      <TableRow key={system.id} className="border-primary/10 hover:bg-primary/5 transition-colors">
+                        <TableCell className="font-semibold text-foreground">{system.name}</TableCell>
                         <TableCell className="text-muted-foreground">{system.owner}</TableCell>
                         <TableCell>
-                          <Badge variant="outline" className={cn("rounded-full", getStatusClass(system.status))}>
+                          <Badge variant="outline" className={cn("rounded-full font-bold", getStatusClass(system.status))}>
                             {system.status}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-muted-foreground">{system.sync}</TableCell>
-                        <TableCell className="text-right text-muted-foreground">{system.workload}</TableCell>
+                        <TableCell className="text-muted-foreground text-sm">{system.sync}</TableCell>
+                        <TableCell className="text-right text-muted-foreground font-semibold">{system.workload}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -244,41 +244,41 @@ export default function DashboardPage() {
             </Card>
 
             <div className="space-y-4">
-              <Card>
+              <Card className="border-primary/20 bg-gradient-to-br from-card via-card to-card/95 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/10 transition-all duration-300">
                 <CardHeader>
-                  <CardTitle className="text-lg">Policy coverage</CardTitle>
-                  <CardDescription>Governance checks for privileged access, authentication strength, and source-of-truth alignment.</CardDescription>
+                  <CardTitle className="text-xl font-bold">Policy Coverage</CardTitle>
+                  <CardDescription className="text-muted-foreground mt-1">Governance checks for privileged access, authentication strength, and source-of-truth alignment.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-5">
                   {policyChecks.map((item) => (
-                    <div key={item.label} className="space-y-2">
+                    <div key={item.label} className="space-y-2.5">
                       <div className="flex items-center justify-between gap-3">
-                        <p className="text-sm text-foreground">{item.label}</p>
-                        <span className="text-sm font-medium text-muted-foreground">{item.value}%</span>
+                        <p className="text-sm font-semibold text-foreground">{item.label}</p>
+                        <span className="text-sm font-bold text-primary">{item.value}%</span>
                       </div>
-                      <Progress value={item.value} className="h-2.5 bg-primary/12" />
+                      <Progress value={item.value} className="h-2.5 bg-primary/15 rounded-full" />
                     </div>
                   ))}
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="border-primary/20 bg-gradient-to-br from-card via-card to-card/95 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/10 transition-all duration-300">
                 <CardHeader>
-                  <CardTitle className="text-lg">Recent activity</CardTitle>
-                  <CardDescription>Latest events recorded by the control plane.</CardDescription>
+                  <CardTitle className="text-xl font-bold">Recent Activity</CardTitle>
+                  <CardDescription className="text-muted-foreground mt-1">Latest events recorded by the control plane.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {activityItems.map((item) => (
-                    <div key={`${item.title}-${item.time}`} className="flex items-start gap-3">
-                      <div className="mt-1 flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    <div key={`${item.title}-${item.time}`} className="flex items-start gap-3 p-3 rounded-lg hover:bg-primary/5 transition-colors group">
+                      <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-primary/20 to-primary/10 text-primary group-hover:shadow-lg group-hover:shadow-primary/20 transition-all">
                         <Activity className="h-4 w-4" />
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-3">
-                          <p className="font-medium text-foreground">{item.title}</p>
-                          <span className="text-xs text-muted-foreground">{item.time}</span>
+                          <p className="font-semibold text-foreground group-hover:text-primary transition-colors">{item.title}</p>
+                          <span className="text-xs text-muted-foreground whitespace-nowrap">{item.time}</span>
                         </div>
-                        <p className="mt-1 text-sm text-muted-foreground">{item.meta}</p>
+                        <p className="mt-1.5 text-sm text-muted-foreground">{item.meta}</p>
                       </div>
                     </div>
                   ))}
@@ -288,36 +288,36 @@ export default function DashboardPage() {
           </section>
 
           <section className="grid gap-4 xl:grid-cols-[1.1fr,0.9fr,0.9fr]">
-            <Card>
+            <Card className="border-primary/20 bg-gradient-to-br from-card via-card to-card/95 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/10 transition-all duration-300">
               <CardHeader>
-                <CardTitle className="text-lg">Approval queue</CardTitle>
-                <CardDescription>Requests that still need a decision inside the next two hours.</CardDescription>
+                <CardTitle className="text-xl font-bold">Approval Queue</CardTitle>
+                <CardDescription className="text-muted-foreground mt-1">Requests that need decision within the next two hours.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
                 {approvalQueue.map((item) => (
-                  <div key={item.id} className="rounded-xl border border-border/80 bg-muted/20 p-4">
+                  <div key={item.id} className="rounded-xl border border-primary/20 bg-gradient-to-r from-primary/5 to-transparent hover:border-primary/40 hover:bg-primary/10 p-4 transition-all duration-200 group">
                     <div className="flex items-start justify-between gap-4">
-                      <div className="space-y-1.5">
-                        <p className="font-medium text-foreground">{item.request}</p>
+                      <div className="space-y-2">
+                        <p className="font-semibold text-foreground group-hover:text-primary transition-colors">{item.request}</p>
                         <p className="text-sm text-muted-foreground">
-                          {item.requester} | {item.system}
+                          {item.requester} • {item.system}
                         </p>
                       </div>
-                      <Badge variant="outline" className={cn("rounded-full", getPriorityClass(item.priority))}>
+                      <Badge className={cn("rounded-full font-bold", getPriorityClass(item.priority))}>
                         {item.priority}
                       </Badge>
                     </div>
-                    <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
-                      <span className="inline-flex items-center gap-2">
+                    <div className="mt-4 flex items-center justify-between text-sm">
+                      <span className="inline-flex items-center gap-2 text-muted-foreground">
                         <Clock3 className="h-4 w-4" />
-                        SLA remaining {item.sla}
+                        SLA: {item.sla}
                       </span>
                       <Button
                         variant="ghost"
-                        className="h-auto px-0 font-medium text-primary hover:bg-transparent hover:text-primary/80"
+                        className="h-auto px-0 font-semibold text-primary hover:bg-transparent hover:text-primary/80 transition-colors"
                       >
-                        Open details
-                        <ArrowRight className="h-4 w-4" />
+                        Details
+                        <ArrowRight className="h-4 w-4 ml-1.5" />
                       </Button>
                     </div>
                   </div>
@@ -325,50 +325,50 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="border-primary/20 bg-gradient-to-br from-card via-card to-card/95 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/10 transition-all duration-300">
               <CardHeader>
-                <CardTitle className="text-lg">Today&apos;s operations</CardTitle>
-                <CardDescription>Shift milestones that can impact access delivery and synchronization.</CardDescription>
+                <CardTitle className="text-xl font-bold">Today&apos;s Operations</CardTitle>
+                <CardDescription className="text-muted-foreground mt-1">Shift milestones affecting access delivery and synchronization.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 {todayOperations.map((item) => (
-                  <div key={`${item.time}-${item.title}`} className="flex items-start gap-3">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                  <div key={`${item.time}-${item.title}`} className="flex items-start gap-4 p-3 rounded-lg hover:bg-primary/5 transition-colors group">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 text-primary group-hover:shadow-lg group-hover:shadow-primary/20 transition-all">
                       <Clock3 className="h-5 w-5" />
                     </div>
                     <div>
-                      <p className="text-sm font-semibold text-foreground">{item.time}</p>
-                      <p className="mt-1 text-sm text-foreground">{item.title}</p>
-                      <p className="text-sm text-muted-foreground">{item.detail}</p>
+                      <p className="text-sm font-bold text-primary">{item.time}</p>
+                      <p className="mt-1.5 text-sm font-semibold text-foreground group-hover:text-primary transition-colors">{item.title}</p>
+                      <p className="text-sm text-muted-foreground mt-1">{item.detail}</p>
                     </div>
                   </div>
                 ))}
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="border-primary/20 bg-gradient-to-br from-card via-card to-card/95 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/10 transition-all duration-300">
               <CardHeader>
-                <CardTitle className="text-lg">API coverage</CardTitle>
-                <CardDescription>Included mock management endpoints for UI data, approval flows, and platform actions.</CardDescription>
+                <CardTitle className="text-xl font-bold">API Coverage</CardTitle>
+                <CardDescription className="text-muted-foreground mt-1">Management endpoints for data, approvals, and platform actions.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="rounded-xl border border-border/80 bg-muted/20 p-4">
-                  <p className="text-3xl font-semibold tracking-tight text-foreground">{apiCatalog.length}</p>
-                  <p className="mt-1 text-sm text-muted-foreground">Available endpoints under app/api</p>
+                <div className="rounded-xl border border-primary/20 bg-gradient-to-br from-primary/5 to-primary/2 p-4 hover:border-primary/40 transition-all">
+                  <p className="text-3xl font-bold tracking-tight text-primary">{apiCatalog.length}</p>
+                  <p className="mt-2 text-sm text-muted-foreground">Available endpoints under <code className="bg-primary/10 px-2 py-1 rounded text-xs font-mono">app/api</code></p>
                 </div>
                 {controlGaps.map((item) => {
                   const Icon = gapIconMap[item.icon]
 
                   return (
-                    <div key={item.title} className="rounded-xl border border-border/80 bg-muted/20 p-4">
+                    <div key={item.title} className="rounded-xl border border-primary/20 bg-gradient-to-r from-primary/5 to-transparent hover:border-primary/40 hover:bg-primary/10 p-4 transition-all group">
                       <div className="flex items-center justify-between gap-3">
                         <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 text-primary group-hover:shadow-lg group-hover:shadow-primary/20 transition-all">
                             <Icon className="h-4 w-4" />
                           </div>
-                          <p className="text-sm text-foreground">{item.title}</p>
+                          <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">{item.title}</p>
                         </div>
-                        <span className="text-2xl font-semibold tracking-tight text-foreground">{item.value}</span>
+                        <span className="text-2xl font-bold text-primary">{item.value}</span>
                       </div>
                     </div>
                   )

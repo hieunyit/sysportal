@@ -9,9 +9,14 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-inter" })
 const jetbrainsMono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" })
 
 export const metadata: Metadata = {
-  title: "IdentityOps Hub - Identity and Access Operations",
-  description: "Operational control plane for Keycloak, OpenVPN, Jira, ServiceDesk, and connected access-management systems.",
+  title: "Pulse - Engineering Metrics & Incident Response",
+  description: "Real-time engineering metrics dashboard for system health, incident response, and operational excellence across Keycloak, OpenVPN, Jira, and ServiceDesk.",
   generator: "v0.app",
+  keywords: "engineering metrics, incident response, operational dashboard, system monitoring",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#0f172a" }
+  ],
   icons: {
     icon: [
       {
@@ -37,9 +42,9 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${inter.variable} ${jetbrainsMono.variable}`}>
-      <body className="font-sans antialiased">
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} storageKey="identityops-theme">
+    <html lang="en" suppressHydrationWarning className={`dark ${inter.variable} ${jetbrainsMono.variable} bg-background`}>
+      <body className="font-sans antialiased bg-background text-foreground min-h-screen">
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} storageKey="pulse-theme">
           {children}
         </ThemeProvider>
         <Analytics />
