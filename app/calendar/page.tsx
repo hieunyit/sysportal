@@ -10,7 +10,7 @@ export default function CalendarPage() {
         <Sidebar />
       </div>
 
-      <main className="flex-1 p-4 lg:ml-72 lg:p-6">
+      <main className="flex-1 p-3 transition-all duration-300 md:p-4 lg:ml-72 lg:p-5">
         <Header
           title="Change windows"
           description="Track maintenance windows, synchronization batches, and daily milestones that require owner coordination."

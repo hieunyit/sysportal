@@ -10,7 +10,7 @@ export default function TeamPage() {
         <Sidebar />
       </div>
 
-      <main className="flex-1 p-4 lg:ml-72 lg:p-6">
+      <main className="flex-1 p-3 transition-all duration-300 md:p-4 lg:ml-72 lg:p-5">
         <Header
           title="Operations team"
           description="Owners, administrators, and on-shift operators for IAM, VPN, Jira, and ServiceDesk."

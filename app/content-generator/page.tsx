@@ -9,7 +9,7 @@ export default function ContentGeneratorPage() {
         <Sidebar />
       </div>
 
-      <main className="flex-1 p-4 lg:ml-72 lg:p-6">
+      <main className="flex-1 p-3 transition-all duration-300 md:p-4 lg:ml-72 lg:p-5">
         <Header
           title="Email Templates"
           description="Manage the HTML template library for operational notifications and new-joiner onboarding without crowding the screen with the full editor."

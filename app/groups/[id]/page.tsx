@@ -15,7 +15,7 @@ export default async function GroupDetailPage({
         <Sidebar />
       </div>
 
-      <main className="flex-1 p-4 lg:ml-72 lg:p-6">
+      <main className="flex-1 p-3 transition-all duration-300 md:p-4 lg:ml-72 lg:p-5">
         <Header
           title="Group Detail"
           description="Inspect a single Keycloak group with hierarchy context, member list, mapped roles, and recent admin activity."

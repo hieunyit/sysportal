@@ -15,7 +15,7 @@ export default async function EmailTemplateEditorPage({
         <Sidebar />
       </div>
 
-      <main className="flex-1 p-4 lg:ml-72 lg:p-6">
+      <main className="flex-1 p-3 transition-all duration-300 md:p-4 lg:ml-72 lg:p-5">
         <Header
           title="Template Editor"
           description="Edit a single email template in a dedicated workspace with focused controls for metadata, HTML, and preview rendering."

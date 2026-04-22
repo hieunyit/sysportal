@@ -15,7 +15,7 @@ export default async function UserDetailPage({
         <Sidebar />
       </div>
 
-      <main className="flex-1 p-4 lg:ml-72 lg:p-6">
+      <main className="flex-1 p-3 transition-all duration-300 md:p-4 lg:ml-72 lg:p-5">
         <Header
           title="User Detail"
           description="Inspect a single Keycloak user with credential history, sessions, group assignments, role mappings, event timelines, and direct account controls."

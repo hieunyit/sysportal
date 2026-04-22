@@ -9,7 +9,7 @@ export default function GroupsPage() {
         <Sidebar />
       </div>
 
-      <main className="flex-1 p-4 lg:ml-72 lg:p-6">
+      <main className="flex-1 p-3 transition-all duration-300 md:p-4 lg:ml-72 lg:p-5">
         <Header
           title="Keycloak Groups"
           description="Explore the live realm group hierarchy, including nesting depth, mapped roles, subgroup counts, and member relationships."

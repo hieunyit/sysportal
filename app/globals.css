@@ -278,3 +278,46 @@
 .hover\:animate-card-lift:hover {
   animation: card-lift 0.3s ease-out forwards;
 }
+
+/* Compact layout utilities - normalize component sizes */
+@layer components {
+  /* Title sizing - reduce from xl to lg */
+  .title-compact {
+    @apply text-lg font-bold;
+  }
+
+  /* Subtitle sizing */
+  .subtitle-compact {
+    @apply text-sm text-muted-foreground;
+  }
+
+  /* Card spacing - tighter padding */
+  .card-compact {
+    @apply px-4 py-4 md:px-5 md:py-5;
+  }
+
+  /* Gap reduction */
+  .gap-compact {
+    @apply gap-2 md:gap-3;
+  }
+
+  /* Table row height - reduce height */
+  .table-compact tr {
+    @apply h-12;
+  }
+
+  .table-compact th,
+  .table-compact td {
+    @apply px-3 py-2 text-sm;
+  }
+
+  /* Form input sizes */
+  .input-compact {
+    @apply h-9 text-sm;
+  }
+
+  /* Button size reduction */
+  .btn-compact {
+    @apply h-9 px-3 text-sm;
+  }
+}

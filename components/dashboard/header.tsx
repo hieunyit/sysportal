@@ -18,7 +18,7 @@ export function Header({ title, description, actions }: HeaderProps) {
   return (
     <header>
       <section className="group overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-card via-card to-card/95 shadow-[0_8px_32px_rgba(0,0,0,0.1)] dark:shadow-[0_8px_32px_rgba(65,184,255,0.08)] backdrop-blur-sm transition-all duration-300 hover:border-primary/40 hover:shadow-[0_12px_40px_rgba(65,184,255,0.12)]">
-        <div className="flex flex-col gap-4 border-b border-primary/10 px-6 py-5 xl:flex-row xl:items-center xl:justify-between">
+        <div className="flex flex-col gap-3 border-b border-primary/10 px-4 py-4 md:px-5 md:py-4 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex flex-1 items-center gap-4">
             <MobileNav />
 
@@ -56,14 +56,14 @@ export function Header({ title, description, actions }: HeaderProps) {
           </div>
         </div>
 
-        <div className="flex flex-col gap-5 px-6 py-6 lg:flex-row lg:items-end lg:justify-between">
+        <div className="flex flex-col gap-3 px-4 py-4 md:px-5 md:py-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="space-y-3 animate-fade-in">
             <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-primary/60 dark:text-primary/70">
               Pulse Control Center
             </p>
             <div>
-              <h1 className="text-3xl font-bold tracking-tight text-foreground md:text-4xl bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">{title}</h1>
-              <p className="mt-2 max-w-4xl text-base leading-relaxed text-muted-foreground dark:text-muted-foreground/90">{description}</p>
+              <h1 className="text-2xl font-bold tracking-tight text-foreground md:text-2xl">{title}</h1>
+              <p className="mt-1.5 max-w-4xl text-sm leading-relaxed text-muted-foreground">{description}</p>
             </div>
           </div>
 

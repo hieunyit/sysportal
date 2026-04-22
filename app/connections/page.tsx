@@ -9,7 +9,7 @@ export default function ConnectionsPage() {
         <Sidebar />
       </div>
 
-      <main className="flex-1 p-4 lg:ml-72 lg:p-6">
+      <main className="flex-1 p-3 transition-all duration-300 md:p-4 lg:ml-72 lg:p-5">
         <Header
           title="Connections"
           description="Configure and verify identity, VPN, and email integrations."

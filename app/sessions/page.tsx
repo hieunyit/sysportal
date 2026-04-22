@@ -9,7 +9,7 @@ export default function SessionsPage() {
         <Sidebar />
       </div>
 
-      <main className="flex-1 p-4 lg:ml-72 lg:p-6">
+      <main className="flex-1 p-3 transition-all duration-300 md:p-4 lg:ml-72 lg:p-5">
         <Header
           title="Keycloak Sessions"
           description="Track who is actively using the configured realm, review current user sessions, and surface repeated login failures before they turn into account lockouts."

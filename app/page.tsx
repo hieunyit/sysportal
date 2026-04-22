@@ -4,6 +4,8 @@ import { useState } from "react"
 import {
   Activity,
   AlertTriangle,
+  KeyRound,
+  Network,
   RefreshCcw,
   ShieldCheck,
 } from "lucide-react"
@@ -88,8 +90,8 @@ export default function DashboardPage() {
 
       <main
         className={cn(
-          "flex-1 p-4 transition-all duration-300 md:p-5 lg:p-6",
-          isCollapsed ? "lg:ml-[4.75rem]" : "lg:ml-72",
+          "flex-1 p-3 transition-all duration-300 md:p-4 lg:p-5",
+          isCollapsed ? "lg:ml-[5rem]" : "lg:ml-72",
         )}
       >
         <Header
@@ -109,7 +111,7 @@ export default function DashboardPage() {
           }
         />
 
-        <div className="mt-5 space-y-4">
+        <div className="mt-4 space-y-3">
           <div className="grid gap-3 md:grid-cols-4">
             {dashboardSummaryCards.map((card) => {
               const Icon = summaryIconMap[card.icon]

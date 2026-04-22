@@ -15,7 +15,7 @@ export default function LogoutPage() {
         <Sidebar />
       </div>
 
-      <main className="flex-1 p-4 lg:ml-72 lg:p-6">
+      <main className="flex-1 p-3 transition-all duration-300 md:p-4 lg:ml-72 lg:p-5">
         <Header title="Logout" description="End the current operator session and return to the login experience." />
 
         <div className="flex items-center justify-center min-h-[calc(100vh-100px)]">
