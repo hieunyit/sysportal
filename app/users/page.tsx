@@ -9,13 +9,13 @@ export default function UsersPage() {
         <Sidebar />
       </div>
 
-      <main className="flex-1 p-4 lg:ml-72 lg:p-6">
+      <main className="flex-1 p-3 transition-all duration-300 md:p-4 lg:ml-72 lg:p-5">
         <Header
           title="Keycloak Users"
-          description="Browse the live user inventory for the configured realm and jump into create, edit, disable, password reset, and session control actions."
+          description="Browse the live user inventory for the configured realm."
         />
 
-        <div className="mt-6">
+        <div className="mt-4">
           <UsersContent />
         </div>
       </main>

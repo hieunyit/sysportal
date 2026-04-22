@@ -4,14 +4,8 @@ import { useState } from "react"
 import {
   Activity,
   AlertTriangle,
-  ArrowRight,
-  BadgeCheck,
-  Clock3,
-  KeyRound,
-  Network,
   RefreshCcw,
   ShieldCheck,
-  Users,
 } from "lucide-react"
 import { Header } from "@/components/dashboard/header"
 import { Sidebar } from "@/components/dashboard/sidebar"
@@ -37,14 +31,10 @@ import { cn } from "@/lib/utils"
 import {
   activityItems,
   alertFeed,
-  apiCatalog,
   approvalQueue,
-  controlGaps,
-  dashboardHero,
   dashboardSummaryCards,
   policyChecks,
   systems,
-  todayOperations,
 } from "@/lib/identity-ops-data"
 
 const summaryIconMap = {
@@ -52,12 +42,6 @@ const summaryIconMap = {
   network: Network,
   shield: ShieldCheck,
   alert: AlertTriangle,
-} as const
-
-const gapIconMap = {
-  users: Users,
-  badge: BadgeCheck,
-  key: KeyRound,
 } as const
 
 function getStatusClass(status: string) {
@@ -109,133 +93,75 @@ export default function DashboardPage() {
         )}
       >
         <Header
-          title="Identity and access operations center"
-          description="Track connector health, identity synchronization, approval queues, and access risk across Keycloak, OpenVPN, Jira, ServiceDesk, and connected governance services."
+          title="Operations Dashboard"
+          description="Real-time monitoring of identity synchronization, system health, and approval workflows."
           actions={
             <>
-              <Button className="h-10 rounded-xl px-4 text-sm font-medium">
+              <Button className="h-9 rounded-lg px-3 text-sm">
                 <ShieldCheck className="mr-2 h-4 w-4" />
-                Create access request
+                New Request
               </Button>
-              <Button variant="outline" className="h-10 rounded-xl border-border/80 bg-card px-4 text-sm">
+              <Button variant="outline" className="h-9 rounded-lg px-3 text-sm">
                 <RefreshCcw className="mr-2 h-4 w-4" />
-                Run sync now
+                Sync
               </Button>
             </>
           }
         />
 
-        <div className="mt-6 space-y-6">
-          <Card className="border-primary/20 bg-gradient-to-br from-card via-card to-card/95 shadow-[0_8px_32px_rgba(0,0,0,0.05)] dark:shadow-[0_8px_32px_rgba(65,184,255,0.08)] hover:border-primary/40 transition-all duration-300">
-            <CardContent className="px-6 py-6">
-              <div className="grid gap-6 xl:grid-cols-[1.3fr,0.95fr]">
-                <div className="space-y-5">
-                  <div className="space-y-3">
-                    <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary">
-                      {dashboardHero.badge}
-                    </Badge>
-                    <div>
-                      <h2 className="text-2xl font-semibold tracking-tight text-foreground">{dashboardHero.title}</h2>
-                      <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-                        {dashboardHero.description}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="grid gap-4 md:grid-cols-3">
-                    {[dashboardHero.shift, dashboardHero.sla, dashboardHero.release].map((item) => (
-                      <div key={item.label} className="rounded-xl border border-primary/20 bg-gradient-to-br from-primary/5 to-primary/2 p-5 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/10 transition-all duration-300 group">
-                        <p className="text-xs uppercase tracking-[0.24em] text-primary/60 dark:text-primary/70 font-semibold">{item.label}</p>
-                        <p className="mt-4 text-2xl font-bold text-foreground group-hover:text-primary transition-colors">{item.value}</p>
-                        <p className="mt-2 text-sm text-muted-foreground">{item.detail}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="rounded-xl border border-destructive/30 bg-gradient-to-br from-destructive/10 to-destructive/5 p-5 hover:border-destructive/50 transition-all duration-300">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-bold text-foreground">Priority Alerts</p>
-                      <p className="text-sm text-muted-foreground mt-1">Critical issues requiring immediate attention</p>
-                    </div>
-                    <Badge className="border-destructive/50 bg-destructive/15 text-destructive font-bold animate-pulse-glow">
-                      2 Critical
-                    </Badge>
-                  </div>
-
-                  <div className="mt-5 space-y-3">
-                    {alertFeed.map((alert) => (
-                      <div key={alert.title} className="rounded-lg border border-destructive/20 bg-background/50 hover:bg-background dark:bg-background/30 hover:border-destructive/40 p-4 transition-all duration-200 group">
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="font-semibold text-foreground group-hover:text-destructive transition-colors">{alert.title}</p>
-                            <p className="mt-1.5 text-sm leading-6 text-muted-foreground">{alert.detail}</p>
-                          </div>
-                          <span className={cn("shrink-0 text-xs font-bold px-2 py-1 rounded-lg", alert.severity === "High" ? "bg-destructive/15 text-destructive" : "bg-amber-500/15 text-amber-500")}>
-                            {alert.severity}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-5 space-y-4">
+          <div className="grid gap-3 md:grid-cols-4">
             {dashboardSummaryCards.map((card) => {
               const Icon = summaryIconMap[card.icon]
 
               return (
-                <Card key={card.title} className="border-primary/20 bg-gradient-to-br from-card via-card to-card/95 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/10 transition-all duration-300 group">
-                  <CardContent className="px-6 py-6">
-                    <div className="flex items-start justify-between gap-4">
+                <Card key={card.title}>
+                  <CardContent className="px-4 py-4">
+                    <div className="flex items-start justify-between gap-3">
                       <div className="flex-1">
-                        <p className="text-xs uppercase tracking-[0.22em] text-primary/60 dark:text-primary/70 font-semibold">{card.title}</p>
-                        <p className="mt-4 text-3xl font-bold tracking-tight text-foreground group-hover:text-primary transition-colors">{card.value}</p>
-                        <p className="mt-2 text-sm text-muted-foreground">{card.detail}</p>
+                        <p className="text-xs uppercase tracking-[0.2em] text-primary/60 font-semibold">{card.title}</p>
+                        <p className="mt-2 text-2xl font-bold text-foreground">{card.value}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">{card.detail}</p>
                       </div>
-                      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 text-primary group-hover:shadow-lg group-hover:shadow-primary/20 transition-all">
-                        <Icon className="h-5 w-5" />
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                        <Icon className="h-4 w-4" />
                       </div>
                     </div>
                   </CardContent>
                 </Card>
               )
             })}
-          </section>
+          </div>
 
-          <section className="grid gap-4 xl:grid-cols-[1.45fr,0.95fr]">
-            <Card className="border-primary/20 bg-gradient-to-br from-card via-card to-card/95 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/10 transition-all duration-300">
+          <div className="grid gap-4 xl:grid-cols-[1.2fr,0.8fr]">
+            <Card>
               <CardHeader>
-                <CardTitle className="text-xl font-bold">Connector Health</CardTitle>
-                <CardDescription className="text-muted-foreground mt-1">Current synchronization state, ownership, and live workload across managed systems.</CardDescription>
+                <CardTitle>System Health</CardTitle>
+                <CardDescription>Current status of core systems and connectors.</CardDescription>
               </CardHeader>
               <CardContent>
                 <Table>
                   <TableHeader>
-                    <TableRow className="hover:bg-transparent border-primary/20">
-                      <TableHead className="text-primary font-bold">System</TableHead>
-                      <TableHead className="text-primary font-bold">Owner</TableHead>
-                      <TableHead className="text-primary font-bold">Status</TableHead>
-                      <TableHead className="text-primary font-bold">Last Sync</TableHead>
-                      <TableHead className="text-right text-primary font-bold">Workload</TableHead>
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead>System</TableHead>
+                      <TableHead>Owner</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Last Sync</TableHead>
+                      <TableHead className="text-right">Workload</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {systems.map((system) => (
-                      <TableRow key={system.id} className="border-primary/10 hover:bg-primary/5 transition-colors">
-                        <TableCell className="font-semibold text-foreground">{system.name}</TableCell>
-                        <TableCell className="text-muted-foreground">{system.owner}</TableCell>
+                      <TableRow key={system.id}>
+                        <TableCell className="font-medium text-foreground">{system.name}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{system.owner}</TableCell>
                         <TableCell>
-                          <Badge variant="outline" className={cn("rounded-full font-bold", getStatusClass(system.status))}>
+                          <Badge variant="outline" className={cn("text-xs", getStatusClass(system.status))}>
                             {system.status}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-muted-foreground text-sm">{system.sync}</TableCell>
-                        <TableCell className="text-right text-muted-foreground font-semibold">{system.workload}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{system.sync}</TableCell>
+                        <TableCell className="text-right text-sm text-muted-foreground">{system.workload}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -244,138 +170,93 @@ export default function DashboardPage() {
             </Card>
 
             <div className="space-y-4">
-              <Card className="border-primary/20 bg-gradient-to-br from-card via-card to-card/95 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/10 transition-all duration-300">
+              <Card>
                 <CardHeader>
-                  <CardTitle className="text-xl font-bold">Policy Coverage</CardTitle>
-                  <CardDescription className="text-muted-foreground mt-1">Governance checks for privileged access, authentication strength, and source-of-truth alignment.</CardDescription>
+                  <CardTitle>Alerts</CardTitle>
+                  <CardDescription>Active issues</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-5">
-                  {policyChecks.map((item) => (
-                    <div key={item.label} className="space-y-2.5">
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="text-sm font-semibold text-foreground">{item.label}</p>
-                        <span className="text-sm font-bold text-primary">{item.value}%</span>
+                <CardContent className="space-y-2">
+                  {alertFeed.map((alert) => (
+                    <div key={alert.title} className="rounded-lg border border-destructive/20 bg-destructive/5 p-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1">
+                          <p className="text-sm font-semibold text-foreground">{alert.title}</p>
+                          <p className="mt-0.5 text-xs text-muted-foreground line-clamp-2">{alert.detail}</p>
+                        </div>
+                        <Badge variant="default" className="text-xs shrink-0">
+                          {alert.severity}
+                        </Badge>
                       </div>
-                      <Progress value={item.value} className="h-2.5 bg-primary/15 rounded-full" />
                     </div>
                   ))}
                 </CardContent>
               </Card>
 
-              <Card className="border-primary/20 bg-gradient-to-br from-card via-card to-card/95 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/10 transition-all duration-300">
+              <Card>
                 <CardHeader>
-                  <CardTitle className="text-xl font-bold">Recent Activity</CardTitle>
-                  <CardDescription className="text-muted-foreground mt-1">Latest events recorded by the control plane.</CardDescription>
+                  <CardTitle>Approvals</CardTitle>
+                  <CardDescription>Pending requests ({approvalQueue.length})</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  {activityItems.map((item) => (
-                    <div key={`${item.title}-${item.time}`} className="flex items-start gap-3 p-3 rounded-lg hover:bg-primary/5 transition-colors group">
-                      <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-primary/20 to-primary/10 text-primary group-hover:shadow-lg group-hover:shadow-primary/20 transition-all">
-                        <Activity className="h-4 w-4" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between gap-3">
-                          <p className="font-semibold text-foreground group-hover:text-primary transition-colors">{item.title}</p>
-                          <span className="text-xs text-muted-foreground whitespace-nowrap">{item.time}</span>
+                <CardContent className="space-y-2">
+                  {approvalQueue.slice(0, 3).map((item) => (
+                    <div key={item.id} className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1">
+                          <p className="font-medium text-foreground">{item.request}</p>
+                          <p className="mt-0.5 text-xs text-muted-foreground">{item.requester}</p>
                         </div>
-                        <p className="mt-1.5 text-sm text-muted-foreground">{item.meta}</p>
+                        <Badge variant="outline" className="text-xs shrink-0">
+                          {item.priority}
+                        </Badge>
                       </div>
                     </div>
                   ))}
                 </CardContent>
               </Card>
             </div>
-          </section>
+          </div>
 
-          <section className="grid gap-4 xl:grid-cols-[1.1fr,0.9fr,0.9fr]">
-            <Card className="border-primary/20 bg-gradient-to-br from-card via-card to-card/95 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/10 transition-all duration-300">
+          <div className="grid gap-4 xl:grid-cols-2">
+            <Card>
               <CardHeader>
-                <CardTitle className="text-xl font-bold">Approval Queue</CardTitle>
-                <CardDescription className="text-muted-foreground mt-1">Requests that need decision within the next two hours.</CardDescription>
+                <CardTitle>Policy Compliance</CardTitle>
+                <CardDescription>Governance check coverage</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
-                {approvalQueue.map((item) => (
-                  <div key={item.id} className="rounded-xl border border-primary/20 bg-gradient-to-r from-primary/5 to-transparent hover:border-primary/40 hover:bg-primary/10 p-4 transition-all duration-200 group">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="space-y-2">
-                        <p className="font-semibold text-foreground group-hover:text-primary transition-colors">{item.request}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {item.requester} • {item.system}
-                        </p>
-                      </div>
-                      <Badge className={cn("rounded-full font-bold", getPriorityClass(item.priority))}>
-                        {item.priority}
-                      </Badge>
+                {policyChecks.map((item) => (
+                  <div key={item.label} className="space-y-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-medium text-foreground">{item.label}</p>
+                      <span className="text-xs font-bold text-primary">{item.value}%</span>
                     </div>
-                    <div className="mt-4 flex items-center justify-between text-sm">
-                      <span className="inline-flex items-center gap-2 text-muted-foreground">
-                        <Clock3 className="h-4 w-4" />
-                        SLA: {item.sla}
-                      </span>
-                      <Button
-                        variant="ghost"
-                        className="h-auto px-0 font-semibold text-primary hover:bg-transparent hover:text-primary/80 transition-colors"
-                      >
-                        Details
-                        <ArrowRight className="h-4 w-4 ml-1.5" />
-                      </Button>
-                    </div>
+                    <Progress value={item.value} className="h-2" />
                   </div>
                 ))}
               </CardContent>
             </Card>
 
-            <Card className="border-primary/20 bg-gradient-to-br from-card via-card to-card/95 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/10 transition-all duration-300">
+            <Card>
               <CardHeader>
-                <CardTitle className="text-xl font-bold">Today&apos;s Operations</CardTitle>
-                <CardDescription className="text-muted-foreground mt-1">Shift milestones affecting access delivery and synchronization.</CardDescription>
+                <CardTitle>Activity Log</CardTitle>
+                <CardDescription>Recent events</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                {todayOperations.map((item) => (
-                  <div key={`${item.time}-${item.title}`} className="flex items-start gap-4 p-3 rounded-lg hover:bg-primary/5 transition-colors group">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 text-primary group-hover:shadow-lg group-hover:shadow-primary/20 transition-all">
-                      <Clock3 className="h-5 w-5" />
+              <CardContent className="space-y-2">
+                {activityItems.slice(0, 4).map((item) => (
+                  <div key={`${item.title}-${item.time}`} className="flex items-start gap-2 py-1.5 text-sm">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                      <Activity className="h-3.5 w-3.5" />
                     </div>
-                    <div>
-                      <p className="text-sm font-bold text-primary">{item.time}</p>
-                      <p className="mt-1.5 text-sm font-semibold text-foreground group-hover:text-primary transition-colors">{item.title}</p>
-                      <p className="text-sm text-muted-foreground mt-1">{item.detail}</p>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground">{item.title}</p>
+                      <p className="text-xs text-muted-foreground">{item.time}</p>
                     </div>
                   </div>
                 ))}
               </CardContent>
             </Card>
+          </div>
 
-            <Card className="border-primary/20 bg-gradient-to-br from-card via-card to-card/95 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/10 transition-all duration-300">
-              <CardHeader>
-                <CardTitle className="text-xl font-bold">API Coverage</CardTitle>
-                <CardDescription className="text-muted-foreground mt-1">Management endpoints for data, approvals, and platform actions.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="rounded-xl border border-primary/20 bg-gradient-to-br from-primary/5 to-primary/2 p-4 hover:border-primary/40 transition-all">
-                  <p className="text-3xl font-bold tracking-tight text-primary">{apiCatalog.length}</p>
-                  <p className="mt-2 text-sm text-muted-foreground">Available endpoints under <code className="bg-primary/10 px-2 py-1 rounded text-xs font-mono">app/api</code></p>
-                </div>
-                {controlGaps.map((item) => {
-                  const Icon = gapIconMap[item.icon]
 
-                  return (
-                    <div key={item.title} className="rounded-xl border border-primary/20 bg-gradient-to-r from-primary/5 to-transparent hover:border-primary/40 hover:bg-primary/10 p-4 transition-all group">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 text-primary group-hover:shadow-lg group-hover:shadow-primary/20 transition-all">
-                            <Icon className="h-4 w-4" />
-                          </div>
-                          <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">{item.title}</p>
-                        </div>
-                        <span className="text-2xl font-bold text-primary">{item.value}</span>
-                      </div>
-                    </div>
-                  )
-                })}
-              </CardContent>
-            </Card>
-          </section>
         </div>
       </main>
     </div>
