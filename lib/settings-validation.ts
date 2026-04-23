@@ -4,6 +4,7 @@ const optionalSecret = z.string().max(255)
 const optionalCredential = z.string().trim().max(160)
 
 export const connectorKeySchema = z.enum(["keycloak", "openvpn", "smtp", "smtp-welcome"])
+export const settingsOptionKindSchema = z.enum(["role", "team", "department", "workAddress"])
 
 export const profileSettingsSchema = z.object({
   fullName: z.string().trim().min(1).max(120),
@@ -126,6 +127,10 @@ export const notificationSettingPatchSchema = notificationSettingSchema.partial(
 
 export const appearanceSettingsSchema = z.object({
   theme: z.enum(["light", "dark"]),
+})
+
+export const settingsOptionListSchema = z.object({
+  items: z.array(z.string().trim().min(1).max(255)).default([]),
 })
 
 export function formatZodError(error: z.ZodError) {

@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server"
 import { ZodError } from "zod"
 import { getErrorDetail } from "@/lib/error-utils"
-import { getProfileSettings, updateProfileSettings } from "@/lib/settings-store"
+import { getProfileSettingsBundle, updateProfileSettings } from "@/lib/settings-store"
 import { formatZodError, profileSettingsSchema } from "@/lib/settings-validation"
 
 export const runtime = "nodejs"
 
 export async function GET() {
   try {
-    return NextResponse.json(getProfileSettings())
+    return NextResponse.json(getProfileSettingsBundle())
   } catch (error) {
     return NextResponse.json(
       {

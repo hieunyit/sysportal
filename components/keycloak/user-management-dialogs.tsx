@@ -81,6 +81,17 @@ interface ManagerLookupItem {
   ldapEntryDn: string
 }
 
+interface SettingsOptionLists {
+  role: string[]
+  team: string[]
+  department: string[]
+  workAddress: string[]
+}
+
+interface SettingsOptionListsResponse {
+  items: SettingsOptionLists
+}
+
 interface UserEditorDialogProps {
   mode: "create" | "edit"
   open: boolean
@@ -117,6 +128,12 @@ const partnerInformationGroupName = "Partner Information"
 const userTypeFieldName = "userType"
 const defaultCreateRequiredActions = ["UPDATE_PASSWORD", "CONFIGURE_TOTP"]
 const defaultEmployeeGroupName = "jira-servicedesk-users"
+const emptySettingsOptionLists: SettingsOptionLists = {
+  role: [],
+  team: [],
+  department: [],
+  workAddress: [],
+}
 
 function createEntryId() {
   return globalThis.crypto?.randomUUID?.() ?? `attribute-${Math.random().toString(36).slice(2, 10)}`
@@ -773,6 +790,7 @@ export function UserEditorDialog({
   const [workStartDate, setWorkStartDate] = useState("")
   const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([])
   const [availableGroups, setAvailableGroups] = useState<Array<{ id: string; name: string }>>([])
+  const [settingsOptionLists, setSettingsOptionLists] = useState<SettingsOptionLists>(emptySettingsOptionLists)
   const [groupsLoading, setGroupsLoading] = useState(false)
   const [groupSearchQuery, setGroupSearchQuery] = useState("")
   const [requiredActionsInput, setRequiredActionsInput] = useState("")
@@ -804,30 +822,48 @@ export function UserEditorDialog({
     setWorkStartDate("")
     setSelectedGroupIds([])
     setGroupSearchQuery("")
+    setSettingsOptionLists(emptySettingsOptionLists)
     setFormError(null)
 
     // Fetch available groups for selection
     if (mode === "create") {
-      const fetchGroups = async () => {
+      const fetchCreateOptions = async () => {
         try {
           setGroupsLoading(true)
-          const response = await fetch("/api/keycloak/groups?pageSize=100")
-          const data = (await response.json().catch(() => null)) as { items?: Array<{ id?: string; name?: string }> } | null
-          if (response.ok && data?.items) {
+          const [groupsResponse, optionsResponse] = await Promise.all([
+            fetch("/api/keycloak/groups?pageSize=100"),
+            fetch("/api/settings/options", { cache: "no-store" }),
+          ])
+          const groupData = (await groupsResponse.json().catch(() => null)) as { items?: Array<{ id?: string; name?: string }> } | null
+          const optionData = (await optionsResponse.json().catch(() => null)) as SettingsOptionListsResponse | null
+
+          if (groupsResponse.ok && groupData?.items) {
             setAvailableGroups(
-              data.items
+              groupData.items
                 .map((group) => ({ id: group.id ?? "", name: group.name ?? "" }))
                 .filter((group) => group.id && group.name)
             )
+          } else {
+            setAvailableGroups([])
+          }
+
+          if (optionsResponse.ok && optionData?.items) {
+            setSettingsOptionLists({
+              role: optionData.items.role ?? [],
+              team: optionData.items.team ?? [],
+              department: optionData.items.department ?? [],
+              workAddress: optionData.items.workAddress ?? [],
+            })
           }
         } catch {
           setAvailableGroups([])
+          setSettingsOptionLists(emptySettingsOptionLists)
         } finally {
           setGroupsLoading(false)
         }
       }
 
-      fetchGroups()
+      void fetchCreateOptions()
     }
   }, [initialValue, open, profileMetadata, mode])
 
@@ -849,15 +885,29 @@ export function UserEditorDialog({
     return attributeEntries.filter((entry) => !shouldHideEntryForCreate(entry, selectedUserType))
   }, [attributeEntries, mode, selectedUserType])
 
+  const resolvedVisibleAttributeEntries = useMemo(() => {
+    return visibleAttributeEntries.map((entry) => {
+      if (mode === "create" && entry.name === "department" && settingsOptionLists.department.length > 0) {
+        return {
+          ...entry,
+          inputType: "select" as const,
+          options: settingsOptionLists.department,
+        }
+      }
+
+      return entry
+    })
+  }, [mode, settingsOptionLists.department, visibleAttributeEntries])
+
   const metadataDefinedCount = useMemo(
-    () => visibleAttributeEntries.filter((entry) => entry.metadataDefined).length,
-    [visibleAttributeEntries],
+    () => resolvedVisibleAttributeEntries.filter((entry) => entry.metadataDefined).length,
+    [resolvedVisibleAttributeEntries],
   )
 
   const groupedAttributeEntries = useMemo(() => {
     const groups = new Map<string, AttributeEntry[]>()
 
-    visibleAttributeEntries
+    resolvedVisibleAttributeEntries
       .filter((entry) => mode !== "create" || entry.name !== userTypeFieldName)
       .forEach((entry) => {
       const groupKey = entry.groupName || (entry.metadataDefined ? "User metadata" : "Custom attributes")
@@ -867,7 +917,7 @@ export function UserEditorDialog({
       })
 
     return Array.from(groups.entries())
-  }, [mode, visibleAttributeEntries])
+  }, [mode, resolvedVisibleAttributeEntries])
 
   const coreFieldRules = useMemo(() => {
     const usernameMetadata = getMetadataAttributeByName(profileMetadata, "username")
@@ -1107,13 +1157,23 @@ export function UserEditorDialog({
                     <div className="grid gap-5 md:grid-cols-2">
                       <div className="space-y-2">
                         <Label htmlFor="create-work-address">Work address</Label>
-                        <Input
-                          id="create-work-address"
-                          value={workAddress}
-                          onChange={(event) => setWorkAddress(event.target.value)}
-                          placeholder="38 Phan Dinh Phung, Ba Dinh, Ha Noi"
-                          disabled={isSubmitting}
-                        />
+                        {settingsOptionLists.workAddress.length > 0 ? (
+                          <SearchableSelectField
+                            value={workAddress}
+                            options={settingsOptionLists.workAddress}
+                            placeholder="Select a work address"
+                            disabled={isSubmitting}
+                            onChange={setWorkAddress}
+                          />
+                        ) : (
+                          <Input
+                            id="create-work-address"
+                            value={workAddress}
+                            onChange={(event) => setWorkAddress(event.target.value)}
+                            placeholder="38 Phan Dinh Phung, Ba Dinh, Ha Noi"
+                            disabled={isSubmitting}
+                          />
+                        )}
                         <p className="text-xs text-muted-foreground">
                           This field is used only in the welcome email and is not written into Keycloak.
                         </p>
@@ -1204,7 +1264,7 @@ export function UserEditorDialog({
                     id={`${mode}-username`}
                     value={formState.username}
                     onChange={(event) => setFormState((current) => ({ ...current, username: event.target.value }))}
-                    placeholder="jsmith"
+                    placeholder="hainh"
                     disabled={isSubmitting || !coreFieldRules.usernameEditable}
                   />
                 </div>
@@ -1215,7 +1275,7 @@ export function UserEditorDialog({
                     type="email"
                     value={formState.email}
                     onChange={(event) => setFormState((current) => ({ ...current, email: event.target.value }))}
-                    placeholder="john.smith@company.local"
+                    placeholder="haninh@mobifonesolutions.vn"
                     disabled={isSubmitting || !coreFieldRules.emailEditable}
                   />
                 </div>
@@ -1225,7 +1285,7 @@ export function UserEditorDialog({
                     id={`${mode}-first-name`}
                     value={formState.firstName}
                     onChange={(event) => setFormState((current) => ({ ...current, firstName: event.target.value }))}
-                    placeholder="John"
+                    placeholder="Hải"
                     disabled={isSubmitting || !coreFieldRules.firstNameEditable}
                   />
                 </div>
@@ -1235,7 +1295,7 @@ export function UserEditorDialog({
                     id={`${mode}-last-name`}
                     value={formState.lastName}
                     onChange={(event) => setFormState((current) => ({ ...current, lastName: event.target.value }))}
-                    placeholder="Smith"
+                    placeholder="Nguyễn Hoàng"
                     disabled={isSubmitting || !coreFieldRules.lastNameEditable}
                   />
                 </div>

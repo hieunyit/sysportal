@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { LogOut, PencilLine } from "lucide-react"
-import { useRouter } from "next/navigation"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import {
@@ -23,6 +22,13 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 interface ProfileSettings {
   fullName: string
@@ -30,6 +36,26 @@ interface ProfileSettings {
   role: string
   team: string
   updatedAt?: string
+}
+
+interface ProfileSettingsResponse {
+  profile: ProfileSettings
+  options: {
+    roles: string[]
+    teams: string[]
+  }
+}
+
+interface AuthSessionUser {
+  name: string
+  email: string
+  preferredUsername: string
+  roles: string[]
+}
+
+interface AuthSessionResponse {
+  authenticated: boolean
+  user: AuthSessionUser | null
 }
 
 const defaultProfile: ProfileSettings = {
@@ -40,9 +66,13 @@ const defaultProfile: ProfileSettings = {
 }
 
 export function AccountMenu() {
-  const router = useRouter()
   const [profile, setProfile] = useState<ProfileSettings>(defaultProfile)
   const [draft, setDraft] = useState<ProfileSettings>(defaultProfile)
+  const [options, setOptions] = useState<ProfileSettingsResponse["options"]>({
+    roles: [defaultProfile.role],
+    teams: [defaultProfile.team],
+  })
+  const [sessionUser, setSessionUser] = useState<AuthSessionUser | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
@@ -54,20 +84,43 @@ export function AccountMenu() {
     async function loadProfile() {
       try {
         setIsLoading(true)
-        const response = await fetch("/api/settings/profile", { cache: "no-store" })
+        const [profileResponse, sessionResponse] = await Promise.all([
+          fetch("/api/settings/profile", { cache: "no-store" }),
+          fetch("/api/auth/session", { cache: "no-store" }),
+        ])
 
-        if (!response.ok) {
+        if (!profileResponse.ok) {
           throw new Error("Unable to load profile")
         }
 
-        const data = (await response.json()) as ProfileSettings
+        const [profileData, sessionData] = (await Promise.all([
+          profileResponse.json(),
+          sessionResponse.ok ? sessionResponse.json() : Promise.resolve({ authenticated: false, user: null }),
+        ])) as [ProfileSettingsResponse, AuthSessionResponse]
 
         if (!isActive) {
           return
         }
 
-        setProfile(data)
-        setDraft(data)
+        const nextOptions = {
+          roles: Array.from(new Set([profileData.profile.role, ...(profileData.options.roles ?? [])].filter(Boolean))),
+          teams: Array.from(new Set([profileData.profile.team, ...(profileData.options.teams ?? [])].filter(Boolean))),
+        }
+
+        const nextProfile =
+          sessionData.authenticated && sessionData.user
+            ? {
+                ...profileData.profile,
+                fullName:
+                  sessionData.user.name || sessionData.user.preferredUsername || profileData.profile.fullName,
+                email: sessionData.user.email || profileData.profile.email,
+              }
+            : profileData.profile
+
+        setOptions(nextOptions)
+        setSessionUser(sessionData.authenticated ? sessionData.user : null)
+        setProfile(nextProfile)
+        setDraft(nextProfile)
         setMessage(null)
       } catch (error) {
         if (!isActive) {
@@ -115,7 +168,21 @@ export function AccountMenu() {
         throw new Error("Unable to save profile")
       }
 
-      const nextProfile = (await response.json()) as ProfileSettings
+      const payload = (await response.json()) as ProfileSettingsResponse
+      const nextOptions = {
+        roles: Array.from(new Set([payload.profile.role, ...(payload.options.roles ?? [])].filter(Boolean))),
+        teams: Array.from(new Set([payload.profile.team, ...(payload.options.teams ?? [])].filter(Boolean))),
+      }
+      const nextProfile =
+        sessionUser
+          ? {
+              ...payload.profile,
+              fullName: sessionUser.name || sessionUser.preferredUsername || payload.profile.fullName,
+              email: sessionUser.email || payload.profile.email,
+            }
+          : payload.profile
+
+      setOptions(nextOptions)
       setProfile(nextProfile)
       setDraft(nextProfile)
       setMessage("Profile updated")
@@ -162,7 +229,12 @@ export function AccountMenu() {
             <PencilLine className="h-4 w-4" />
             Edit profile
           </DropdownMenuItem>
-          <DropdownMenuItem className="rounded-xl px-3 py-2" onSelect={() => router.push("/logout")}>
+          <DropdownMenuItem
+            className="rounded-xl px-3 py-2"
+            onSelect={() => {
+              window.location.assign("/api/auth/logout")
+            }}
+          >
             <LogOut className="h-4 w-4" />
             Logout
           </DropdownMenuItem>
@@ -174,7 +246,7 @@ export function AccountMenu() {
           <DialogHeader>
             <DialogTitle>Edit profile</DialogTitle>
             <DialogDescription>
-              This is the operator profile only. Connector and SMTP settings stay in Integration settings.
+              Authenticated name and email are synced from Keycloak. Only role and team are managed here.
             </DialogDescription>
           </DialogHeader>
 
@@ -184,8 +256,8 @@ export function AccountMenu() {
               <Input
                 id="profile-full-name"
                 value={draft.fullName}
+                readOnly
                 disabled={isSaving}
-                onChange={(event) => setDraft((current) => ({ ...current, fullName: event.target.value }))}
               />
             </div>
             <div className="space-y-2">
@@ -194,27 +266,47 @@ export function AccountMenu() {
                 id="profile-email"
                 type="email"
                 value={draft.email}
+                readOnly
                 disabled={isSaving}
-                onChange={(event) => setDraft((current) => ({ ...current, email: event.target.value }))}
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="profile-role">Role</Label>
-              <Input
-                id="profile-role"
+              <Select
                 value={draft.role}
                 disabled={isSaving}
-                onChange={(event) => setDraft((current) => ({ ...current, role: event.target.value }))}
-              />
+                onValueChange={(value) => setDraft((current) => ({ ...current, role: value }))}
+              >
+                <SelectTrigger id="profile-role" className="w-full">
+                  <SelectValue placeholder="Select a role" />
+                </SelectTrigger>
+                <SelectContent>
+                  {options.roles.map((role) => (
+                    <SelectItem key={role} value={role}>
+                      {role}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="profile-team">Team</Label>
-              <Input
-                id="profile-team"
+              <Select
                 value={draft.team}
                 disabled={isSaving}
-                onChange={(event) => setDraft((current) => ({ ...current, team: event.target.value }))}
-              />
+                onValueChange={(value) => setDraft((current) => ({ ...current, team: value }))}
+              >
+                <SelectTrigger id="profile-team" className="w-full">
+                  <SelectValue placeholder="Select a team" />
+                </SelectTrigger>
+                <SelectContent>
+                  {options.teams.map((team) => (
+                    <SelectItem key={team} value={team}>
+                      {team}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 

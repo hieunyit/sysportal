@@ -758,7 +758,7 @@ export const emailTemplates = [
       WebmailURL: "https://outlook.office.com/mail/",
       Email: "nguyenvana@mobifonesolutions.vn",
       TemporaryPassword: "TempPass@123",
-      LoginURL: "https://sso.mobifonesolutions.vn/",
+      LoginURL: "https://sso.mobifonesolutions.vn/realms/mbfs-solutions/account",
     },
   },
   {
@@ -891,7 +891,7 @@ export const emailTemplates = [
       RecipientName: "Nguyen Van A",
       Email: "nguyenvana@mobifonesolutions.vn",
       TemporaryPassword: "TempPass@123",
-      LoginURL: "https://sso.mobifonesolutions.vn/",
+      LoginURL: "https://sso.mobifonesolutions.vn/realms/mbfs-solutions/account",
     },
   },
 ] as const
@@ -902,6 +902,38 @@ export const settingsProfile = {
   role: "Identity Operations Lead",
   team: "Identity and Access Operations",
 } as const
+
+export const profileRoleOptions = [
+  "Identity Operations Lead",
+  "Identity Administrator",
+  "Access Governance Analyst",
+  "Platform Operations Engineer",
+  "Security Operations Reviewer",
+] as const
+
+export const profileTeamOptions = [
+  "Identity and Access Operations",
+  "Access Governance",
+  "Platform Security",
+  "Infrastructure Operations",
+  "Security Operations",
+] as const
+
+export const directoryDepartmentOptions = [
+  "Human Resources",
+  "Finance",
+  "Platform Engineering",
+  "Security Operations",
+  "Infrastructure Operations",
+  "Customer Delivery",
+] as const
+
+export const directoryWorkAddressOptions = [
+  "38 Phan Dinh Phung, Ba Dinh, Ha Noi",
+  "MobiFone Building, Cau Giay, Ha Noi",
+  "District 1 Office, Ho Chi Minh City",
+  "Da Nang Operations Center",
+] as const
 
 export const notificationSettings = [
   {
@@ -1092,6 +1124,9 @@ export const apiCatalog = [
   { method: "GET", path: "/api/settings", description: "Returns workspace settings such as notification preferences and appearance." },
   { method: "GET", path: "/api/settings/profile", description: "Returns the current operator profile settings." },
   { method: "PUT", path: "/api/settings/profile", description: "Updates the current operator profile settings in SQLite." },
+  { method: "GET", path: "/api/settings/options", description: "Returns reusable option lists for role, team, department, and work address." },
+  { method: "GET", path: "/api/settings/options/{kind}", description: "Returns one reusable option list by kind." },
+  { method: "PUT", path: "/api/settings/options/{kind}", description: "Replaces one reusable option list in SQLite." },
   { method: "GET", path: "/api/settings/notifications", description: "Returns notification preference settings." },
   { method: "PUT", path: "/api/settings/notifications", description: "Bulk updates notification preferences in SQLite." },
   { method: "PATCH", path: "/api/settings/notifications/{id}", description: "Updates one notification preference in SQLite." },

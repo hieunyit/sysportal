@@ -7,6 +7,7 @@ import {
   appendAuditLog,
   getEmailTemplate,
   getSystemConnection,
+  upsertSettingOption,
 } from "@/lib/settings-store"
 import {
   buildUserRepresentationPayload,
@@ -47,6 +48,121 @@ function mapGroupSummary(group: KeycloakGroupRepresentation) {
 
 function getFirstAttributeValue(value: string[] | undefined) {
   return value?.find((item) => item.trim())?.trim() ?? ""
+}
+
+function formatWorkStartDateForEmail(value: string) {
+  const trimmedValue = value.trim()
+
+  if (!trimmedValue) {
+    return ""
+  }
+
+  const dateOnlyMatch = trimmedValue.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+
+  if (dateOnlyMatch) {
+    const [, year, month, day] = dateOnlyMatch
+    return `${day}/${month}/${year}`
+  }
+
+  const dateTimeMatch = trimmedValue.match(/^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}:\d{2})(?::\d{2})?/)
+
+  if (dateTimeMatch) {
+    const [, year, month, day, time] = dateTimeMatch
+    return `${time} ${day}/${month}/${year}`
+  }
+
+  return trimmedValue
+}
+
+function resolveRequestedGroups(
+  groups: KeycloakGroupRepresentation[],
+  requestedIdentifiers: string[],
+) {
+  const groupsById = new Map<string, KeycloakGroupRepresentation>()
+  const groupsByPath = new Map<string, KeycloakGroupRepresentation>()
+  const groupsByName = new Map<string, KeycloakGroupRepresentation[]>()
+
+  groups.forEach((group) => {
+    if (group.id) {
+      groupsById.set(group.id, group)
+    }
+
+    if (group.path?.trim()) {
+      groupsByPath.set(group.path.trim().toLowerCase(), group)
+    }
+
+    if (group.name?.trim()) {
+      const normalizedName = group.name.trim().toLowerCase()
+      const currentEntries = groupsByName.get(normalizedName) ?? []
+      currentEntries.push(group)
+      groupsByName.set(normalizedName, currentEntries)
+    }
+  })
+
+  const resolvedGroups: Array<{
+    groupId: string
+    groupName: string
+  }> = []
+  const unresolvedGroups: Array<{
+    identifier: string
+    error: string
+  }> = []
+  const seenGroupIds = new Set<string>()
+
+  requestedIdentifiers.forEach((rawIdentifier) => {
+    const identifier = rawIdentifier.trim()
+
+    if (!identifier) {
+      return
+    }
+
+    let match = groupsById.get(identifier)
+
+    if (!match) {
+      match =
+        groupsByPath.get(identifier.toLowerCase()) ??
+        (identifier.startsWith("/")
+          ? undefined
+          : groupsByPath.get(`/${identifier}`.toLowerCase()))
+    }
+
+    if (!match) {
+      const nameMatches = groupsByName.get(identifier.toLowerCase()) ?? []
+
+      if (nameMatches.length > 1) {
+        unresolvedGroups.push({
+          identifier,
+          error: `Group "${identifier}" matches multiple Keycloak groups. Use a full group path or group ID instead.`,
+        })
+        return
+      }
+
+      match = nameMatches[0]
+    }
+
+    if (!match?.id) {
+      unresolvedGroups.push({
+        identifier,
+        error: `Group "${identifier}" was not found in Keycloak.`,
+      })
+      return
+    }
+
+    if (seenGroupIds.has(match.id)) {
+      return
+    }
+
+    seenGroupIds.add(match.id)
+    resolvedGroups.push({
+      groupId: match.id,
+      groupName: match.path ?? match.name ?? identifier,
+    })
+  })
+
+  return {
+    resolvedGroups,
+    unresolvedGroups,
+  }
 }
 
 function getUserFullName(user: KeycloakUserRepresentation) {
@@ -370,9 +486,13 @@ export async function POST(request: Request) {
     }
 
     const userType = getFirstAttributeValue(createPayload.attributes?.userType)
+    const department = userType === "employee" ? getFirstAttributeValue(createPayload.attributes?.department) : ""
     const workAddress = userType === "employee" ? parsed.data.workAddress.trim() : ""
     const workStartDate = userType === "employee" ? parsed.data.workStartDate.trim() : ""
-    const groupIds = parsed.data.groupIds ?? []
+    const requestedGroupIdentifiers = [
+      ...(parsed.data.groupIds ?? []),
+      ...(parsed.data.groups ?? []),
+    ]
     const syncRegistrationsEnabled = userType === "employee"
     const ldapProviderId = keycloakConnection.ldapProviderId?.trim() ?? ""
     const welcomeRecipientEmail =
@@ -380,6 +500,15 @@ export async function POST(request: Request) {
         ? parsed.data.welcomeRecipientEmail.trim()
         : (createPayload.email ?? "").trim()
     const shouldSendWelcomeEmail = true
+    const formattedWorkStartDate = formatWorkStartDateForEmail(workStartDate)
+    const allGroups =
+      userType === "employee" || requestedGroupIdentifiers.length > 0
+        ? await client.listAllGroups()
+        : []
+    const { resolvedGroups: resolvedCustomGroups, unresolvedGroups } =
+      requestedGroupIdentifiers.length > 0
+        ? resolveRequestedGroups(allGroups, requestedGroupIdentifiers)
+        : { resolvedGroups: [], unresolvedGroups: [] }
 
     if (userType === "employee" && !welcomeRecipientEmail) {
       return NextResponse.json(
@@ -435,10 +564,9 @@ export async function POST(request: Request) {
     // Assign to default employee group if employee type
     if (userType === "employee") {
       try {
-        const groups = await client.listAllGroups()
         const defaultGroup =
-          groups.find((group) => group.name === DEFAULT_EMPLOYEE_GROUP_NAME) ??
-          groups.find((group) => group.path === `/${DEFAULT_EMPLOYEE_GROUP_NAME}`)
+          allGroups.find((group) => group.name === DEFAULT_EMPLOYEE_GROUP_NAME) ??
+          allGroups.find((group) => group.path === `/${DEFAULT_EMPLOYEE_GROUP_NAME}`)
 
         if (!defaultGroup?.id) {
           defaultGroupAssignment = {
@@ -495,16 +623,40 @@ export async function POST(request: Request) {
     }
 
     // Assign to custom selected groups (for all user types)
-    if (groupIds.length > 0) {
+    unresolvedGroups.forEach((unresolvedGroup) => {
+      customGroupAssignments.push({
+        groupId: unresolvedGroup.identifier,
+        groupName: unresolvedGroup.identifier,
+        assigned: false,
+        error: unresolvedGroup.error,
+      })
+
+      appendAuditLog({
+        actorName: "Identity Admin",
+        category: "action",
+        action: "keycloak.user.group-assignment-failed",
+        resourceType: "keycloak-group",
+        resourceId: unresolvedGroup.identifier,
+        resourceName: unresolvedGroup.identifier,
+        detail: `Group assignment failed for ${toDisplayName(user)}`,
+        metadata: {
+          realm: configuredRealm,
+          userId: created.userId,
+          userType,
+          error: unresolvedGroup.error,
+        },
+      })
+    })
+
+    if (resolvedCustomGroups.length > 0) {
       try {
-        for (const groupId of groupIds) {
+        for (const resolvedGroup of resolvedCustomGroups) {
           try {
-            await client.addUserToGroup(created.userId, groupId)
-            const group = await client.getGroup(groupId)
-            
+            await client.addUserToGroup(created.userId, resolvedGroup.groupId)
+
             customGroupAssignments.push({
-              groupId,
-              groupName: group.path ?? group.name ?? groupId,
+              groupId: resolvedGroup.groupId,
+              groupName: resolvedGroup.groupName,
               assigned: true,
               error: null,
             })
@@ -514,9 +666,9 @@ export async function POST(request: Request) {
               category: "action",
               action: "keycloak.user.group-assigned",
               resourceType: "keycloak-group",
-              resourceId: groupId,
-              resourceName: group.path ?? group.name ?? groupId,
-              detail: `Assigned ${toDisplayName(user)} to group ${group.path ?? group.name ?? groupId}`,
+              resourceId: resolvedGroup.groupId,
+              resourceName: resolvedGroup.groupName,
+              detail: `Assigned ${toDisplayName(user)} to group ${resolvedGroup.groupName}`,
               metadata: {
                 realm: configuredRealm,
                 userId: created.userId,
@@ -525,8 +677,8 @@ export async function POST(request: Request) {
             })
           } catch (singleGroupError) {
             customGroupAssignments.push({
-              groupId,
-              groupName: groupId,
+              groupId: resolvedGroup.groupId,
+              groupName: resolvedGroup.groupName,
               assigned: false,
               error: getErrorDetail(singleGroupError, "Unable to assign group"),
             })
@@ -536,8 +688,8 @@ export async function POST(request: Request) {
               category: "action",
               action: "keycloak.user.group-assignment-failed",
               resourceType: "keycloak-group",
-              resourceId: groupId,
-              resourceName: groupId,
+              resourceId: resolvedGroup.groupId,
+              resourceName: resolvedGroup.groupName,
               detail: `Group assignment failed for ${toDisplayName(user)}`,
               metadata: {
                 realm: configuredRealm,
@@ -578,16 +730,16 @@ export async function POST(request: Request) {
           RecipientName: getUserFullName(user),
           EmployeeID: getFirstAttributeValue(user.attributes?.employeeID),
           Department: getFirstAttributeValue(user.attributes?.department),
-          OnboardDate: "",
+          OnboardDate: formattedWorkStartDate,
           WorkAddress: workAddress,
-          WorkStartDate: workStartDate,
+          WorkStartDate: formattedWorkStartDate,
           WebmailURL:
             welcomeTemplate.sampleData.WebmailURL?.trim() || "https://outlook.office.com/mail/",
           Email: user.email?.trim() || "",
           TemporaryPassword: finalPassword,
           LoginURL:
             welcomeTemplate.sampleData.LoginURL?.trim() ||
-            "https://sso.mobifonesolutions.vn/",
+            "https://sso.mobifonesolutions.vn/realms/mbfs-solutions/account",
         }
 
         try {
@@ -676,6 +828,14 @@ export async function POST(request: Request) {
         welcomeEmailError: welcomeEmail?.error ?? null,
       },
     })
+
+    if (department) {
+      upsertSettingOption("department", department)
+    }
+
+    if (workAddress) {
+      upsertSettingOption("workAddress", workAddress)
+    }
 
     return NextResponse.json(
       {

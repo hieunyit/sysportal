@@ -1,11 +1,11 @@
 "use client"
 
 import type { ReactNode } from "react"
-import { Bell, Mail, Search, ShieldCheck } from "lucide-react"
+import { Bell, Mail, ShieldCheck } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { AccountMenu } from "./account-menu"
+import { GlobalSearch } from "./global-search"
 import { MobileNav } from "./mobile-nav"
 
 interface HeaderProps {
@@ -29,9 +29,8 @@ export function Header({ title, description, actions }: HeaderProps) {
               IdentityOps
             </Badge>
 
-            <div className="relative hidden flex-1 md:block xl:max-w-[32rem]">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input placeholder="Search users, groups, sessions, templates..." className="pl-10 pr-4" />
+            <div className="hidden flex-1 md:block xl:max-w-[36rem]">
+              <GlobalSearch />
             </div>
           </div>
 

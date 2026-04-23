@@ -68,6 +68,8 @@ interface ConnectorStatus {
   message: string
 }
 
+const CONNECTOR_STATUS_POLL_INTERVAL_MS = 5 * 60 * 1000
+
 export function Sidebar({ isCollapsed = false, mobile = false, onToggle }: SidebarProps = {}) {
   const pathname = usePathname()
   const [connectorStatuses, setConnectorStatuses] = useState<ConnectorStatus[]>([])
@@ -82,8 +84,6 @@ export function Sidebar({ isCollapsed = false, mobile = false, onToggle }: Sideb
             try {
               const response = await fetch(`/api/connections/${connector}/checks`, {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({}),
               })
               const data = (await response.json()) as { ok?: boolean; message?: string }
               return {
@@ -109,7 +109,7 @@ export function Sidebar({ isCollapsed = false, mobile = false, onToggle }: Sideb
     }
 
     fetchConnectorStatuses()
-    const interval = setInterval(fetchConnectorStatuses, 30000)
+    const interval = setInterval(fetchConnectorStatuses, CONNECTOR_STATUS_POLL_INTERVAL_MS)
     return () => clearInterval(interval)
   }, [])
 

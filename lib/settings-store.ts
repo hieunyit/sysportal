@@ -3,8 +3,12 @@ import { mkdirSync } from "node:fs"
 import { dirname, join } from "node:path"
 import Database from "better-sqlite3"
 import {
+  directoryDepartmentOptions as defaultDirectoryDepartmentOptions,
+  directoryWorkAddressOptions as defaultDirectoryWorkAddressOptions,
   emailTemplates as defaultEmailTemplates,
   notificationSettings as defaultNotificationSettings,
+  profileRoleOptions as defaultProfileRoleOptions,
+  profileTeamOptions as defaultProfileTeamOptions,
   settingsAppearance as defaultAppearanceSettings,
   settingsProfile as defaultProfileSettings,
   systemSettings as defaultSystemSettings,
@@ -57,6 +61,39 @@ export interface ProfileSettingsRecord {
   email: string
   role: string
   team: string
+  updatedAt: string
+}
+
+export const settingsOptionKinds = ["role", "team", "department", "workAddress"] as const
+
+export type SettingsOptionKind = (typeof settingsOptionKinds)[number]
+type ProfileOptionKind = Extract<SettingsOptionKind, "role" | "team">
+
+export interface ProfileOptionsRecord {
+  roles: string[]
+  teams: string[]
+}
+
+export interface SettingsOptionListsRecord {
+  role: string[]
+  team: string[]
+  department: string[]
+  workAddress: string[]
+}
+
+export interface ProfileSettingsBundleRecord {
+  profile: ProfileSettingsRecord
+  options: ProfileOptionsRecord
+}
+
+export interface AuthenticatedUserRecord {
+  subject: string
+  preferredUsername: string
+  fullName: string
+  email: string
+  roles: string[]
+  lastLoginAt: string
+  createdAt: string
   updatedAt: string
 }
 
@@ -149,6 +186,18 @@ function getTableColumnNames(database: SqliteDatabase, tableName: string) {
   )
 }
 
+function tableExists(database: SqliteDatabase, tableName: string) {
+  const row = database
+    .prepare(`
+      SELECT name
+      FROM sqlite_master
+      WHERE type = 'table' AND name = ?
+    `)
+    .get(tableName) as { name: string } | undefined
+
+  return Boolean(row?.name)
+}
+
 function toSqlString(value: string) {
   return `'${value.replace(/'/g, "''")}'`
 }
@@ -178,6 +227,22 @@ function ensureSchema(database: SqliteDatabase) {
       role TEXT NOT NULL,
       team TEXT NOT NULL,
       updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS settings_profile_options (
+      kind TEXT NOT NULL CHECK (kind IN ('role', 'team')),
+      value TEXT NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (kind, value)
+    );
+
+    CREATE TABLE IF NOT EXISTS settings_option_lists (
+      kind TEXT NOT NULL,
+      value TEXT NOT NULL,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (kind, value)
     );
 
     CREATE TABLE IF NOT EXISTS settings_connections (
@@ -223,6 +288,17 @@ function ensureSchema(database: SqliteDatabase) {
       detail TEXT NOT NULL,
       metadata_json TEXT NOT NULL,
       created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS auth_users (
+      subject TEXT PRIMARY KEY,
+      preferred_username TEXT NOT NULL,
+      full_name TEXT NOT NULL,
+      email TEXT NOT NULL,
+      roles_json TEXT NOT NULL,
+      last_login_at TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
     );
   `)
 
@@ -312,6 +388,18 @@ function ensureSchema(database: SqliteDatabase) {
     `)
   }
 
+  if (tableExists(database, "settings_profile_options")) {
+    database.exec(`
+      INSERT INTO settings_option_lists (kind, value, sort_order, updated_at)
+      SELECT kind, value, sort_order, updated_at
+      FROM settings_profile_options
+      WHERE kind IN ('role', 'team')
+      ON CONFLICT(kind, value) DO UPDATE SET
+        sort_order = excluded.sort_order,
+        updated_at = excluded.updated_at
+    `)
+  }
+
   const connectionColumns = getTableColumnNames(database, "settings_connections")
 
   if (!connectionColumns.has("config_json")) {
@@ -370,6 +458,58 @@ function seedDefaults(database: SqliteDatabase) {
     UPDATE settings_profile
     SET team = '${defaultProfileSettings.team.replace(/'/g, "''")}'
     WHERE TRIM(COALESCE(team, '')) = '';
+  `)
+
+  const defaultRoleOptions = Array.from(
+    new Set([defaultProfileSettings.role, ...defaultProfileRoleOptions].map((item) => item.trim()).filter(Boolean)),
+  )
+  const defaultTeamOptions = Array.from(
+    new Set([defaultProfileSettings.team, ...defaultProfileTeamOptions].map((item) => item.trim()).filter(Boolean)),
+  )
+  const defaultDepartmentOptions = Array.from(
+    new Set(defaultDirectoryDepartmentOptions.map((item) => item.trim()).filter(Boolean)),
+  )
+  const defaultWorkAddressOptions = Array.from(
+    new Set(defaultDirectoryWorkAddressOptions.map((item) => item.trim()).filter(Boolean)),
+  )
+
+  const insertProfileOption = database.prepare(`
+    INSERT INTO settings_option_lists (kind, value, sort_order, updated_at)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(kind, value) DO UPDATE SET
+      updated_at = excluded.updated_at
+  `)
+
+  defaultRoleOptions.forEach((value, index) => {
+    insertProfileOption.run("role", value, index, now)
+  })
+
+  defaultTeamOptions.forEach((value, index) => {
+    insertProfileOption.run("team", value, index, now)
+  })
+
+  defaultDepartmentOptions.forEach((value, index) => {
+    insertProfileOption.run("department", value, index, now)
+  })
+
+  defaultWorkAddressOptions.forEach((value, index) => {
+    insertProfileOption.run("workAddress", value, index, now)
+  })
+
+  database.exec(`
+    INSERT INTO settings_option_lists (kind, value, sort_order, updated_at)
+    SELECT 'role', role, ${defaultRoleOptions.length}, '${now.replace(/'/g, "''")}'
+    FROM settings_profile
+    WHERE TRIM(COALESCE(role, '')) <> ''
+    ON CONFLICT(kind, value) DO UPDATE SET
+      updated_at = excluded.updated_at;
+
+    INSERT INTO settings_option_lists (kind, value, sort_order, updated_at)
+    SELECT 'team', team, ${defaultTeamOptions.length}, '${now.replace(/'/g, "''")}'
+    FROM settings_profile
+    WHERE TRIM(COALESCE(team, '')) <> ''
+    ON CONFLICT(kind, value) DO UPDATE SET
+      updated_at = excluded.updated_at;
   `)
 
   database
@@ -678,9 +818,102 @@ function ensureAppearanceRow(database: SqliteDatabase) {
   return row
 }
 
+function listSettingOptionsByKind(database: SqliteDatabase, kind: SettingsOptionKind) {
+  const rows = database
+    .prepare(`
+      SELECT value
+      FROM settings_option_lists
+      WHERE kind = ?
+      ORDER BY sort_order ASC, value COLLATE NOCASE ASC
+    `)
+    .all(kind) as Array<{ value: string }>
+
+  return rows.map((row) => row.value)
+}
+
+function upsertSettingOptionValue(database: SqliteDatabase, kind: SettingsOptionKind, value: string) {
+  const normalizedValue = value.trim()
+
+  if (!normalizedValue) {
+    return
+  }
+
+  const existing = database
+    .prepare(`
+      SELECT 1 AS hasValue
+      FROM settings_option_lists
+      WHERE kind = ? AND value = ?
+    `)
+    .get(kind, normalizedValue) as { hasValue: number } | undefined
+
+  if (existing) {
+    database
+      .prepare(`
+        UPDATE settings_option_lists
+        SET updated_at = ?
+        WHERE kind = ? AND value = ?
+      `)
+      .run(new Date().toISOString(), kind, normalizedValue)
+
+    return
+  }
+
+  const nextSortOrderRow = database
+    .prepare(`
+      SELECT COALESCE(MAX(sort_order), -1) + 1 AS nextSortOrder
+      FROM settings_option_lists
+      WHERE kind = ?
+    `)
+    .get(kind) as { nextSortOrder: number }
+
+  database
+    .prepare(`
+      INSERT INTO settings_option_lists (kind, value, sort_order, updated_at)
+      VALUES (?, ?, ?, ?)
+    `)
+    .run(kind, normalizedValue, nextSortOrderRow.nextSortOrder, new Date().toISOString())
+}
+
+function parseRolesJson(value: string) {
+  try {
+    const parsed = JSON.parse(value) as unknown
+
+    if (!Array.isArray(parsed)) {
+      return []
+    }
+
+    return parsed.map((item) => String(item).trim()).filter(Boolean)
+  } catch {
+    return []
+  }
+}
+
 export function getProfileSettings() {
   const database = getDatabase()
   return ensureProfileRow(database)
+}
+
+export function getProfileSettingsBundle() {
+  const database = getDatabase()
+
+  return {
+    profile: ensureProfileRow(database),
+    options: {
+      roles: listSettingOptionsByKind(database, "role"),
+      teams: listSettingOptionsByKind(database, "team"),
+    },
+  } as ProfileSettingsBundleRecord
+}
+
+export function getSettingsOptionLists() {
+  const database = getDatabase()
+
+  return {
+    role: listSettingOptionsByKind(database, "role"),
+    team: listSettingOptionsByKind(database, "team"),
+    department: listSettingOptionsByKind(database, "department"),
+    workAddress: listSettingOptionsByKind(database, "workAddress"),
+  } as SettingsOptionListsRecord
 }
 
 export function updateProfileSettings(input: Omit<ProfileSettingsRecord, "updatedAt">) {
@@ -696,11 +929,132 @@ export function updateProfileSettings(input: Omit<ProfileSettingsRecord, "update
         email = excluded.email,
         role = excluded.role,
         team = excluded.team,
-        updated_at = excluded.updated_at
+      updated_at = excluded.updated_at
     `)
     .run("primary", input.fullName, input.email, input.role, input.team, updatedAt)
 
-  return getProfileSettings()
+  upsertSettingOptionValue(database, "role", input.role)
+  upsertSettingOptionValue(database, "team", input.team)
+
+  return getProfileSettingsBundle()
+}
+
+export function replaceSettingsOptionList(kind: SettingsOptionKind, items: string[]) {
+  const database = getDatabase()
+  const updatedAt = new Date().toISOString()
+  const normalizedItems = Array.from(new Set(items.map((item) => item.trim()).filter(Boolean)))
+  database
+    .prepare(`
+      DELETE FROM settings_option_lists
+      WHERE kind = ?
+    `)
+    .run(kind)
+
+  const insertStatement = database.prepare(`
+    INSERT INTO settings_option_lists (kind, value, sort_order, updated_at)
+    VALUES (?, ?, ?, ?)
+  `)
+
+  normalizedItems.forEach((value, index) => {
+    insertStatement.run(kind, value, index, updatedAt)
+  })
+
+  return {
+    kind,
+    items: listSettingOptionsByKind(database, kind),
+    updatedAt,
+  }
+}
+
+export function upsertSettingOption(kind: SettingsOptionKind, value: string) {
+  const database = getDatabase()
+  upsertSettingOptionValue(database, kind, value)
+
+  return {
+    kind,
+    items: listSettingOptionsByKind(database, kind),
+  }
+}
+
+export function upsertAuthenticatedUser(
+  input: Omit<AuthenticatedUserRecord, "createdAt" | "updatedAt" | "lastLoginAt">,
+) {
+  const database = getDatabase()
+  const now = new Date().toISOString()
+
+  database
+    .prepare(`
+      INSERT INTO auth_users (
+        subject,
+        preferred_username,
+        full_name,
+        email,
+        roles_json,
+        last_login_at,
+        created_at,
+        updated_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(subject) DO UPDATE SET
+        preferred_username = excluded.preferred_username,
+        full_name = excluded.full_name,
+        email = excluded.email,
+        roles_json = excluded.roles_json,
+        last_login_at = excluded.last_login_at,
+        updated_at = excluded.updated_at
+    `)
+    .run(
+      input.subject,
+      input.preferredUsername,
+      input.fullName,
+      input.email,
+      JSON.stringify(input.roles),
+      now,
+      now,
+      now,
+    )
+
+  const row = database
+    .prepare(`
+      SELECT
+        subject,
+        preferred_username AS preferredUsername,
+        full_name AS fullName,
+        email,
+        roles_json AS rolesJson,
+        last_login_at AS lastLoginAt,
+        created_at AS createdAt,
+        updated_at AS updatedAt
+      FROM auth_users
+      WHERE subject = ?
+    `)
+    .get(input.subject) as
+    | {
+        subject: string
+        preferredUsername: string
+        fullName: string
+        email: string
+        rolesJson: string
+        lastLoginAt: string
+        createdAt: string
+        updatedAt: string
+      }
+    | undefined
+
+  if (!row) {
+    throw new Error("Authenticated user was not persisted")
+  }
+
+  return {
+    subject: row.subject,
+    preferredUsername: row.preferredUsername,
+    fullName: row.fullName,
+    email: row.email,
+    roles: parseRolesJson(row.rolesJson),
+    lastLoginAt: row.lastLoginAt,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  } as AuthenticatedUserRecord
 }
 
 export function getSystemSettings() {

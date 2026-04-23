@@ -108,6 +108,8 @@ interface ConnectorMeta {
 }
 
 const connectorOrder: ConnectorKey[] = ["keycloak", "openvpn", "smtp", "smtp-welcome"]
+const CONNECTOR_CHECK_POLL_INTERVAL_MS = 5 * 60 * 1000
+
 const connectorMeta: Record<ConnectorKey, ConnectorMeta> = {
   keycloak: {
     title: "Keycloak",
@@ -500,14 +502,14 @@ export function ConnectionSettingsContent() {
 
     void loadConnections()
 
-    // Set up auto-refresh of checks every 30 seconds
+    // Set up auto-refresh of checks every 5 minutes
     const interval = setInterval(() => {
       if (isActive) {
         connectorOrder.forEach((connector) => {
           void autoRunCheckWithSettings(connector, systemRef.current)
         })
       }
-    }, 30000)
+    }, CONNECTOR_CHECK_POLL_INTERVAL_MS)
 
     return () => {
       isActive = false

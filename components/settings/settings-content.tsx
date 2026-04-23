@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { BellRing, LoaderCircle, MoonStar, RefreshCcw } from "lucide-react"
+import { BellRing, ListChecks, LoaderCircle, MoonStar, RefreshCcw } from "lucide-react"
+import { OptionListsContent } from "@/components/settings/option-lists-content"
 import { useTheme } from "@/components/theme-provider"
 import { Button } from "@/components/ui/button"
 import {
@@ -200,7 +201,7 @@ export function SettingsContent() {
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full gap-5">
-      <TabsList className="grid h-auto w-full grid-cols-1 gap-2 rounded-2xl border border-border/80 bg-card p-2 md:grid-cols-2">
+      <TabsList className="grid h-auto w-full grid-cols-1 gap-2 rounded-2xl border border-border/80 bg-card p-2 md:grid-cols-3">
         <TabsTrigger value="notifications" className="h-10 rounded-lg">
           <BellRing className="h-4 w-4" />
           Notification preferences
@@ -208,6 +209,10 @@ export function SettingsContent() {
         <TabsTrigger value="appearance" className="h-10 rounded-lg">
           <MoonStar className="h-4 w-4" />
           Appearance
+        </TabsTrigger>
+        <TabsTrigger value="option-lists" className="h-10 rounded-lg">
+          <ListChecks className="h-4 w-4" />
+          Field lists
         </TabsTrigger>
       </TabsList>
 
@@ -370,6 +375,10 @@ export function SettingsContent() {
             </Button>
           </CardContent>
         </Card>
+      </TabsContent>
+
+      <TabsContent value="option-lists" className="w-full">
+        <OptionListsContent />
       </TabsContent>
     </Tabs>
   )

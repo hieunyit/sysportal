@@ -50,6 +50,14 @@ interface ImportResult {
   groupStatus: string | null
 }
 
+const requiredCsvHeaders = [
+  "username",
+  "firstName",
+  "lastName",
+  "email",
+  "userType",
+] as const
+
 const csvHeaders = [
   "username",
   "firstName",
@@ -70,6 +78,8 @@ const csvHeaders = [
   "temporaryPassword",
   "welcomeRecipientEmail",
   "workAddress",
+  "workStartDate",
+  "groups",
   "enabled",
 ] as const
 
@@ -121,6 +131,57 @@ const csvTemplateRows = [
   ],
 ]
 
+const normalizedCsvTemplateRows = [
+  [
+    "test.employee1",
+    "An",
+    "Nguyen",
+    "an.nguyen@mobifonesolutions.vn",
+    "Nguyen An",
+    "employee",
+    "0912345678",
+    "Van phong",
+    "hai.cu@mbfs.vn",
+    "12345",
+    "",
+    "Nhan vien",
+    "",
+    "",
+    "",
+    "",
+    "true",
+    "manager@mobifonesolutions.vn",
+    "38 Phan Dinh Phung, Ba Dinh, Ha Noi",
+    "2026-04-22T08:30",
+    "/jira-servicedesk-users|/Organization",
+    "true",
+  ],
+  [
+    "partner.demo1",
+    "Linh",
+    "Tran",
+    "linh.tran.partner@example.com",
+    "Tran Linh",
+    "partner",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "Partner Co., Ltd",
+    "2026-05-30",
+    "vpn-uuid-001|vpn-uuid-002",
+    "",
+    "true",
+    "",
+    "",
+    "",
+    "/Partner Information",
+    "true",
+  ],
+] as const
+
 function readErrorMessage(payload: unknown, fallback: string) {
   if (!payload || typeof payload !== "object") {
     return fallback
@@ -166,6 +227,61 @@ function parsePipeList(value: string) {
     .split("|")
     .map((item) => item.trim())
     .filter(Boolean)
+}
+
+function buildGroupStatus(payload: unknown) {
+  if (!payload || typeof payload !== "object") {
+    return null
+  }
+
+  const response = payload as {
+    defaultGroupAssignment?: {
+      groupName?: string
+      assigned?: boolean
+      error?: string | null
+    } | null
+    customGroupAssignments?: Array<{
+      groupName?: string
+      assigned?: boolean
+      error?: string | null
+    }>
+  }
+
+  const assignedGroups: string[] = []
+  const failedGroups: string[] = []
+
+  if (response.defaultGroupAssignment?.groupName) {
+    if (response.defaultGroupAssignment.assigned) {
+      assignedGroups.push(response.defaultGroupAssignment.groupName)
+    } else if (response.defaultGroupAssignment.error) {
+      failedGroups.push(
+        `${response.defaultGroupAssignment.groupName}: ${response.defaultGroupAssignment.error}`,
+      )
+    }
+  }
+
+  if (Array.isArray(response.customGroupAssignments)) {
+    response.customGroupAssignments.forEach((group) => {
+      const groupName = group.groupName?.trim()
+
+      if (!groupName) {
+        return
+      }
+
+      if (group.assigned) {
+        assignedGroups.push(groupName)
+      } else if (group.error) {
+        failedGroups.push(`${groupName}: ${group.error}`)
+      }
+    })
+  }
+
+  const sections = [
+    assignedGroups.length > 0 ? `Assigned: ${assignedGroups.join(", ")}` : null,
+    failedGroups.length > 0 ? `Failed: ${failedGroups.join("; ")}` : null,
+  ].filter(Boolean)
+
+  return sections.length > 0 ? sections.join(" | ") : null
 }
 
 function parseCsvDocument(text: string) {
@@ -228,8 +344,9 @@ function buildRowsFromCsv(text: string): ImportedCsvRow[] {
   const headers = parsedRows[0].map((header, index) =>
     index === 0 ? header.replace(/^\uFEFF/, "") : header,
   )
+  const headerIndexMap = new Map(headers.map((header, index) => [header, index]))
 
-  const missingHeaders = csvHeaders.filter((header) => !headers.includes(header))
+  const missingHeaders = requiredCsvHeaders.filter((header) => !headers.includes(header))
 
   if (missingHeaders.length > 0) {
     throw new Error(`Missing required CSV columns: ${missingHeaders.join(", ")}`)
@@ -237,7 +354,7 @@ function buildRowsFromCsv(text: string): ImportedCsvRow[] {
 
   return parsedRows.slice(1).map((row, index) => {
     const values = Object.fromEntries(
-      headers.map((header, headerIndex) => [header, row[headerIndex] ?? ""]),
+      csvHeaders.map((header) => [header, row[headerIndexMap.get(header) ?? -1] ?? ""]),
     )
 
     return {
@@ -293,6 +410,8 @@ function buildPayloadFromRow(row: ImportedCsvRow) {
     temporaryPassword: parseBoolean(row.values.temporaryPassword ?? "", true),
     welcomeRecipientEmail: isEmployee ? row.values.welcomeRecipientEmail?.trim() ?? "" : "",
     workAddress: isEmployee ? row.values.workAddress?.trim() ?? "" : "",
+    workStartDate: isEmployee ? row.values.workStartDate?.trim() ?? "" : "",
+    groups: parsePipeList(row.values.groups ?? ""),
     attributes: {
       fullName,
       phone: isEmployee ? row.values.phone?.trim() ?? "" : "",
@@ -312,7 +431,7 @@ function buildPayloadFromRow(row: ImportedCsvRow) {
 function buildCsvTemplate() {
   const rows = [csvHeaders.join(",")]
 
-  csvTemplateRows.forEach((row) => {
+  normalizedCsvTemplateRows.forEach((row) => {
     rows.push(
       row
         .map((value) => {
@@ -416,12 +535,7 @@ export function UserImportDialog({
               typeof responsePayload?.generatedPassword === "string"
                 ? responsePayload.generatedPassword
                 : null,
-            groupStatus:
-              responsePayload?.defaultGroupAssignment?.assigned === true
-                ? `Assigned to ${String(responsePayload.defaultGroupAssignment.groupName ?? "")}`
-                : typeof responsePayload?.defaultGroupAssignment?.error === "string"
-                  ? `Failed: ${responsePayload.defaultGroupAssignment.error}`
-                  : null,
+            groupStatus: buildGroupStatus(responsePayload),
             welcomeEmailStatus:
               responsePayload?.welcomeEmail?.sent === true
                 ? `Sent to ${String(responsePayload.welcomeEmail.recipient ?? "")}`
@@ -479,7 +593,7 @@ export function UserImportDialog({
                 <div>
                 <p className="text-sm font-semibold text-foreground">CSV upload</p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                    Use pipe separators for multi-value fields such as `uuidVPN`.
+                    Use pipe separators for multi-value fields such as `uuidVPN` and `groups`.
                 </p>
                 </div>
                 <Button type="button" variant="outline" className="rounded-full bg-transparent" onClick={handleDownloadTemplate}>
@@ -491,10 +605,10 @@ export function UserImportDialog({
               <div className="mt-5 space-y-3">
                 <Input type="file" accept=".csv,text/csv" onChange={handleFileChange} disabled={isImporting} />
                 <p className="text-xs text-muted-foreground">
-                  Required columns: `{csvHeaders.slice(0, 6).join(", ")}` ... plus the onboarding and attribute columns from the template.
+                  Required columns: `{requiredCsvHeaders.join(", ")}`. The downloaded template includes optional create-user fields such as `groups`, `workAddress`, and `workStartDate`.
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  `manager` can be provided as `username`, `email`, or `LDAP_ENTRY_DN`. The server resolves username/email to `LDAP_ENTRY_DN` before creating the user.
+                  `manager` can be provided as `username`, `email`, or `LDAP_ENTRY_DN`. `groups` accepts Keycloak group IDs, names, or full paths like `/Organization`.
                 </p>
                 <p className="text-xs text-muted-foreground">
                   Imported users always start with `emailVerified = true` and required actions `UPDATE_PASSWORD | CONFIGURE_TOTP`.
@@ -548,24 +662,28 @@ export function UserImportDialog({
             ) : (
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-muted/35">
-                    <TableHead className="px-5">Row</TableHead>
-                    <TableHead className="px-5">Username</TableHead>
-                    <TableHead className="px-5">Email</TableHead>
-                    <TableHead className="px-5">User type</TableHead>
-                    <TableHead className="px-5">Welcome recipient</TableHead>
-                  </TableRow>
+                    <TableRow className="bg-muted/35">
+                      <TableHead className="px-5">Row</TableHead>
+                      <TableHead className="px-5">Username</TableHead>
+                      <TableHead className="px-5">Email</TableHead>
+                      <TableHead className="px-5">User type</TableHead>
+                      <TableHead className="px-5">Work start</TableHead>
+                      <TableHead className="px-5">Groups</TableHead>
+                      <TableHead className="px-5">Welcome recipient</TableHead>
+                    </TableRow>
                 </TableHeader>
                 <TableBody>
                   {previewRows.map((row) => (
                     <TableRow key={row.rowNumber} className="border-border">
                       <TableCell className="px-5 py-4 text-sm text-muted-foreground">{row.rowNumber}</TableCell>
-                      <TableCell className="px-5 py-4">{row.values.username || "Missing"}</TableCell>
-                      <TableCell className="px-5 py-4">{row.values.email || "Missing"}</TableCell>
-                      <TableCell className="px-5 py-4">{row.values.userType || "Missing"}</TableCell>
-                      <TableCell className="px-5 py-4">
-                        {row.values.userType?.trim() === "employee"
-                          ? row.values.welcomeRecipientEmail || "Missing"
+                        <TableCell className="px-5 py-4">{row.values.username || "Missing"}</TableCell>
+                        <TableCell className="px-5 py-4">{row.values.email || "Missing"}</TableCell>
+                        <TableCell className="px-5 py-4">{row.values.userType || "Missing"}</TableCell>
+                        <TableCell className="px-5 py-4">{row.values.workStartDate || "-"}</TableCell>
+                        <TableCell className="px-5 py-4">{row.values.groups || "-"}</TableCell>
+                        <TableCell className="px-5 py-4">
+                          {row.values.userType?.trim() === "employee"
+                            ? row.values.welcomeRecipientEmail || "Missing"
                           : row.values.email || "Account email"}
                       </TableCell>
                     </TableRow>
@@ -614,7 +732,7 @@ export function UserImportDialog({
                         </Badge>
                       </TableCell>
                       <TableCell className="px-5 py-4 text-sm text-muted-foreground">
-                        {result.groupStatus ?? "No default group"}
+                        {result.groupStatus ?? "No group assignment"}
                       </TableCell>
                       <TableCell className="px-5 py-4 text-sm text-muted-foreground">
                         {result.welcomeEmailStatus ?? "Not sent"}
