@@ -532,7 +532,7 @@ export async function POST(request: Request) {
           TemporaryPassword: finalPassword,
           LoginURL:
             welcomeTemplate.sampleData.LoginURL?.trim() ||
-            "https://passwordreset.microsoftonline.com/",
+            "https://sso.mobifonesolutions.vn/",
         }
 
         try {

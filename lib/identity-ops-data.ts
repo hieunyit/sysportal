@@ -758,7 +758,7 @@ export const emailTemplates = [
       WebmailURL: "https://outlook.office.com/mail/",
       Email: "nguyenvana@mobifonesolutions.vn",
       TemporaryPassword: "TempPass@123",
-      LoginURL: "https://passwordreset.microsoftonline.com/",
+      LoginURL: "https://sso.mobifonesolutions.vn/",
     },
   },
 ] as const
