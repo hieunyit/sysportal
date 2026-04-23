@@ -27,6 +27,8 @@ export const keycloakUserCreateSchema = baseUserSchema
     temporaryPassword: z.boolean().default(true),
     welcomeRecipientEmail: optionalEmailField.default(""),
     workAddress: z.string().trim().max(255).default(""),
+    workStartDate: z.string().trim().max(255).default(""),
+    groupIds: z.array(z.string().trim().min(1)).default([]),
   })
 
 export const keycloakUserPatchSchema = baseUserSchema
