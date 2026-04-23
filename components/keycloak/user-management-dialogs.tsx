@@ -770,6 +770,11 @@ export function UserEditorDialog({
   const [temporaryPassword, setTemporaryPassword] = useState(true)
   const [welcomeRecipientEmail, setWelcomeRecipientEmail] = useState("")
   const [workAddress, setWorkAddress] = useState("")
+  const [workStartDate, setWorkStartDate] = useState("")
+  const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([])
+  const [availableGroups, setAvailableGroups] = useState<Array<{ id: string; name: string }>>([])
+  const [groupsLoading, setGroupsLoading] = useState(false)
+  const [groupSearchQuery, setGroupSearchQuery] = useState("")
   const [requiredActionsInput, setRequiredActionsInput] = useState("")
   const [attributeEntries, setAttributeEntries] = useState<AttributeEntry[]>([])
   const [formError, setFormError] = useState<string | null>(null)
@@ -796,8 +801,35 @@ export function UserEditorDialog({
     setTemporaryPassword(true)
     setWelcomeRecipientEmail("")
     setWorkAddress("")
+    setWorkStartDate("")
+    setSelectedGroupIds([])
+    setGroupSearchQuery("")
     setFormError(null)
-  }, [initialValue, open, profileMetadata])
+
+    // Fetch available groups for selection
+    if (mode === "create") {
+      const fetchGroups = async () => {
+        try {
+          setGroupsLoading(true)
+          const response = await fetch("/api/keycloak/groups?pageSize=100")
+          const data = (await response.json().catch(() => null)) as { items?: Array<{ id?: string; name?: string }> } | null
+          if (response.ok && data?.items) {
+            setAvailableGroups(
+              data.items
+                .map((group) => ({ id: group.id ?? "", name: group.name ?? "" }))
+                .filter((group) => group.id && group.name)
+            )
+          }
+        } catch {
+          setAvailableGroups([])
+        } finally {
+          setGroupsLoading(false)
+        }
+      }
+
+      fetchGroups()
+    }
+  }, [initialValue, open, profileMetadata, mode])
 
   const userTypeEntry = useMemo(
     () => attributeEntries.find((entry) => entry.name === userTypeFieldName) ?? null,
@@ -970,6 +1002,8 @@ export function UserEditorDialog({
               password,
               temporaryPassword,
               workAddress: selectedUserType === "employee" ? workAddress.trim() : "",
+              workStartDate: selectedUserType === "employee" ? workStartDate.trim() : "",
+              groupIds: selectedGroupIds,
               welcomeRecipientEmail:
                 selectedUserType === "employee"
                   ? welcomeRecipientEmail.trim()
@@ -1009,42 +1043,42 @@ export function UserEditorDialog({
               ) : null}
 
               {mode === "create" && userTypeEntry ? (
-                <div className="grid gap-5 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label>User type</Label>
-                    {userTypeEntry.inputType === "select" ? (
-                      <SearchableSelectField
-                        value={getEntryFirstValue(userTypeEntry)}
-                        options={userTypeEntry.options}
-                        placeholder="Select a user type"
-                        disabled={isSubmitting || !userTypeEntry.schemaEditable}
-                        onChange={(nextValue) =>
-                          updateAttributeEntry(userTypeEntry.id, (current) => ({
-                            ...current,
-                            values: [nextValue],
-                          }))
-                        }
-                      />
-                    ) : (
-                      <Input
-                        value={getEntryFirstValue(userTypeEntry)}
-                        onChange={(event) =>
-                          updateAttributeEntry(userTypeEntry.id, (current) => ({
-                            ...current,
-                            values: [event.target.value],
-                          }))
-                        }
-                        disabled={isSubmitting || !userTypeEntry.schemaEditable}
-                        placeholder="Enter a user type"
-                      />
-                    )}
-                    <p className="text-xs text-muted-foreground">
-                      Employee accounts show organization fields. Other account types show partner information fields.
-                    </p>
-                  </div>
+                <div className="space-y-5">
+                  <div className="grid gap-5 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>User type</Label>
+                      {userTypeEntry.inputType === "select" ? (
+                        <SearchableSelectField
+                          value={getEntryFirstValue(userTypeEntry)}
+                          options={userTypeEntry.options}
+                          placeholder="Select a user type"
+                          disabled={isSubmitting || !userTypeEntry.schemaEditable}
+                          onChange={(nextValue) =>
+                            updateAttributeEntry(userTypeEntry.id, (current) => ({
+                              ...current,
+                              values: [nextValue],
+                            }))
+                          }
+                        />
+                      ) : (
+                        <Input
+                          value={getEntryFirstValue(userTypeEntry)}
+                          onChange={(event) =>
+                            updateAttributeEntry(userTypeEntry.id, (current) => ({
+                              ...current,
+                              values: [event.target.value],
+                            }))
+                          }
+                          disabled={isSubmitting || !userTypeEntry.schemaEditable}
+                          placeholder="Enter a user type"
+                        />
+                      )}
+                      <p className="text-xs text-muted-foreground">
+                        Employee accounts show organization fields. Other account types show partner information fields.
+                      </p>
+                    </div>
 
-                  {selectedUserType === "employee" ? (
-                    <div className="space-y-5">
+                    {selectedUserType === "employee" ? (
                       <div className="space-y-2">
                         <Label htmlFor="create-welcome-recipient-email">Welcome recipient email</Label>
                         <Input
@@ -1059,7 +1093,18 @@ export function UserEditorDialog({
                           This address is outside the Keycloak user profile and is used for new joiner welcome notification delivery.
                         </p>
                       </div>
+                    ) : (
+                      <div className="rounded-[1rem] border border-border bg-background p-4">
+                        <p className="text-sm font-medium text-foreground">Welcome recipient</p>
+                        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                          Welcome email will be sent to the user&apos;s email address.
+                        </p>
+                      </div>
+                    )}
+                  </div>
 
+                  {selectedUserType === "employee" ? (
+                    <div className="grid gap-5 md:grid-cols-2">
                       <div className="space-y-2">
                         <Label htmlFor="create-work-address">Work address</Label>
                         <Input
@@ -1073,17 +1118,84 @@ export function UserEditorDialog({
                           This field is used only in the welcome email and is not written into Keycloak.
                         </p>
                       </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="create-work-start-date">Work start date</Label>
+                        <Input
+                          id="create-work-start-date"
+                          type="datetime-local"
+                          value={workStartDate}
+                          onChange={(event) => setWorkStartDate(event.target.value)}
+                          disabled={isSubmitting}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          This date is used only in the welcome email and is not written into Keycloak.
+                        </p>
+                      </div>
                     </div>
-                  ) : (
-                    <div className="rounded-[1rem] border border-border bg-background p-4">
-                      <p className="text-sm font-medium text-foreground">Welcome recipient</p>
-                      <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                        Welcome email delivery is configured for employee onboarding accounts.
-                      </p>
-                    </div>
-                  )}
+                  ) : null}
                 </div>
               ) : null}
+
+              {/* Group Selection - Available for all user types */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label>Assign to groups</Label>
+                  {groupsLoading && <span className="text-xs text-muted-foreground">Loading groups...</span>}
+                </div>
+                {availableGroups.length > 0 ? (
+                  <div className="space-y-3">
+                    <div>
+                      <Input
+                        type="text"
+                        placeholder="Search groups..."
+                        value={groupSearchQuery}
+                        onChange={(event) => setGroupSearchQuery(event.target.value)}
+                        disabled={isSubmitting}
+                        className="rounded-[0.85rem]"
+                      />
+                    </div>
+                    <div className="space-y-2 rounded-[0.85rem] border border-border bg-background p-4 max-h-[300px] overflow-y-auto">
+                      {availableGroups
+                        .filter((group) => group.name.toLowerCase().includes(groupSearchQuery.toLowerCase()))
+                        .map((group) => (
+                          <div key={group.id} className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              id={`group-${group.id}`}
+                              checked={selectedGroupIds.includes(group.id)}
+                              onChange={(event) => {
+                                if (event.target.checked) {
+                                  setSelectedGroupIds([...selectedGroupIds, group.id])
+                                } else {
+                                  setSelectedGroupIds(selectedGroupIds.filter((id) => id !== group.id))
+                                }
+                              }}
+                              disabled={isSubmitting}
+                              className="h-4 w-4 rounded border-border"
+                            />
+                            <Label
+                              htmlFor={`group-${group.id}`}
+                              className="cursor-pointer flex-1 text-sm font-normal"
+                            >
+                              {group.name}
+                            </Label>
+                          </div>
+                        ))}
+                      {availableGroups.filter((group) => group.name.toLowerCase().includes(groupSearchQuery.toLowerCase())).length === 0 && (
+                        <p className="text-xs text-muted-foreground">No matching groups found</p>
+                      )}
+                    </div>
+                  </div>
+                ) : !groupsLoading ? (
+                  <div className="rounded-[0.85rem] border border-border bg-background p-3">
+                    <p className="text-xs text-muted-foreground">No groups available</p>
+                  </div>
+                ) : null}
+                <p className="text-xs text-muted-foreground">
+                  Select groups to assign this user to. Users will be added to all selected groups upon creation.
+                </p>
+              </div>
 
               <div className="grid gap-5 md:grid-cols-2">
                 <div className="space-y-2">

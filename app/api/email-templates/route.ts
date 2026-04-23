@@ -14,17 +14,6 @@ export async function GET() {
   try {
     const items = listEmailTemplates()
 
-    appendAuditLog({
-      actorName: "Identity Admin",
-      category: "access",
-      action: "email-template.list.viewed",
-      resourceType: "email-template",
-      resourceId: "all",
-      resourceName: "All email templates",
-      detail: `Viewed ${items.length} email templates`,
-      metadata: { total: items.length },
-    })
-
     return NextResponse.json({
       items,
       total: items.length,

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { getErrorDetail } from "@/lib/error-utils"
-import { appendAuditLog, getSystemSettings } from "@/lib/settings-store"
+import { getSystemSettings } from "@/lib/settings-store"
 
 export const runtime = "nodejs"
 
@@ -29,17 +29,6 @@ export async function GET() {
         updatedAt: system.updatedAt,
       },
     ]
-
-    appendAuditLog({
-      actorName: "Identity Admin",
-      category: "access",
-      action: "connection.list.viewed",
-      resourceType: "connection",
-      resourceId: "all",
-      resourceName: "All connections",
-      detail: `Viewed ${items.length} connection records`,
-      metadata: { total: items.length },
-    })
 
     return NextResponse.json({
       items,

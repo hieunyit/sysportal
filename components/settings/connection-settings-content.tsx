@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, type ReactNode } from "react"
+import { useEffect, useRef, useState, type ReactNode } from "react"
 import {
   AlertCircle,
   KeyRound,
@@ -202,7 +202,11 @@ function getConnectorTitle(connector: ConnectorKey) {
   return connectorMeta[connector].title
 }
 
-function getConnectorCheckLabel(result?: ConnectionCheckResult) {
+function getConnectorCheckLabel(result?: ConnectionCheckResult, isAutoChecking?: boolean) {
+  if (isAutoChecking) {
+    return "Checking..."
+  }
+
   if (!result) {
     return "Not checked"
   }
@@ -210,7 +214,11 @@ function getConnectorCheckLabel(result?: ConnectionCheckResult) {
   return result.ok ? "Connected" : "Failed"
 }
 
-function getConnectorCheckVariant(result?: ConnectionCheckResult) {
+function getConnectorCheckVariant(result?: ConnectionCheckResult, isAutoChecking?: boolean) {
+  if (isAutoChecking) {
+    return "secondary" as const
+  }
+
   if (!result) {
     return "outline" as const
   }
@@ -389,6 +397,7 @@ function ConnectorStatePanel({
 export function ConnectionSettingsContent() {
   const [activeTab, setActiveTab] = useState<ConnectorKey>("keycloak")
   const [system, setSystem] = useState<SystemSettings>(emptySystem)
+  const systemRef = useRef<SystemSettings>(emptySystem)
   const [isLoading, setIsLoading] = useState(true)
   const [loadMessage, setLoadMessage] = useState<string | null>(null)
   const [saveStates, setSaveStates] = useState<Record<ConnectorKey, boolean>>({
@@ -403,8 +412,52 @@ export function ConnectionSettingsContent() {
     smtp: false,
     "smtp-welcome": false,
   })
+  const [autoCheckStates, setAutoCheckStates] = useState<Record<ConnectorKey, boolean>>({
+    keycloak: false,
+    openvpn: false,
+    smtp: false,
+    "smtp-welcome": false,
+  })
   const [saveNotices, setSaveNotices] = useState<Partial<Record<ConnectorKey, ConnectorNotice>>>({})
   const [checkResults, setCheckResults] = useState<Partial<Record<ConnectorKey, ConnectionCheckResult>>>({})
+
+  async function autoRunCheckWithSettings(connector: ConnectorKey, settings: SystemSettings) {
+    setAutoCheckStates((current) => ({ ...current, [connector]: true }))
+    try {
+      const response = await fetch(`/api/connections/${connector}/checks`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(getConnectorSettings(connector, settings)),
+      })
+
+      if (response.ok) {
+        const result = (await response.json()) as ConnectionCheckResult
+        setCheckResults((current) => ({
+          ...current,
+          [connector]: result,
+        }))
+      }
+    } catch (error) {
+      // Silently fail on auto-checks, but still update the result with error
+      setCheckResults((current) => ({
+        ...current,
+        [connector]: {
+          ok: false,
+          connector,
+          checkedAt: new Date().toISOString(),
+          message: error instanceof Error ? error.message : "Auto-check failed",
+        },
+      }))
+    } finally {
+      setAutoCheckStates((current) => ({ ...current, [connector]: false }))
+    }
+  }
+
+  useEffect(() => {
+    systemRef.current = system
+  }, [system])
 
   useEffect(() => {
     let isActive = true
@@ -424,8 +477,14 @@ export function ConnectionSettingsContent() {
           return
         }
 
-        setSystem(mapConnectionCollection(data))
+        const mappedSystem = mapConnectionCollection(data)
+        setSystem(mappedSystem)
         setLoadMessage(null)
+
+        // Auto-run checks for all connectors after loading
+        connectorOrder.forEach((connector) => {
+          void autoRunCheckWithSettings(connector, mappedSystem)
+        })
       } catch (error) {
         if (!isActive) {
           return
@@ -441,8 +500,18 @@ export function ConnectionSettingsContent() {
 
     void loadConnections()
 
+    // Set up auto-refresh of checks every 30 seconds
+    const interval = setInterval(() => {
+      if (isActive) {
+        connectorOrder.forEach((connector) => {
+          void autoRunCheckWithSettings(connector, systemRef.current)
+        })
+      }
+    }, 30000)
+
     return () => {
       isActive = false
+      clearInterval(interval)
     }
   }, [])
 
@@ -627,6 +696,7 @@ export function ConnectionSettingsContent() {
     const Icon = meta.icon
     const isSaving = saveStates[connector]
     const isChecking = checkStates[connector]
+    const isAutoChecking = autoCheckStates[connector]
     const checkResult = checkResults[connector]
     const saveNotice = saveNotices[connector]
 
@@ -644,7 +714,9 @@ export function ConnectionSettingsContent() {
                   <p className="max-w-2xl text-sm text-muted-foreground">{meta.summary}</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant={getConnectorCheckVariant(checkResult)}>{getConnectorCheckLabel(checkResult)}</Badge>
+                  <Badge variant={getConnectorCheckVariant(checkResult, isAutoChecking)}>
+                    {getConnectorCheckLabel(checkResult, isAutoChecking)}
+                  </Badge>
                   <span className="rounded-lg border border-border/80 bg-muted/15 px-3 py-1 text-xs text-muted-foreground">
                     {meta.note}
                   </span>

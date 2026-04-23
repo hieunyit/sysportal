@@ -42,17 +42,6 @@ export async function GET(request: Request) {
       dynamicRangeCount: profile.dynamic_ranges?.length ?? 0,
     }))
 
-    appendAuditLog({
-      actorName: "Identity Admin",
-      category: "access",
-      action: "openvpn.groups.viewed",
-      resourceType: "openvpn-group",
-      resourceId: "all",
-      resourceName: "All OpenVPN groups",
-      detail: `Viewed OpenVPN groups (${profiles.length} matched)`,
-      metadata: { page, pageSize, search, total: profiles.length },
-    })
-
     return NextResponse.json({
       summary: {
         totalGroups: profiles.length,

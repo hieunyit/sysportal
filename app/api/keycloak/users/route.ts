@@ -272,22 +272,6 @@ export async function GET(request: Request) {
       }),
     )
 
-    appendAuditLog({
-      actorName: "Identity Admin",
-      category: "access",
-      action: "keycloak.users.viewed",
-      resourceType: "keycloak-user",
-      resourceId: "all",
-      resourceName: configuredRealm,
-      detail: `Viewed Keycloak users for realm ${configuredRealm}`,
-      metadata: {
-        page,
-        pageSize,
-        search,
-        total: filteredTotal,
-      },
-    })
-
     return NextResponse.json({
       summary: {
         realm: realm.realm ?? configuredRealm,
@@ -387,13 +371,15 @@ export async function POST(request: Request) {
 
     const userType = getFirstAttributeValue(createPayload.attributes?.userType)
     const workAddress = userType === "employee" ? parsed.data.workAddress.trim() : ""
+    const workStartDate = userType === "employee" ? parsed.data.workStartDate.trim() : ""
+    const groupIds = parsed.data.groupIds ?? []
     const syncRegistrationsEnabled = userType === "employee"
     const ldapProviderId = keycloakConnection.ldapProviderId?.trim() ?? ""
     const welcomeRecipientEmail =
       userType === "employee"
         ? parsed.data.welcomeRecipientEmail.trim()
         : (createPayload.email ?? "").trim()
-    const shouldSendWelcomeEmail = userType === "employee"
+    const shouldSendWelcomeEmail = true
 
     if (userType === "employee" && !welcomeRecipientEmail) {
       return NextResponse.json(
@@ -438,7 +424,15 @@ export async function POST(request: Request) {
           error: string | null
         }
       | null = null
+    
+    const customGroupAssignments: Array<{
+      groupId: string
+      groupName: string
+      assigned: boolean
+      error: string | null
+    }> = []
 
+    // Assign to default employee group if employee type
     if (userType === "employee") {
       try {
         const groups = await client.listAllGroups()
@@ -500,6 +494,65 @@ export async function POST(request: Request) {
       }
     }
 
+    // Assign to custom selected groups (for all user types)
+    if (groupIds.length > 0) {
+      try {
+        for (const groupId of groupIds) {
+          try {
+            await client.addUserToGroup(created.userId, groupId)
+            const group = await client.getGroup(groupId)
+            
+            customGroupAssignments.push({
+              groupId,
+              groupName: group.path ?? group.name ?? groupId,
+              assigned: true,
+              error: null,
+            })
+
+            appendAuditLog({
+              actorName: "Identity Admin",
+              category: "action",
+              action: "keycloak.user.group-assigned",
+              resourceType: "keycloak-group",
+              resourceId: groupId,
+              resourceName: group.path ?? group.name ?? groupId,
+              detail: `Assigned ${toDisplayName(user)} to group ${group.path ?? group.name ?? groupId}`,
+              metadata: {
+                realm: configuredRealm,
+                userId: created.userId,
+                userType,
+              },
+            })
+          } catch (singleGroupError) {
+            customGroupAssignments.push({
+              groupId,
+              groupName: groupId,
+              assigned: false,
+              error: getErrorDetail(singleGroupError, "Unable to assign group"),
+            })
+
+            appendAuditLog({
+              actorName: "Identity Admin",
+              category: "action",
+              action: "keycloak.user.group-assignment-failed",
+              resourceType: "keycloak-group",
+              resourceId: groupId,
+              resourceName: groupId,
+              detail: `Group assignment failed for ${toDisplayName(user)}`,
+              metadata: {
+                realm: configuredRealm,
+                userId: created.userId,
+                userType,
+                error: getErrorDetail(singleGroupError, "Unable to assign group"),
+              },
+            })
+          }
+        }
+      } catch {
+        // Error handling for group iteration is done per-group
+      }
+    }
+
     let welcomeEmail:
       | {
           sent: boolean
@@ -509,13 +562,14 @@ export async function POST(request: Request) {
       | null = null
 
     if (shouldSendWelcomeEmail && welcomeRecipientEmail) {
-      const welcomeTemplate = getEmailTemplate("new-joiner-welcome")
+      const templateName = userType === "employee" ? "new-joiner-welcome" : "account-notification"
+      const welcomeTemplate = getEmailTemplate(templateName)
 
       if (!welcomeTemplate) {
         welcomeEmail = {
           sent: false,
           recipient: welcomeRecipientEmail,
-          error: "Welcome email template is not configured",
+          error: `Welcome email template (${templateName}) is not configured`,
         }
       } else {
         const smtpWelcomeConfig = getSystemConnection("smtp-welcome").config as SmtpSettingsRecord
@@ -526,6 +580,7 @@ export async function POST(request: Request) {
           Department: getFirstAttributeValue(user.attributes?.department),
           OnboardDate: "",
           WorkAddress: workAddress,
+          WorkStartDate: workStartDate,
           WebmailURL:
             welcomeTemplate.sampleData.WebmailURL?.trim() || "https://outlook.office.com/mail/",
           Email: user.email?.trim() || "",
@@ -612,9 +667,11 @@ export async function POST(request: Request) {
         passwordSource: providedPassword ? "provided" : "generated",
         welcomeRecipientEmail: shouldSendWelcomeEmail ? welcomeRecipientEmail || null : null,
         workAddress: workAddress || null,
+        workStartDate: workStartDate || null,
         emailVerified: true,
         requiredActions: [...DEFAULT_CREATE_REQUIRED_ACTIONS],
         defaultGroupAssignment,
+        customGroupAssignments: customGroupAssignments.length > 0 ? customGroupAssignments : null,
         welcomeEmailSent: welcomeEmail?.sent ?? false,
         welcomeEmailError: welcomeEmail?.error ?? null,
       },
@@ -631,6 +688,7 @@ export async function POST(request: Request) {
         emailVerified: true,
         requiredActions: [...DEFAULT_CREATE_REQUIRED_ACTIONS],
         defaultGroupAssignment,
+        customGroupAssignments: customGroupAssignments.length > 0 ? customGroupAssignments : null,
         welcomeEmail,
         userType,
         user: {

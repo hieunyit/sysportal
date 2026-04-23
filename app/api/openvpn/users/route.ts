@@ -43,17 +43,6 @@ export async function GET(request: Request) {
       staticIpv6: profile.static_ipv6 ?? null,
     }))
 
-    appendAuditLog({
-      actorName: "Identity Admin",
-      category: "access",
-      action: "openvpn.users.viewed",
-      resourceType: "openvpn-user",
-      resourceId: "all",
-      resourceName: "All OpenVPN users",
-      detail: `Viewed OpenVPN users (${profiles.length} matched)`,
-      metadata: { page, pageSize, search, total: profiles.length },
-    })
-
     return NextResponse.json({
       summary: {
         totalUsers: profiles.length,

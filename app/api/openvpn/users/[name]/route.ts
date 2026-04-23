@@ -23,16 +23,6 @@ export async function GET(_: Request, { params }: { params: Promise<{ name: stri
       return NextResponse.json({ error: "OpenVPN user not found" }, { status: 404 })
     }
 
-    appendAuditLog({
-      actorName: "Identity Admin",
-      category: "access",
-      action: "openvpn.user.viewed",
-      resourceType: "openvpn-user",
-      resourceId: decodedName,
-      resourceName: decodedName,
-      detail: `Viewed OpenVPN user ${decodedName}`,
-    })
-
     return NextResponse.json(detail)
   } catch (error) {
     return NextResponse.json(

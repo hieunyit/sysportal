@@ -23,16 +23,6 @@ export async function GET(_: Request, { params }: { params: Promise<{ name: stri
       return NextResponse.json({ error: "OpenVPN group not found" }, { status: 404 })
     }
 
-    appendAuditLog({
-      actorName: "Identity Admin",
-      category: "access",
-      action: "openvpn.group.viewed",
-      resourceType: "openvpn-group",
-      resourceId: decodedName,
-      resourceName: decodedName,
-      detail: `Viewed OpenVPN group ${decodedName}`,
-    })
-
     return NextResponse.json(detail)
   } catch (error) {
     return NextResponse.json(

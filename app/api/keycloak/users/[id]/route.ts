@@ -156,19 +156,6 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
       adminEvents.warning,
     ].filter(Boolean)
 
-    appendAuditLog({
-      actorName: "Identity Admin",
-      category: "access",
-      action: "keycloak.user.viewed",
-      resourceType: "keycloak-user",
-      resourceId: user.id ?? id,
-      resourceName: toDisplayName(user),
-      detail: `Viewed Keycloak user ${toDisplayName(user)}`,
-      metadata: {
-        realm: configuredRealm,
-      },
-    })
-
     return NextResponse.json({
       summary: {
         realm: realm.realm ?? configuredRealm,

@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
@@ -8,7 +9,6 @@ import {
   ChevronLeft,
   ChevronRight,
   FileCode2,
-  HelpCircle,
   KeyRound,
   LayoutDashboard,
   LogOut,
@@ -51,16 +51,9 @@ const navigationSections = [
       { icon: ServerCog, label: "Connections", href: "/connections" },
       { icon: FileCode2, label: "Email Templates", href: "/content-generator" },
       { icon: Settings, label: "Settings", href: "/settings" },
-      { icon: HelpCircle, label: "Support", href: "/help" },
       { icon: LogOut, label: "Logout", href: "/logout" },
     ],
   },
-] as const
-
-const liveSystems = [
-  { name: "Keycloak", status: "Healthy" },
-  { name: "OpenVPN", status: "Monitoring" },
-  { name: "SMTP", status: "Healthy" },
 ] as const
 
 interface SidebarProps {
@@ -69,8 +62,56 @@ interface SidebarProps {
   onToggle?: () => void
 }
 
+interface ConnectorStatus {
+  name: string
+  ok: boolean
+  message: string
+}
+
 export function Sidebar({ isCollapsed = false, mobile = false, onToggle }: SidebarProps = {}) {
   const pathname = usePathname()
+  const [connectorStatuses, setConnectorStatuses] = useState<ConnectorStatus[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchConnectorStatuses = async () => {
+      try {
+        const connectors = ["keycloak", "openvpn", "smtp", "smtp-welcome"]
+        const results = await Promise.all(
+          connectors.map(async (connector) => {
+            try {
+              const response = await fetch(`/api/connections/${connector}/checks`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({}),
+              })
+              const data = (await response.json()) as { ok?: boolean; message?: string }
+              return {
+                name: connector === "smtp-welcome" ? "SMTP Welcome" : connector.charAt(0).toUpperCase() + connector.slice(1),
+                ok: data.ok ?? false,
+                message: data.message ?? "Unknown",
+              }
+            } catch {
+              return {
+                name: connector === "smtp-welcome" ? "SMTP Welcome" : connector.charAt(0).toUpperCase() + connector.slice(1),
+                ok: false,
+                message: "Unavailable",
+              }
+            }
+          }),
+        )
+        setConnectorStatuses(results)
+      } catch {
+        console.error("[v0] Failed to fetch connector statuses")
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchConnectorStatuses()
+    const interval = setInterval(fetchConnectorStatuses, 30000)
+    return () => clearInterval(interval)
+  }, [])
 
   return (
     <aside
@@ -169,15 +210,17 @@ export function Sidebar({ isCollapsed = false, mobile = false, onToggle }: Sideb
           <div className="mt-auto rounded-[1.15rem] border border-sidebar-border/80 bg-sidebar-accent/40 p-3">
             <div className="flex items-center justify-between gap-3">
               <p className="text-sm font-semibold text-sidebar-foreground">Connector status</p>
-              <Badge className="border-primary/20 bg-primary/12 text-primary">Live</Badge>
+              <Badge className={cn("border-primary/20 bg-primary/12 text-primary", isLoading && "opacity-50")}>
+                {isLoading ? "Checking..." : "Live"}
+              </Badge>
             </div>
 
             <div className="mt-3 space-y-2">
-              {liveSystems.map((platform) => (
-                <div key={platform.name} className="flex items-center justify-between rounded-xl bg-sidebar px-3 py-2.5">
-                  <span className="text-sm text-sidebar-foreground">{platform.name}</span>
-                  <span className={cn("text-xs font-medium", platform.status === "Healthy" ? "text-emerald-400" : "text-amber-300")}>
-                    {platform.status}
+              {connectorStatuses.map((connector) => (
+                <div key={connector.name} className="flex items-center justify-between rounded-xl bg-sidebar px-3 py-2.5">
+                  <span className="text-sm text-sidebar-foreground">{connector.name}</span>
+                  <span className={cn("text-xs font-medium", connector.ok ? "text-emerald-400" : "text-red-400")}>
+                    {connector.ok ? "Healthy" : "Error"}
                   </span>
                 </div>
               ))}

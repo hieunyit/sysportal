@@ -26,16 +26,6 @@ export async function GET(_: Request, { params }: { params: Promise<{ connector:
 
     const resource = getSystemConnection(connector)
 
-    appendAuditLog({
-      actorName: "Identity Admin",
-      category: "access",
-      action: "connection.viewed",
-      resourceType: "connection",
-      resourceId: connector,
-      resourceName: connector,
-      detail: `Viewed ${connector} configuration`,
-    })
-
     return NextResponse.json({
       id: connector,
       config: resource.config,

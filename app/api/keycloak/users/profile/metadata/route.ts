@@ -12,19 +12,6 @@ export async function GET() {
     const configuredRealm = (getSystemConnection("keycloak").config as { realm: string }).realm
     const profileMetadata = await client.getUserProfileMetadata()
 
-    appendAuditLog({
-      actorName: "Identity Admin",
-      category: "access",
-      action: "keycloak.user-profile-metadata.viewed",
-      resourceType: "keycloak-user-profile",
-      resourceId: configuredRealm,
-      resourceName: configuredRealm,
-      detail: `Viewed Keycloak user profile metadata for realm ${configuredRealm}`,
-      metadata: {
-        realm: configuredRealm,
-      },
-    })
-
     return NextResponse.json({
       realm: configuredRealm,
       profileMetadata: filterHiddenUserProfileMetadata(profileMetadata),

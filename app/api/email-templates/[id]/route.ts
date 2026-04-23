@@ -20,17 +20,6 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
       return NextResponse.json({ error: "Email template not found" }, { status: 404 })
     }
 
-    appendAuditLog({
-      actorName: "Identity Admin",
-      category: "access",
-      action: "email-template.viewed",
-      resourceType: "email-template",
-      resourceId: template.id,
-      resourceName: template.name,
-      detail: `Opened template ${template.name}`,
-      metadata: { category: template.category },
-    })
-
     return NextResponse.json(template)
   } catch (error) {
     return NextResponse.json(

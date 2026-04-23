@@ -9,7 +9,7 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const page = Math.max(Number(searchParams.get("page") ?? "1"), 1)
-    const pageSize = Math.min(Math.max(Number(searchParams.get("pageSize") ?? "18"), 1), 50)
+    const pageSize = Math.min(Math.max(Number(searchParams.get("pageSize") ?? "18"), 1), 200)
     const search = searchParams.get("search")?.trim().toLowerCase() ?? ""
     const client = await createKeycloakAdminClient()
     const configuredRealm = (getSystemConnection("keycloak").config as { realm: string }).realm
@@ -45,22 +45,6 @@ export async function GET(request: Request) {
         0,
       ),
     }))
-
-    appendAuditLog({
-      actorName: "Identity Admin",
-      category: "access",
-      action: "keycloak.groups.viewed",
-      resourceType: "keycloak-group",
-      resourceId: "all",
-      resourceName: configuredRealm,
-      detail: `Viewed Keycloak groups for realm ${configuredRealm}`,
-      metadata: {
-        page,
-        pageSize,
-        search,
-        total: filteredGroups.length,
-      },
-    })
 
     return NextResponse.json({
       summary: {
