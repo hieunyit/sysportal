@@ -195,10 +195,10 @@ export function GroupEditorDialog({
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" className="rounded-full bg-transparent" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="outline" className="rounded-xl bg-transparent" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" className="rounded-full" disabled={isSubmitting}>
+            <Button type="submit" className="rounded-xl" disabled={isSubmitting}>
               {isSubmitting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
               {mode === "create" ? "Create group" : "Save changes"}
             </Button>
@@ -315,10 +315,10 @@ export function GroupAssignmentDialog({
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" className="rounded-full bg-transparent" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="outline" className="rounded-xl bg-transparent" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" className="rounded-full" disabled={isSubmitting || !selected}>
+            <Button type="submit" className="rounded-xl" disabled={isSubmitting || !selected}>
               {isSubmitting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
               Add group
             </Button>
@@ -440,10 +440,10 @@ export function GroupMemberDialog({
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" className="rounded-full bg-transparent" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="outline" className="rounded-xl bg-transparent" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" className="rounded-full" disabled={isSubmitting || !selected}>
+            <Button type="submit" className="rounded-xl" disabled={isSubmitting || !selected}>
               {isSubmitting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
               Add member
             </Button>

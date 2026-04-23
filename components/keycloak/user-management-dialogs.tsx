@@ -665,7 +665,7 @@ function EntryField({
               type="button"
               variant="outline"
               size="sm"
-              className="rounded-full"
+              className="rounded-xl"
               onClick={onRemoveEntry}
               disabled={isSubmitting}
             >
@@ -727,7 +727,7 @@ function EntryField({
                     type="button"
                     variant="outline"
                     size="icon"
-                    className="shrink-0 rounded-full"
+                    className="shrink-0 rounded-xl"
                     onClick={() => onRemoveValue(index)}
                     disabled={isSubmitting || !entry.schemaEditable || entry.values.length <= 1}
                   >
@@ -742,7 +742,7 @@ function EntryField({
             <Button
               type="button"
               variant="outline"
-              className="rounded-full"
+              className="rounded-xl"
               onClick={onAddValue}
               disabled={isSubmitting || !entry.schemaEditable}
             >
@@ -1346,13 +1346,13 @@ export function UserEditorDialog({
               <Button
                 type="button"
                 variant="outline"
-                className="rounded-full"
+                className="rounded-xl"
                 onClick={() => onOpenChange(false)}
                 disabled={isSubmitting}
               >
                 Cancel
               </Button>
-              <Button type="submit" className="rounded-full px-5" disabled={isSubmitting}>
+              <Button type="submit" className="rounded-xl px-5" disabled={isSubmitting}>
                 {isSubmitting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
                 {mode === "create" ? "Create user" : "Save changes"}
               </Button>
@@ -1455,13 +1455,13 @@ export function PasswordResetDialog({
               <Button
                 type="button"
                 variant="outline"
-                className="rounded-full"
+                className="rounded-xl"
                 onClick={() => onOpenChange(false)}
                 disabled={isSubmitting}
               >
                 Cancel
               </Button>
-              <Button type="submit" className="rounded-full px-5" disabled={isSubmitting}>
+              <Button type="submit" className="rounded-xl px-5" disabled={isSubmitting}>
                 {isSubmitting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
                 Reset password
               </Button>

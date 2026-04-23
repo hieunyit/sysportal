@@ -1,27 +1,23 @@
 "use client"
 import { useRouter } from "next/navigation"
+import { AppShell } from "@/components/dashboard/app-shell"
+import { Header } from "@/components/dashboard/header"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { LogOut } from "lucide-react"
-import { Sidebar } from "@/components/dashboard/sidebar"
-import { Header } from "@/components/dashboard/header"
 
 export default function LogoutPage() {
   const router = useRouter()
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <div className="hidden lg:block">
-        <Sidebar />
-      </div>
-
-      <main className="flex-1 p-4 lg:ml-72 lg:p-6">
+    <AppShell>
+      <div>
         <Header title="Logout" description="End the current operator session and return to the login experience." />
 
         <div className="flex items-center justify-center min-h-[calc(100vh-100px)]">
-          <Card className="p-8 max-w-md w-full text-center space-y-6 animate-fade-in">
+          <Card className="max-w-md w-full space-y-6 p-8 text-center animate-fade-in">
             <div className="flex justify-center">
-              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
                 <LogOut className="w-8 h-8 text-primary" />
               </div>
             </div>
@@ -33,13 +29,13 @@ export default function LogoutPage() {
               <Button variant="outline" className="flex-1 bg-transparent" onClick={() => router.back()}>
                 Go back
               </Button>
-              <Button className="flex-1 bg-primary hover:bg-primary/90" onClick={() => router.push("/")}>
+              <Button className="flex-1" onClick={() => router.push("/")}>
                 Logout
               </Button>
             </div>
           </Card>
         </div>
-      </main>
-    </div>
+      </div>
+    </AppShell>
   )
 }

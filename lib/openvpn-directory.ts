@@ -4,6 +4,7 @@ import type {
   OpenVpnAccessRoute,
   OpenVpnAccessRule,
   OpenVpnAccessRuleset,
+  OpenVpnConnectedClient,
   OpenVpnGroupProfile,
   OpenVpnGroupSetPayload,
   OpenVpnUserProfile,
@@ -24,6 +25,8 @@ export interface OpenVpnSubjectDetail {
   profile: OpenVpnUserProfile | OpenVpnGroupProfile
   accessLists: Record<OpenVpnAccessListType, OpenVpnAccessRoute[]>
   rulesets: OpenVpnDetailRuleset[]
+  sessions: OpenVpnConnectedClient[]
+  warnings: string[]
 }
 
 type OpenVpnClient = Awaited<ReturnType<typeof createOpenVpnAdminClient>>
@@ -134,6 +137,15 @@ export async function loadOpenVpnSubjectDetail(
     client.listRulesets({ owner: name }),
   ])
 
+  const warnings: string[] = []
+  let vpnClients: OpenVpnConnectedClient[] = []
+
+  try {
+    vpnClients = (await client.getVpnStatus()).vpn_clients ?? []
+  } catch {
+    warnings.push("Live VPN session data is currently unavailable.")
+  }
+
   const rulesets = rulesetResponse.rulesets ?? []
   const rulesByRuleset = new Map<number, OpenVpnAccessRule[]>()
 
@@ -166,6 +178,32 @@ export async function loadOpenVpnSubjectDetail(
     list.push(item.access_route)
   }
 
+  const groupMemberSet =
+    subjectType === "group"
+      ? new Set(((profile as OpenVpnGroupProfile).members ?? []).map((member) => member.trim()).filter(Boolean))
+      : null
+
+  const sessions = vpnClients
+    .filter((session) => {
+      const normalizedCommonName = session.commonname?.replace(/_AUTOLOGIN$/i, "")?.trim() ?? ""
+      const normalizedUsername = session.username?.trim() ?? ""
+
+      if (subjectType === "user") {
+        return normalizedUsername === name || normalizedCommonName === name
+      }
+
+      if (!groupMemberSet || groupMemberSet.size === 0) {
+        return false
+      }
+
+      return groupMemberSet.has(normalizedUsername || normalizedCommonName)
+    })
+    .sort((left, right) => {
+      const leftTime = left.connected_since ? Date.parse(left.connected_since) : 0
+      const rightTime = right.connected_since ? Date.parse(right.connected_since) : 0
+      return rightTime - leftTime
+    })
+
   return {
     subjectType,
     name,
@@ -175,5 +213,7 @@ export async function loadOpenVpnSubjectDetail(
       ...ruleset,
       rules: (rulesByRuleset.get(ruleset.id) ?? []).sort((left, right) => left.position - right.position),
     })),
+    sessions,
+    warnings,
   }
 }

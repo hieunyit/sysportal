@@ -211,6 +211,23 @@ export interface OpenVpnAccessRule {
   comment: string
 }
 
+export interface OpenVpnConnectionId {
+  daemon_id: string
+  client_id: number
+}
+
+export interface OpenVpnConnectedClient extends OpenVpnConnectionId {
+  bytes_sent?: number
+  bytes_received?: number
+  commonname?: string
+  username?: string
+  connected_since?: string
+  datachannel_cipher?: string
+  real_address?: string
+  virtual_ipv4_address?: string
+  virtual_ipv6_address?: string
+}
+
 export class OpenVpnApiError extends Error {
   status: number
   detail: string
@@ -774,6 +791,26 @@ export async function createOpenVpnAdminClient(configInput?: OpenVpnConnectionRe
       delete?: number[]
     }) {
       return openVpnRequest<{ added?: number[] }>(config, "/access/rules/modify", {
+        body: input,
+      })
+    },
+
+    async getVpnStatus() {
+      return openVpnRequest<{
+        vpn_clients?: OpenVpnConnectedClient[]
+        vpn_daemons?: Record<string, unknown>
+      }>(config, "/vpn/status", {
+        method: "GET",
+      })
+    },
+
+    async disconnectVpnClients(input: {
+      users?: string[]
+      clients?: OpenVpnConnectionId[]
+      reason: string
+      client_reason: string
+    }) {
+      return openVpnRequest<{ reason?: string }>(config, "/vpn/client/disconnect", {
         body: input,
       })
     },

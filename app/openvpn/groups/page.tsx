@@ -1,16 +1,20 @@
-import { Sidebar } from "@/components/dashboard/sidebar"
+import { AppShell } from "@/components/dashboard/app-shell"
+import { Header } from "@/components/dashboard/header"
 import { OpenVpnGroupsContent } from "@/components/openvpn/groups-content"
 
 export default function OpenVpnGroupsPage() {
   return (
-    <div className="flex min-h-screen bg-background">
-      <div className="hidden lg:block">
-        <Sidebar />
-      </div>
+    <AppShell>
+      <div>
+        <Header
+          title="OpenVPN Groups"
+          description="Browse VPN groups, members, and shared policy controls."
+        />
 
-      <main className="flex-1 p-4 lg:ml-72 lg:p-5">
+        <div className="mt-6">
         <OpenVpnGroupsContent />
-      </main>
-    </div>
+        </div>
+      </div>
+    </AppShell>
   )
 }

@@ -3,16 +3,13 @@
 import Link from "next/link"
 import { useDeferredValue, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { LoaderCircle, Plus, Search, ShieldAlert } from "lucide-react"
+import { KeyRound, LoaderCircle, Plus, Search, ShieldAlert, ShieldCheck, UserRound } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import {
-  OpenVpnConsoleShell,
-  OpenVpnPanel,
-} from "@/components/openvpn/openvpn-console-shell"
 import {
   OpenVpnUserEditorDialog,
   type EditableOpenVpnUserState,
@@ -200,54 +197,7 @@ export function OpenVpnUsersContent() {
   }
 
   return (
-    <OpenVpnConsoleShell
-      title="User Permissions"
-      description="Review local user profiles, inherited access posture, and the per-user controls that sit under OpenVPN Access Server access controls."
-      context="Access Controls / User Directory"
-      metrics={[
-        {
-          label: "Total users",
-          value: data?.summary.totalUsers ?? "-",
-          helper: "Profiles returned by Access Server",
-        },
-        {
-          label: "Admin UI",
-          value: data?.summary.adminUsers ?? "-",
-          helper: "Users allowed into the admin console",
-        },
-        {
-          label: "Autologin",
-          value: data?.summary.autologinUsers ?? "-",
-          helper: "Profiles with autologin enabled",
-        },
-        {
-          label: "Denied",
-          value: data?.summary.deniedUsers ?? "-",
-          helper: "Explicitly blocked user profiles",
-          tone: (data?.summary.deniedUsers ?? 0) > 0 ? "warning" : "neutral",
-        },
-      ]}
-      actions={
-        <>
-          <div className="relative min-w-[18rem] xl:min-w-[22rem]">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(event) => {
-                setSearch(event.target.value)
-                setPage(1)
-              }}
-              placeholder="Search username or primary group"
-              className="h-10 rounded-lg border-slate-300 bg-white pl-9 dark:border-slate-700 dark:bg-slate-950"
-            />
-          </div>
-          <Button className="h-10 rounded-lg px-4" onClick={() => setIsCreateOpen(true)}>
-            <Plus className="h-4 w-4" />
-            Create user
-          </Button>
-        </>
-      }
-    >
+    <div className="space-y-6">
       {error ? (
         <Alert variant="destructive">
           <ShieldAlert className="h-4 w-4" />
@@ -256,53 +206,122 @@ export function OpenVpnUsersContent() {
         </Alert>
       ) : null}
 
-      <OpenVpnPanel
-        title="Local user directory"
-        description="Open a user to edit profile properties, access lists, and assigned domain rulesets."
-        bodyClassName="p-0"
-      >
-        {isLoading ? (
-          <div className="flex min-h-[360px] items-center justify-center bg-muted/10">
-            <div className="flex items-center gap-3 text-sm text-muted-foreground">
-              <LoaderCircle className="h-4 w-4 animate-spin" />
-              Loading OpenVPN users...
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <Card className="border-border/70 bg-card/92">
+          <CardContent className="p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Total users</p>
+                <p className="mt-2 text-3xl font-semibold tracking-tight text-foreground">{data?.summary.totalUsers ?? 0}</p>
+              </div>
+              <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-border bg-background text-foreground">
+                <UserRound className="h-5 w-5" />
+              </div>
             </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/70 bg-card/92">
+          <CardContent className="p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Admin UI</p>
+                <p className="mt-2 text-3xl font-semibold tracking-tight text-foreground">{data?.summary.adminUsers ?? 0}</p>
+              </div>
+              <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-border bg-background text-foreground">
+                <ShieldCheck className="h-5 w-5" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/70 bg-card/92">
+          <CardContent className="p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Autologin</p>
+                <p className="mt-2 text-3xl font-semibold tracking-tight text-foreground">{data?.summary.autologinUsers ?? 0}</p>
+              </div>
+              <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-border bg-background text-foreground">
+                <KeyRound className="h-5 w-5" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/70 bg-card/92">
+          <CardContent className="p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Denied</p>
+                <p className="mt-2 text-3xl font-semibold tracking-tight text-foreground">{data?.summary.deniedUsers ?? 0}</p>
+                <p className="mt-1 text-xs text-muted-foreground">Explicit deny profiles</p>
+              </div>
+              <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-border bg-background text-foreground">
+                <ShieldAlert className="h-5 w-5" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className="border-border/70 bg-card/92">
+        <CardHeader className="border-b border-border pb-4">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <CardTitle className="text-lg">OpenVPN users</CardTitle>
+              <CardDescription>Browse user profiles and direct policy state.</CardDescription>
+            </div>
+
+            <div className="flex w-full flex-col gap-3 lg:w-auto lg:flex-row lg:items-center">
+              <div className="relative w-full lg:min-w-[320px]">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={search}
+                  onChange={(event) => {
+                    setSearch(event.target.value)
+                    setPage(1)
+                  }}
+                  placeholder="Search username or primary group"
+                  className="h-11 pl-10"
+                />
+              </div>
+              <Button className="h-11 px-5" onClick={() => setIsCreateOpen(true)}>
+                <Plus className="h-4 w-4" />
+                Create user
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+        {isLoading ? (
+          <div className="flex min-h-[320px] items-center justify-center text-sm text-muted-foreground">
+            <LoaderCircle className="mr-3 h-4 w-4 animate-spin" />
+            Loading OpenVPN users...
           </div>
         ) : data && data.items.length > 0 ? (
           <>
             <div className="flex flex-col gap-2 border-b border-border bg-muted/10 px-4 py-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-              <p>Search, inspect, and drill into user-level access controls.</p>
+              <p>{data.total} records in scope.</p>
               <p>
-                {data.total} record{data.total === 1 ? "" : "s"} / page {data.page} of {data.pageCount}
+                Page {data.page} of {data.pageCount}
               </p>
             </div>
 
             <Table className="[&_td]:py-3">
-              <TableHeader className="bg-slate-50/80 dark:bg-slate-900/30">
-                <TableRow className="hover:bg-transparent">
-                  <TableHead className="px-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                    User
-                  </TableHead>
-                  <TableHead className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                    Primary group
-                  </TableHead>
-                  <TableHead className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                    Authentication
-                  </TableHead>
-                  <TableHead className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                    Policy
-                  </TableHead>
-                  <TableHead className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                    Static address
-                  </TableHead>
-                  <TableHead className="px-4 text-right text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                    Open
-                  </TableHead>
+              <TableHeader>
+                <TableRow className="bg-muted/20">
+                  <TableHead className="px-4">User</TableHead>
+                  <TableHead>Primary group</TableHead>
+                  <TableHead>Authentication</TableHead>
+                  <TableHead>Policy</TableHead>
+                  <TableHead>Static address</TableHead>
+                  <TableHead className="px-4 text-right">Open</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {data.items.map((item) => (
-                  <TableRow key={item.name}>
+                  <TableRow key={item.name} className="border-border">
                     <TableCell className="px-4">
                       <div className="space-y-1">
                         <div className="font-medium text-foreground">{item.name}</div>
@@ -321,8 +340,8 @@ export function OpenVpnUsersContent() {
                       </div>
                     </TableCell>
                     <TableCell className="px-4 text-right">
-                      <Button asChild variant="outline" size="sm" className="rounded-lg bg-transparent">
-                        <Link href={`/openvpn/users/${encodeURIComponent(item.name)}`}>Open</Link>
+                      <Button asChild variant="outline" size="sm" className="bg-transparent px-4">
+                        <Link href={`/openvpn/users/${encodeURIComponent(item.name)}`}>View detail</Link>
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -336,12 +355,13 @@ export function OpenVpnUsersContent() {
                   Showing page {data.page} of {data.pageCount}
                 </p>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((current) => current - 1)}>
+                  <Button variant="outline" size="sm" className="bg-transparent" disabled={page <= 1} onClick={() => setPage((current) => current - 1)}>
                     Previous
                   </Button>
                   <Button
                     variant="outline"
                     size="sm"
+                    className="bg-transparent"
                     disabled={page >= data.pageCount}
                     onClick={() => setPage((current) => current + 1)}
                   >
@@ -359,7 +379,8 @@ export function OpenVpnUsersContent() {
             </p>
           </div>
         )}
-      </OpenVpnPanel>
+        </CardContent>
+      </Card>
 
       <OpenVpnUserEditorDialog
         mode="create"
@@ -369,6 +390,6 @@ export function OpenVpnUsersContent() {
         onOpenChange={setIsCreateOpen}
         onSubmit={handleCreateUser}
       />
-    </OpenVpnConsoleShell>
+    </div>
   )
 }

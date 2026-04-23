@@ -1,5 +1,4 @@
-import { Sidebar } from "@/components/dashboard/sidebar"
-import { Header } from "@/components/dashboard/header"
+import { AppShell } from "@/components/dashboard/app-shell"
 import { GroupDetailContent } from "@/components/keycloak/group-detail-content"
 
 export default async function GroupDetailPage({
@@ -10,21 +9,8 @@ export default async function GroupDetailPage({
   const { id } = await params
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <div className="hidden lg:block">
-        <Sidebar />
-      </div>
-
-      <main className="flex-1 p-4 lg:ml-72 lg:p-6">
-        <Header
-          title="Group Detail"
-          description="Inspect a single Keycloak group with hierarchy context, member list, mapped roles, and recent admin activity."
-        />
-
-        <div className="mt-6">
-          <GroupDetailContent groupId={id} />
-        </div>
-      </main>
-    </div>
+    <AppShell>
+      <GroupDetailContent groupId={id} />
+    </AppShell>
   )
 }

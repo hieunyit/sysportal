@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import Link from "next/link"
 import { useEffect, useState } from "react"
@@ -219,7 +219,7 @@ export function GroupDetailContent({ groupId }: { groupId: string }) {
             <h2 className="text-xl font-semibold tracking-tight text-foreground">Group detail unavailable</h2>
             <p className="text-sm leading-6 text-muted-foreground">{error ?? "The requested group could not be loaded."}</p>
           </div>
-          <Button asChild variant="outline" className="rounded-full px-5">
+          <Button asChild variant="outline" className="rounded-lg px-5">
             <Link href="/groups">
               <ArrowLeft className="h-4 w-4" />
               Back to groups
@@ -230,98 +230,83 @@ export function GroupDetailContent({ groupId }: { groupId: string }) {
     )
   }
 
+  const realmRoleCount = data.roleMappings.realmMappings?.length ?? 0
+  const clientRoleCount = Object.values(data.roleMappings.clientMappings ?? {}).reduce(
+    (total, mapping) => total + (mapping.mappings?.length ?? 0),
+    0,
+  )
+
   return (
     <div className="space-y-6">
-      <Card className="border-border bg-card shadow-sm">
-        <CardContent className="space-y-5 p-6">
-          <Button asChild variant="ghost" className="h-9 rounded-full px-3 text-muted-foreground">
-            <Link href="/groups">
-              <ArrowLeft className="h-4 w-4" />
-              Back to groups
-            </Link>
-          </Button>
+      <div className="flex flex-col gap-6 md:flex-row md:items-start md:gap-0">
+        <div className="min-w-0 flex-1 space-y-6 md:pr-6">
+          <div className="space-y-4 px-1">
+            <Button asChild variant="ghost" className="h-8 rounded-xl px-3 text-muted-foreground">
+              <Link href="/groups">
+                <ArrowLeft className="h-4 w-4" />
+                Back to groups
+              </Link>
+            </Button>
 
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-            <div className="space-y-2">
-              <h2 className="text-2xl font-semibold tracking-tight text-foreground">{data.group.name}</h2>
-              <p className="text-sm text-muted-foreground">{data.group.path}</p>
-              <p className="text-sm text-muted-foreground">
-                Realm {data.summary.realm}
-                {data.summary.displayName ? ` · ${data.summary.displayName}` : ""}
-              </p>
-            </div>
+            <h2 className="text-[2rem] font-semibold tracking-[-0.04em] text-foreground">{data.group.name}</h2>
 
-            <div className="space-y-3">
-              <div className="flex flex-wrap justify-end gap-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="rounded-full bg-transparent px-5"
-                  onClick={() => setIsEditOpen(true)}
-                  disabled={Boolean(pendingAction)}
-                >
-                  <Pencil className="h-4 w-4" />
-                  Edit group
-                </Button>
-                <Button
-                  type="button"
-                  className="rounded-full px-5"
-                  onClick={() => setIsAddMemberOpen(true)}
-                  disabled={Boolean(pendingAction)}
-                >
-                  <Plus className="h-4 w-4" />
-                  Add member
-                </Button>
+            <div className="grid gap-3 xl:grid-cols-3">
+              <div className="rounded-md border border-border/70 bg-card/92 p-4">
+                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Path</p>
+                <p className="mt-2 text-sm font-medium text-foreground">{data.group.path}</p>
               </div>
-              <div className="grid gap-3 sm:grid-cols-3">
-                <div className="rounded-[1.25rem] border border-border bg-background p-4">
-                  <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Members</p>
-                  <p className="mt-3 text-2xl font-semibold text-foreground">{data.members.length}</p>
-                </div>
-                <div className="rounded-[1.25rem] border border-border bg-background p-4">
-                  <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Subgroups</p>
-                  <p className="mt-3 text-2xl font-semibold text-foreground">{data.group.subGroupCount}</p>
-                </div>
-                <div className="rounded-[1.25rem] border border-border bg-background p-4">
-                  <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Depth</p>
-                  <p className="mt-3 text-2xl font-semibold text-foreground">{data.group.depth}</p>
-                </div>
+              <div className="rounded-md border border-border/70 bg-card/92 p-4">
+                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Realm</p>
+                <p className="mt-2 text-sm font-medium text-foreground">{data.summary.realm}</p>
+              </div>
+              <div className="rounded-md border border-border/70 bg-card/92 p-4">
+                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Description</p>
+                <p className="mt-2 text-sm font-medium text-foreground">{data.group.description || "No description"}</p>
+              </div>
+              <div className="rounded-md border border-border/70 bg-card/92 p-4">
+                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Members</p>
+                <p className="mt-2 text-sm font-medium text-foreground">{data.members.length}</p>
+              </div>
+              <div className="rounded-md border border-border/70 bg-card/92 p-4">
+                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Subgroups</p>
+                <p className="mt-2 text-sm font-medium text-foreground">{data.group.subGroupCount}</p>
+              </div>
+              <div className="rounded-md border border-border/70 bg-card/92 p-4">
+                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Depth</p>
+                <p className="mt-2 text-sm font-medium text-foreground">{data.group.depth}</p>
               </div>
             </div>
           </div>
-        </CardContent>
-      </Card>
 
-      {feedback ? (
-        <Alert variant={feedback.tone === "error" ? "destructive" : "default"}>
-          <AlertTitle>{feedback.tone === "error" ? "Action failed" : "Action completed"}</AlertTitle>
-          <AlertDescription>{feedback.message}</AlertDescription>
-        </Alert>
-      ) : null}
+          {feedback ? (
+            <Alert variant={feedback.tone === "error" ? "destructive" : "default"}>
+              <AlertTitle>{feedback.tone === "error" ? "Action failed" : "Action completed"}</AlertTitle>
+              <AlertDescription>{feedback.message}</AlertDescription>
+            </Alert>
+          ) : null}
 
-      {data.warnings.length > 0 ? (
-        <Alert>
-          <AlertTitle>Some group activity sections are limited</AlertTitle>
-          <AlertDescription>{data.warnings.join(" ")}</AlertDescription>
-        </Alert>
-      ) : null}
+          {data.warnings.length > 0 ? (
+            <Alert>
+              <AlertTitle>Some group activity sections are limited</AlertTitle>
+              <AlertDescription>{data.warnings.join(" ")}</AlertDescription>
+            </Alert>
+          ) : null}
 
-      <Tabs defaultValue="overview" className="space-y-5">
-        <TabsList className="grid h-auto w-full grid-cols-3 rounded-[1.25rem] border border-border bg-card p-1">
-          <TabsTrigger value="overview" className="h-11 rounded-[1rem]">
-            Overview
-          </TabsTrigger>
-          <TabsTrigger value="members" className="h-11 rounded-[1rem]">
-            Members
-          </TabsTrigger>
-          <TabsTrigger value="activity" className="h-11 rounded-[1rem]">
-            Activity
-          </TabsTrigger>
-        </TabsList>
+          <Tabs defaultValue="overview" className="space-y-5">
+            <TabsList className="grid h-auto w-full grid-cols-3 rounded-md border border-border/70 bg-card/92 p-1">
+            <TabsTrigger value="overview" className="h-11 rounded-sm">
+              Overview
+            </TabsTrigger>
+            <TabsTrigger value="access" className="h-11 rounded-sm">
+              Access
+            </TabsTrigger>
+            <TabsTrigger value="activity" className="h-11 rounded-sm">
+              Activity
+            </TabsTrigger>
+            </TabsList>
 
-        <TabsContent value="overview" className="space-y-6">
-          <div className="grid gap-6 xl:grid-cols-[1fr,0.95fr]">
-            <Card className="border-border bg-card shadow-sm">
+            <TabsContent value="overview" className="space-y-6">
+            <Card className="border-border/70 bg-card/92 shadow-none">
               <CardHeader>
                 <div className="flex items-center gap-3">
                   <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary">
@@ -329,11 +314,11 @@ export function GroupDetailContent({ groupId }: { groupId: string }) {
                   </div>
                   <div>
                     <CardTitle className="text-lg">Group structure</CardTitle>
-                    <CardDescription>Hierarchy, attributes, and direct subgroup relationships.</CardDescription>
+                    <CardDescription>Hierarchy, subgroups, and attributes without the long vertical stack.</CardDescription>
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="grid gap-4 xl:grid-cols-[0.9fr,1fr,1.1fr]">
                 <div className="rounded-[1rem] border border-border bg-background p-4">
                   <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Ancestry</p>
                   {data.ancestry.length === 0 ? (
@@ -371,7 +356,7 @@ export function GroupDetailContent({ groupId }: { groupId: string }) {
                   {Object.keys(data.group.attributes).length === 0 ? (
                     <p className="mt-3 text-sm text-muted-foreground">No custom attributes were returned.</p>
                   ) : (
-                    <div className="mt-3 grid gap-3">
+                    <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
                       {Object.entries(data.group.attributes).map(([key, values]) => (
                         <div key={key} className="rounded-[0.9rem] border border-border bg-card p-3">
                           <p className="font-medium text-foreground">{key}</p>
@@ -383,73 +368,72 @@ export function GroupDetailContent({ groupId }: { groupId: string }) {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
 
-            <Card className="border-border bg-card shadow-sm">
-              <CardHeader>
-                <div className="flex items-center gap-3">
-                  <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary">
-                    <Users className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-lg">Role mappings</CardTitle>
-                    <CardDescription>Realm and client roles inherited by members through this group.</CardDescription>
-                  </div>
+            <TabsContent value="access" className="space-y-6">
+          <Card className="border-border/70 bg-card/92 shadow-none">
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary">
+                  <Users className="h-5 w-5" />
                 </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="rounded-[1rem] border border-border bg-background p-4">
-                  <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Realm roles</p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {(data.roleMappings.realmMappings ?? []).length === 0 ? (
-                      <span className="text-sm text-muted-foreground">No realm roles were returned.</span>
-                    ) : (
-                      (data.roleMappings.realmMappings ?? []).map((role) => (
-                        <Badge key={role.id ?? role.name} variant="outline" className="border-border bg-card text-muted-foreground">
-                          {role.name ?? role.id}
-                        </Badge>
-                      ))
-                    )}
-                  </div>
+                <div>
+                  <CardTitle className="text-lg">Role mappings</CardTitle>
+                  <CardDescription>Realm and client roles.</CardDescription>
                 </div>
-
-                <div className="rounded-[1rem] border border-border bg-background p-4">
-                  <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Client role mappings</p>
-                  {Object.keys(data.roleMappings.clientMappings ?? {}).length === 0 ? (
-                    <p className="mt-3 text-sm text-muted-foreground">No client role mappings were returned.</p>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="rounded-[1rem] border border-border bg-background p-4">
+                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Realm roles</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {(data.roleMappings.realmMappings ?? []).length === 0 ? (
+                    <span className="text-sm text-muted-foreground">No realm roles were returned.</span>
                   ) : (
-                    <div className="mt-3 space-y-3">
-                      {Object.entries(data.roleMappings.clientMappings ?? {}).map(([clientId, clientMapping]) => (
-                        <div key={clientId} className="rounded-[0.9rem] border border-border bg-card p-3">
-                          <p className="font-medium text-foreground">{clientMapping.client ?? clientId}</p>
-                          <div className="mt-2 flex flex-wrap gap-2">
-                            {(clientMapping.mappings ?? []).map((role) => (
-                              <Badge key={role.id ?? role.name} variant="outline" className="border-border bg-background text-muted-foreground">
-                                {role.name ?? role.id}
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                    (data.roleMappings.realmMappings ?? []).map((role) => (
+                      <Badge key={role.id ?? role.name} variant="outline" className="border-border bg-card text-muted-foreground">
+                        {role.name ?? role.id}
+                      </Badge>
+                    ))
                   )}
                 </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
+              </div>
 
-        <TabsContent value="members">
-          <Card className="border-border bg-card shadow-sm">
+              <div className="rounded-[1rem] border border-border bg-background p-4">
+                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Client role mappings</p>
+                {Object.keys(data.roleMappings.clientMappings ?? {}).length === 0 ? (
+                  <p className="mt-3 text-sm text-muted-foreground">No client role mappings were returned.</p>
+                ) : (
+                  <div className="mt-3 space-y-3">
+                    {Object.entries(data.roleMappings.clientMappings ?? {}).map(([clientId, clientMapping]) => (
+                      <div key={clientId} className="rounded-[0.9rem] border border-border bg-card p-3">
+                        <p className="font-medium text-foreground">{clientMapping.client ?? clientId}</p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {(clientMapping.mappings ?? []).map((role) => (
+                            <Badge key={role.id ?? role.name} variant="outline" className="border-border bg-background text-muted-foreground">
+                              {role.name ?? role.id}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-border/70 bg-card/92 shadow-none">
             <CardHeader>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <CardTitle className="text-lg">Group members</CardTitle>
-                  <CardDescription>Full member list returned by Keycloak for this group.</CardDescription>
+                  <CardDescription>Current members.</CardDescription>
                 </div>
                 <Button
                   type="button"
                   variant="outline"
-                  className="rounded-full bg-transparent px-5"
+                  className="rounded-lg bg-transparent px-5"
                   onClick={() => setIsAddMemberOpen(true)}
                   disabled={Boolean(pendingAction)}
                 >
@@ -461,7 +445,7 @@ export function GroupDetailContent({ groupId }: { groupId: string }) {
             <CardContent className="p-0">
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-muted/35">
+                  <TableRow className="bg-muted/20">
                     <TableHead className="px-5">User</TableHead>
                     <TableHead className="px-5">Status</TableHead>
                     <TableHead className="px-5">Created</TableHead>
@@ -514,13 +498,13 @@ export function GroupDetailContent({ groupId }: { groupId: string }) {
                         </TableCell>
                         <TableCell className="px-5 py-4 text-right align-top">
                           <div className="flex justify-end gap-2">
-                            <Button asChild variant="outline" className="rounded-full bg-transparent px-4">
+                            <Button asChild variant="outline" className="rounded-lg bg-transparent px-4">
                               <Link href={`/users/${member.id}`}>Open user</Link>
                             </Button>
                             <Button
                               type="button"
                               variant="ghost"
-                              className="rounded-full px-3 text-rose-600 hover:text-rose-600 dark:text-rose-300"
+                              className="rounded-lg px-3 text-rose-600 hover:text-rose-600 dark:text-rose-300"
                               onClick={() => {
                                 void handleRemoveMember(member.id).catch(() => undefined)
                               }}
@@ -544,57 +528,84 @@ export function GroupDetailContent({ groupId }: { groupId: string }) {
           </Card>
         </TabsContent>
 
-        <TabsContent value="activity">
-          <Card className="border-border bg-card shadow-sm">
-            <CardHeader>
-              <div className="flex items-center gap-3">
-                <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary">
-                  <Workflow className="h-5 w-5" />
+            <TabsContent value="activity">
+            <Card className="border-border/70 bg-card/92 shadow-none">
+              <CardHeader>
+                <div className="flex items-center gap-3">
+                  <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary">
+                    <Workflow className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg">Admin activity</CardTitle>
+                    <CardDescription>Recent admin events.</CardDescription>
+                  </div>
                 </div>
-                <div>
-                  <CardTitle className="text-lg">Admin activity</CardTitle>
-                  <CardDescription>Recent admin events for this group from the Keycloak admin event log.</CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-[680px] pr-4">
-                <div className="space-y-4">
-                  {data.adminEvents.length === 0 ? (
-                    <div className="rounded-[1.25rem] border border-dashed border-border bg-background p-6 text-sm text-muted-foreground">
-                      No admin events were returned for this group.
-                    </div>
-                  ) : (
-                    data.adminEvents.map((event) => (
-                      <div key={event.id} className="rounded-[1.25rem] border border-border bg-background p-4">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="font-medium text-foreground">{event.operationType ?? "Unknown operation"}</p>
-                          {event.resourceType ? (
-                            <Badge variant="outline" className="border-border bg-card text-muted-foreground">
-                              {event.resourceType}
-                            </Badge>
-                          ) : null}
-                          {event.error ? (
-                            <Badge variant="outline" className="border-rose-500/20 bg-rose-500/10 text-rose-600 dark:text-rose-300">
-                              Error
-                            </Badge>
-                          ) : null}
-                        </div>
-                        <div className="mt-2 flex flex-wrap gap-4 text-sm text-muted-foreground">
-                          <span>{formatTimestamp(event.occurredAt)}</span>
-                          {event.actorUsername ? <span>Actor {event.actorUsername}</span> : null}
-                          {event.ipAddress ? <span>IP {event.ipAddress}</span> : null}
-                          {event.resourcePath ? <span>{event.resourcePath}</span> : null}
-                        </div>
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="h-[680px] pr-4">
+                  <div className="space-y-4">
+                    {data.adminEvents.length === 0 ? (
+                      <div className="rounded-[1.25rem] border border-dashed border-border bg-background p-6 text-sm text-muted-foreground">
+                        No admin events were returned for this group.
                       </div>
-                    ))
-                  )}
-                </div>
-              </ScrollArea>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+                    ) : (
+                      data.adminEvents.map((event) => (
+                        <div key={event.id} className="rounded-[1.25rem] border border-border bg-background p-4">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="font-medium text-foreground">{event.operationType ?? "Unknown operation"}</p>
+                            {event.resourceType ? (
+                              <Badge variant="outline" className="border-border bg-card text-muted-foreground">
+                                {event.resourceType}
+                              </Badge>
+                            ) : null}
+                            {event.error ? (
+                              <Badge variant="outline" className="border-rose-500/20 bg-rose-500/10 text-rose-600 dark:text-rose-300">
+                                Error
+                              </Badge>
+                            ) : null}
+                          </div>
+                          <div className="mt-2 flex flex-wrap gap-4 text-sm text-muted-foreground">
+                            <span>{formatTimestamp(event.occurredAt)}</span>
+                            {event.actorUsername ? <span>Actor {event.actorUsername}</span> : null}
+                            {event.ipAddress ? <span>IP {event.ipAddress}</span> : null}
+                            {event.resourcePath ? <span>{event.resourcePath}</span> : null}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+            </TabsContent>
+          </Tabs>
+        </div>
+
+        <aside className="md:w-80 md:shrink-0 md:self-stretch md:border-l md:border-border/70 md:bg-card/30">
+          <div className="rounded-sm border border-border/70 bg-card/92 p-4 md:sticky md:top-6 md:rounded-none md:border-0 md:bg-transparent md:p-6">
+            <div className="space-y-1 pb-4">
+              <h3 className="text-lg font-semibold text-foreground">Actions</h3>
+              <p className="text-sm text-muted-foreground">Direct group controls.</p>
+            </div>
+            <div className="grid gap-2">
+              <Button type="button" className="h-10 justify-start rounded-sm px-4" onClick={() => setIsEditOpen(true)} disabled={Boolean(pendingAction)}>
+                <Pencil className="h-4 w-4" />
+                Edit group
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-10 justify-start rounded-sm bg-transparent px-4"
+                onClick={() => setIsAddMemberOpen(true)}
+                disabled={Boolean(pendingAction)}
+              >
+                <Plus className="h-4 w-4" />
+                Add member
+              </Button>
+            </div>
+          </div>
+        </aside>
+      </div>
 
       <GroupEditorDialog
         open={isEditOpen}
@@ -617,3 +628,5 @@ export function GroupDetailContent({ groupId }: { groupId: string }) {
     </div>
   )
 }
+
+

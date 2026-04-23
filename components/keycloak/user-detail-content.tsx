@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import Link from "next/link"
 import { useEffect, useState } from "react"
@@ -378,7 +378,7 @@ export function UserDetailContent({ userId }: { userId: string }) {
 
   if (error || !data) {
     return (
-      <Card className="border-border bg-card shadow-sm">
+      <Card className="border-border/70 bg-card/92">
         <CardContent className="space-y-4 p-8">
           <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-destructive/30 bg-destructive/10 text-destructive">
             <ShieldAlert className="h-5 w-5" />
@@ -387,7 +387,7 @@ export function UserDetailContent({ userId }: { userId: string }) {
             <h2 className="text-xl font-semibold tracking-tight text-foreground">User detail unavailable</h2>
             <p className="text-sm leading-6 text-muted-foreground">{error ?? "The requested user could not be loaded."}</p>
           </div>
-          <Button asChild variant="outline" className="rounded-full px-5">
+          <Button asChild variant="outline" className="rounded-lg px-5">
             <Link href="/users">
               <ArrowLeft className="h-4 w-4" />
               Back to users
@@ -400,207 +400,97 @@ export function UserDetailContent({ userId }: { userId: string }) {
 
   return (
     <div className="space-y-6">
-      <Card className="border-border bg-card shadow-sm">
-        <CardContent className="space-y-5 p-6">
-          <Button asChild variant="ghost" className="h-9 rounded-full px-3 text-muted-foreground">
-            <Link href="/users">
-              <ArrowLeft className="h-4 w-4" />
-              Back to users
-            </Link>
-          </Button>
+      <div className="flex flex-col gap-6 md:flex-row md:items-start md:gap-0">
+        <div className="min-w-0 flex-1 space-y-6 md:pr-6">
+          <div className="space-y-4 px-1">
+            <Button asChild variant="ghost" className="h-8 rounded-xl px-3 text-muted-foreground">
+              <Link href="/users">
+                <ArrowLeft className="h-4 w-4" />
+                Back to users
+              </Link>
+            </Button>
 
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-            <div className="space-y-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-2xl font-semibold tracking-tight text-foreground">{data.user.displayName}</h2>
-                <Badge
-                  variant="outline"
-                  className={
-                    data.user.enabled
-                      ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300"
-                      : "border-rose-500/20 bg-rose-500/10 text-rose-600 dark:text-rose-300"
-                  }
-                >
-                  {data.user.enabled ? "Enabled" : "Disabled"}
+            <div className="flex flex-wrap items-center gap-3">
+              <h2 className="text-[2rem] font-semibold tracking-[-0.04em] text-foreground">
+                {data.user.displayName || data.user.username}
+              </h2>
+              <Badge
+                variant="outline"
+                className={
+                  data.user.enabled
+                    ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300"
+                    : "border-rose-500/20 bg-rose-500/10 text-rose-600 dark:text-rose-300"
+                }
+              >
+                {data.user.enabled ? "Enabled" : "Disabled"}
+              </Badge>
+              {!data.user.emailVerified ? (
+                <Badge variant="outline" className="border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-300">
+                  Email unverified
                 </Badge>
-                {!data.user.emailVerified ? (
-                  <Badge variant="outline" className="border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-300">
-                    Email unverified
-                  </Badge>
-                ) : null}
-              </div>
-              <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">{data.user.username}</p>
-                <p className="text-sm text-muted-foreground">{data.user.email || "No email address"}</p>
-                <p className="text-sm text-muted-foreground">
-                  Realm {data.summary.realm}
-                  {data.summary.displayName ? ` · ${data.summary.displayName}` : ""}
-                </p>
-              </div>
+              ) : null}
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2 xl:w-[440px]">
-              <div className="rounded-[1.25rem] border border-border bg-background p-4">
-                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Created</p>
-                <p className="mt-3 text-sm font-medium text-foreground">{formatTimestamp(data.user.createdAt)}</p>
+            <div className="grid gap-3 xl:grid-cols-3">
+              <div className="rounded-md border border-border/70 bg-card/92 p-4">
+                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Username</p>
+                <p className="mt-2 text-sm font-medium text-foreground">{data.user.username}</p>
               </div>
-              <div className="rounded-[1.25rem] border border-border bg-background p-4">
-                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Password last set</p>
-                <p className="mt-3 text-sm font-medium text-foreground">{formatTimestamp(data.summary.passwordLastSetAt)}</p>
+              <div className="rounded-md border border-border/70 bg-card/92 p-4">
+                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Email</p>
+                <p className="mt-2 text-sm font-medium text-foreground">{data.user.email || "No email address"}</p>
               </div>
-              <div className="rounded-[1.25rem] border border-border bg-background p-4">
-                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Latest successful login</p>
-                <p className="mt-3 text-sm font-medium text-foreground">{formatTimestamp(data.summary.latestSuccessfulLoginAt)}</p>
+              <div className="rounded-md border border-border/70 bg-card/92 p-4">
+                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Realm</p>
+                <p className="mt-2 text-sm font-medium text-foreground">{data.summary.realm}</p>
               </div>
-              <div className="rounded-[1.25rem] border border-border bg-background p-4">
-                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Active sessions</p>
-                <p className="mt-3 text-2xl font-semibold text-foreground">{data.sessions.length}</p>
+              <div className="rounded-md border border-border/70 bg-card/92 p-4">
+                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Federation</p>
+                <p className="mt-2 text-sm font-medium text-foreground">{data.user.federationLink ?? "Local user"}</p>
+              </div>
+              <div className="rounded-md border border-border/70 bg-card/92 p-4">
+                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Sessions</p>
+                <p className="mt-2 text-sm font-medium text-foreground">{data.sessions.length}</p>
+              </div>
+              <div className="rounded-md border border-border/70 bg-card/92 p-4">
+                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Last login</p>
+                <p className="mt-2 text-sm font-medium text-foreground">{formatTimestamp(data.summary.latestSuccessfulLoginAt)}</p>
               </div>
             </div>
           </div>
-        </CardContent>
-      </Card>
 
-      {feedback ? (
-        <Alert variant={feedback.tone === "error" ? "destructive" : "default"}>
-          <AlertTitle>{feedback.tone === "error" ? "Action failed" : "Action completed"}</AlertTitle>
-          <AlertDescription>{feedback.message}</AlertDescription>
-        </Alert>
-      ) : null}
+          {feedback ? (
+            <Alert variant={feedback.tone === "error" ? "destructive" : "default"}>
+              <AlertTitle>{feedback.tone === "error" ? "Action failed" : "Action completed"}</AlertTitle>
+              <AlertDescription>{feedback.message}</AlertDescription>
+            </Alert>
+          ) : null}
 
-      <Card className="border-border bg-card shadow-sm">
-        <CardHeader className="border-b border-border pb-4">
-          <CardTitle className="text-lg">User controls</CardTitle>
-          <CardDescription>
-            Manage the account directly from Keycloak. Disable is the manual account block. Clear lock only releases a brute-force lock if one exists.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4 p-6">
-          <div className="flex flex-wrap gap-3">
-            <Button className="rounded-full px-5" onClick={() => setIsEditOpen(true)} disabled={Boolean(pendingAction)}>
-              <UserPen className="h-4 w-4" />
-              Edit profile
-            </Button>
+          {data.warnings.length > 0 ? (
+            <Alert>
+              <AlertTitle>Some live Keycloak sections are limited</AlertTitle>
+              <AlertDescription>
+                {data.warnings.join(" ")}
+              </AlertDescription>
+            </Alert>
+          ) : null}
 
-            <Button
-              variant="outline"
-              className="rounded-full bg-transparent px-5"
-              onClick={() => {
-                void handleToggleEnabled(!data.user.enabled).catch(() => undefined)
-              }}
-              disabled={Boolean(pendingAction)}
-            >
-              {pendingAction === (data.user.enabled ? "User disabled" : "User enabled") ? (
-                <LoaderCircle className="h-4 w-4 animate-spin" />
-              ) : (
-                <ShieldBan className="h-4 w-4" />
-              )}
-              {data.user.enabled ? "Disable user" : "Enable user"}
-            </Button>
+          <Tabs defaultValue="overview" className="space-y-5">
+            <TabsList className="grid h-auto w-full grid-cols-3 rounded-md border border-border/70 bg-card/92 p-1">
+            <TabsTrigger value="overview" className="h-11 rounded-sm">
+              Overview
+            </TabsTrigger>
+            <TabsTrigger value="access" className="h-11 rounded-sm">
+              Access
+            </TabsTrigger>
+            <TabsTrigger value="activity" className="h-11 rounded-sm">
+              Activity
+            </TabsTrigger>
+            </TabsList>
 
-            <Button
-              variant="outline"
-              className="rounded-full bg-transparent px-5"
-              onClick={() => setIsPasswordOpen(true)}
-              disabled={Boolean(pendingAction)}
-            >
-              <KeyRound className="h-4 w-4" />
-              Reset password
-            </Button>
-
-            <Button
-              variant="outline"
-              className="rounded-full bg-transparent px-5"
-              onClick={() => {
-                void handleResetOtp().catch(() => undefined)
-              }}
-              disabled={Boolean(pendingAction)}
-            >
-              {pendingAction === "OTP credentials reset" ? (
-                <LoaderCircle className="h-4 w-4 animate-spin" />
-              ) : (
-                <Shield className="h-4 w-4" />
-              )}
-              Reset OTP
-            </Button>
-
-            <Button
-              variant="outline"
-              className="rounded-full bg-transparent px-5"
-              onClick={() => {
-                void handleLogoutSessions().catch(() => undefined)
-              }}
-              disabled={Boolean(pendingAction)}
-            >
-              {pendingAction === "All active sessions terminated" ? (
-                <LoaderCircle className="h-4 w-4 animate-spin" />
-              ) : (
-                <LogOut className="h-4 w-4" />
-              )}
-              Sign out sessions
-            </Button>
-
-            <Button
-              variant="outline"
-              className="rounded-full bg-transparent px-5"
-              onClick={() => {
-                void handleClearLock().catch(() => undefined)
-              }}
-              disabled={Boolean(pendingAction)}
-            >
-              {pendingAction === "Brute-force lock cleared" ? (
-                <LoaderCircle className="h-4 w-4 animate-spin" />
-              ) : (
-                <LockOpen className="h-4 w-4" />
-              )}
-              Clear lock
-            </Button>
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-3">
-            <div className="rounded-[1rem] border border-border bg-background p-4">
-              <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Account state</p>
-              <p className="mt-2 font-medium text-foreground">{data.user.enabled ? "Enabled" : "Disabled"}</p>
-            </div>
-            <div className="rounded-[1rem] border border-border bg-background p-4">
-              <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Current lock state</p>
-              <p className="mt-2 font-medium text-foreground">
-                {Object.keys(data.security.bruteForceStatus ?? {}).length > 0 ? "See brute-force details below" : "No brute-force data"}
-              </p>
-            </div>
-            <div className="rounded-[1rem] border border-border bg-background p-4">
-              <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Session controls</p>
-              <p className="mt-2 font-medium text-foreground">{data.sessions.length} active session(s)</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {data.warnings.length > 0 ? (
-        <Alert>
-          <AlertTitle>Some live Keycloak sections are limited</AlertTitle>
-          <AlertDescription>
-            {data.warnings.join(" ")}
-          </AlertDescription>
-        </Alert>
-      ) : null}
-
-      <Tabs defaultValue="overview" className="space-y-5">
-        <TabsList className="grid h-auto w-full grid-cols-3 rounded-[1.25rem] border border-border bg-card p-1">
-          <TabsTrigger value="overview" className="h-11 rounded-[1rem]">
-            Overview
-          </TabsTrigger>
-          <TabsTrigger value="access" className="h-11 rounded-[1rem]">
-            Access
-          </TabsTrigger>
-          <TabsTrigger value="activity" className="h-11 rounded-[1rem]">
-            Activity
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="overview" className="space-y-6">
+            <TabsContent value="overview" className="space-y-6">
           <div className="grid gap-6 xl:grid-cols-[1fr,0.95fr]">
-            <Card className="border-border bg-card shadow-sm">
+            <Card className="border-border/70 bg-card/92 shadow-none">
               <CardHeader>
                 <div className="flex items-center gap-3">
                   <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary">
@@ -608,7 +498,7 @@ export function UserDetailContent({ userId }: { userId: string }) {
                   </div>
                   <div>
                     <CardTitle className="text-lg">Identity profile</CardTitle>
-                    <CardDescription>Core user state and editable profile attributes returned by Keycloak.</CardDescription>
+                    <CardDescription>Core state and editable fields.</CardDescription>
                   </div>
                 </div>
               </CardHeader>
@@ -640,7 +530,7 @@ export function UserDetailContent({ userId }: { userId: string }) {
                   {Object.keys(data.user.attributes).length === 0 ? (
                     <p className="mt-3 text-sm text-muted-foreground">No custom user attributes were returned.</p>
                   ) : (
-                    <div className="mt-3 grid gap-3">
+                    <div className="mt-3 grid gap-3 md:grid-cols-2">
                       {Object.entries(data.user.attributes).map(([key, values]) => (
                         <div key={key} className="rounded-[0.9rem] border border-border bg-card p-3">
                           <p className="text-sm font-medium text-foreground">{key}</p>
@@ -653,7 +543,7 @@ export function UserDetailContent({ userId }: { userId: string }) {
               </CardContent>
             </Card>
 
-            <Card className="border-border bg-card shadow-sm">
+            <Card className="border-border/70 bg-card/92 shadow-none">
               <CardHeader>
                 <div className="flex items-center gap-3">
                   <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary">
@@ -661,7 +551,7 @@ export function UserDetailContent({ userId }: { userId: string }) {
                   </div>
                   <div>
                     <CardTitle className="text-lg">Credentials and identity links</CardTitle>
-                    <CardDescription>Password age, credential inventory, and external identity providers.</CardDescription>
+                    <CardDescription>Credential age and identity links.</CardDescription>
                   </div>
                 </div>
               </CardHeader>
@@ -688,7 +578,7 @@ export function UserDetailContent({ userId }: { userId: string }) {
 
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-muted/35">
+                    <TableRow className="bg-muted/20">
                       <TableHead className="px-4">Type</TableHead>
                       <TableHead className="px-4">Created</TableHead>
                       <TableHead className="px-4">Label</TableHead>
@@ -725,7 +615,7 @@ export function UserDetailContent({ userId }: { userId: string }) {
                   {data.federatedIdentities.length === 0 ? (
                     <p className="mt-3 text-sm text-muted-foreground">No federated identity links were returned.</p>
                   ) : (
-                    <div className="mt-3 grid gap-3">
+                    <div className="mt-3 grid gap-3 md:grid-cols-2">
                       {data.federatedIdentities.map((identity, index) => (
                         <div key={`${identity.identityProvider ?? "provider"}-${index}`} className="rounded-[0.9rem] border border-border bg-card p-3">
                           <p className="font-medium text-foreground">{identity.identityProvider ?? "Unknown provider"}</p>
@@ -742,9 +632,9 @@ export function UserDetailContent({ userId }: { userId: string }) {
           </div>
         </TabsContent>
 
-        <TabsContent value="access" className="space-y-6">
+            <TabsContent value="access" className="space-y-6">
           <div className="grid gap-6 xl:grid-cols-[0.9fr,1.1fr]">
-            <Card className="border-border bg-card shadow-sm">
+            <Card className="border-border/70 bg-card/92 shadow-none">
               <CardHeader>
                 <div className="flex items-center gap-3">
                   <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary">
@@ -752,7 +642,7 @@ export function UserDetailContent({ userId }: { userId: string }) {
                   </div>
                   <div>
                     <CardTitle className="text-lg">Groups and roles</CardTitle>
-                    <CardDescription>Effective access structure assigned through groups and direct role mappings.</CardDescription>
+                    <CardDescription>Membership and mapped roles.</CardDescription>
                   </div>
                 </div>
               </CardHeader>
@@ -763,7 +653,7 @@ export function UserDetailContent({ userId }: { userId: string }) {
                     <Button
                       type="button"
                       variant="outline"
-                      className="h-8 rounded-full bg-transparent px-3 text-xs"
+                      className="h-8 rounded-lg bg-transparent px-3 text-xs"
                       onClick={() => setIsAddGroupOpen(true)}
                       disabled={Boolean(pendingAction)}
                     >
@@ -785,7 +675,7 @@ export function UserDetailContent({ userId }: { userId: string }) {
                             <Button
                               type="button"
                               variant="ghost"
-                              className="h-8 rounded-full px-3 text-rose-600 hover:text-rose-600 dark:text-rose-300"
+                              className="h-8 rounded-lg px-3 text-rose-600 hover:text-rose-600 dark:text-rose-300"
                               onClick={() => {
                                 void handleRemoveGroup(group.id).catch(() => undefined)
                               }}
@@ -844,7 +734,7 @@ export function UserDetailContent({ userId }: { userId: string }) {
               </CardContent>
             </Card>
 
-            <Card className="border-border bg-card shadow-sm">
+            <Card className="border-border/70 bg-card/92 shadow-none">
               <CardHeader>
                 <div className="flex items-center gap-3">
                   <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary">
@@ -852,7 +742,7 @@ export function UserDetailContent({ userId }: { userId: string }) {
                   </div>
                   <div>
                     <CardTitle className="text-lg">Sessions and protections</CardTitle>
-                    <CardDescription>Current sessions plus brute-force and credential reset state.</CardDescription>
+                    <CardDescription>Sessions and brute-force state.</CardDescription>
                   </div>
                 </div>
               </CardHeader>
@@ -866,7 +756,7 @@ export function UserDetailContent({ userId }: { userId: string }) {
 
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-muted/35">
+                    <TableRow className="bg-muted/20">
                       <TableHead className="px-4">IP</TableHead>
                       <TableHead className="px-4">Start</TableHead>
                       <TableHead className="px-4">Last access</TableHead>
@@ -909,74 +799,147 @@ export function UserDetailContent({ userId }: { userId: string }) {
           </div>
         </TabsContent>
 
-        <TabsContent value="activity">
-          <Card className="border-border bg-card shadow-sm">
-            <CardHeader>
-              <div className="flex items-center gap-3">
-                <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary">
-                  <Workflow className="h-5 w-5" />
+            <TabsContent value="activity">
+            <Card className="border-border/70 bg-card/92 shadow-none">
+              <CardHeader>
+                <div className="flex items-center gap-3">
+                  <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary">
+                    <Workflow className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg">User event timeline</CardTitle>
+                    <CardDescription>Recent realm and admin events.</CardDescription>
+                  </div>
                 </div>
-                <div>
-                  <CardTitle className="text-lg">User event timeline</CardTitle>
-                  <CardDescription>
-                    Combined Keycloak realm events and admin events for login activity, password resets, and account actions.
-                  </CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-[720px] pr-4">
-                <div className="space-y-4">
-                  {data.activity.length === 0 ? (
-                    <div className="rounded-[1.25rem] border border-dashed border-border bg-background p-6 text-sm text-muted-foreground">
-                      No realm or admin events were returned for this user.
-                    </div>
-                  ) : (
-                    data.activity.map((event) => (
-                      <div key={`${event.source}-${event.id}`} className="rounded-[1.25rem] border border-border bg-background p-4">
-                        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                          <div className="space-y-2">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <p className="font-medium text-foreground">{formatLabel(event.label)}</p>
-                              <Badge variant="outline" className="border-border bg-card text-muted-foreground">
-                                {event.source === "realm-event" ? "Realm event" : "Admin event"}
-                              </Badge>
-                              {event.error ? (
-                                <Badge variant="outline" className="border-rose-500/20 bg-rose-500/10 text-rose-600 dark:text-rose-300">
-                                  Error
-                                </Badge>
-                              ) : null}
-                            </div>
-
-                            <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-                              <span>{formatTimestamp(event.occurredAt)}</span>
-                              {event.clientId ? <span>Client {event.clientId}</span> : null}
-                              {event.ipAddress ? <span>IP {event.ipAddress}</span> : null}
-                              {"resourcePath" in event && event.resourcePath ? <span>{event.resourcePath}</span> : null}
-                              {"actorUsername" in event && event.actorUsername ? <span>Actor {event.actorUsername}</span> : null}
-                            </div>
-                          </div>
-                        </div>
-
-                        {Object.keys(event.details).length > 0 ? (
-                          <div className="mt-4 grid gap-3 md:grid-cols-2">
-                            {Object.entries(event.details).map(([key, value]) => (
-                              <div key={key} className="rounded-[0.9rem] border border-border bg-card p-3">
-                                <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">{formatLabel(key)}</p>
-                                <p className="mt-2 text-sm text-foreground">{value}</p>
-                              </div>
-                            ))}
-                          </div>
-                        ) : null}
+              </CardHeader>
+              <CardContent>
+                <ScrollArea className="h-[720px] pr-4">
+                  <div className="space-y-4">
+                    {data.activity.length === 0 ? (
+                      <div className="rounded-[1.25rem] border border-dashed border-border bg-background p-6 text-sm text-muted-foreground">
+                        No realm or admin events were returned for this user.
                       </div>
-                    ))
-                  )}
-                </div>
-              </ScrollArea>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+                    ) : (
+                      data.activity.map((event) => (
+                        <div key={`${event.source}-${event.id}`} className="rounded-[1.25rem] border border-border bg-background p-4">
+                          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                            <div className="space-y-2">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="font-medium text-foreground">{formatLabel(event.label)}</p>
+                                <Badge variant="outline" className="border-border bg-card text-muted-foreground">
+                                  {event.source === "realm-event" ? "Realm event" : "Admin event"}
+                                </Badge>
+                                {event.error ? (
+                                  <Badge variant="outline" className="border-rose-500/20 bg-rose-500/10 text-rose-600 dark:text-rose-300">
+                                    Error
+                                  </Badge>
+                                ) : null}
+                              </div>
+
+                              <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                                <span>{formatTimestamp(event.occurredAt)}</span>
+                                {event.clientId ? <span>Client {event.clientId}</span> : null}
+                                {event.ipAddress ? <span>IP {event.ipAddress}</span> : null}
+                                {"resourcePath" in event && event.resourcePath ? <span>{event.resourcePath}</span> : null}
+                                {"actorUsername" in event && event.actorUsername ? <span>Actor {event.actorUsername}</span> : null}
+                              </div>
+                            </div>
+                          </div>
+
+                          {Object.keys(event.details).length > 0 ? (
+                            <div className="mt-4 grid gap-3 md:grid-cols-2">
+                              {Object.entries(event.details).map(([key, value]) => (
+                                <div key={key} className="rounded-[0.9rem] border border-border bg-card p-3">
+                                  <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">{formatLabel(key)}</p>
+                                  <p className="mt-2 text-sm text-foreground">{value}</p>
+                                </div>
+                              ))}
+                            </div>
+                          ) : null}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+            </TabsContent>
+          </Tabs>
+        </div>
+
+        <aside className="md:w-80 md:shrink-0 md:self-stretch md:border-l md:border-border/70 md:bg-card/30">
+          <div className="rounded-sm border border-border/70 bg-card/92 p-4 md:sticky md:top-6 md:rounded-none md:border-0 md:bg-transparent md:p-6">
+            <div className="space-y-1 pb-4">
+              <h3 className="text-lg font-semibold text-foreground">Actions</h3>
+              <p className="text-sm text-muted-foreground">Direct account controls.</p>
+            </div>
+            <div className="grid gap-2">
+              <Button type="button" className="h-10 justify-start rounded-sm px-4" onClick={() => setIsEditOpen(true)} disabled={Boolean(pendingAction)}>
+                <UserPen className="h-4 w-4" />
+                Edit profile
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-10 justify-start rounded-sm bg-transparent px-4"
+                onClick={() => {
+                  void handleToggleEnabled(!data.user.enabled).catch(() => undefined)
+                }}
+                disabled={Boolean(pendingAction)}
+              >
+                <ShieldBan className="h-4 w-4" />
+                {data.user.enabled ? "Disable user" : "Enable user"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-10 justify-start rounded-sm bg-transparent px-4"
+                onClick={() => setIsPasswordOpen(true)}
+                disabled={Boolean(pendingAction)}
+              >
+                <KeyRound className="h-4 w-4" />
+                Reset password
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-10 justify-start rounded-sm bg-transparent px-4"
+                onClick={() => {
+                  void handleResetOtp().catch(() => undefined)
+                }}
+                disabled={Boolean(pendingAction)}
+              >
+                <Shield className="h-4 w-4" />
+                Reset OTP
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-10 justify-start rounded-sm bg-transparent px-4"
+                onClick={() => {
+                  void handleLogoutSessions().catch(() => undefined)
+                }}
+                disabled={Boolean(pendingAction)}
+              >
+                <LogOut className="h-4 w-4" />
+                Sign out sessions
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-10 justify-start rounded-sm bg-transparent px-4"
+                onClick={() => {
+                  void handleClearLock().catch(() => undefined)
+                }}
+                disabled={Boolean(pendingAction)}
+              >
+                <LockOpen className="h-4 w-4" />
+                Clear lock
+              </Button>
+            </div>
+          </div>
+        </aside>
+      </div>
 
       <UserEditorDialog
         mode="edit"
@@ -1005,3 +968,5 @@ export function UserDetailContent({ userId }: { userId: string }) {
     </div>
   )
 }
+
+

@@ -154,13 +154,13 @@ export function GroupsContent() {
         </Alert>
       ) : null}
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Card className="border-border bg-card shadow-sm">
-          <CardContent className="p-5">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <Card className="border-border/70 bg-card/92">
+          <CardContent className="p-4">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-sm text-muted-foreground">All groups</p>
-                <p className="mt-3 text-3xl font-semibold tracking-tight text-foreground">{data?.summary.totalGroups ?? 0}</p>
+                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">All groups</p>
+                <p className="mt-2 text-3xl font-semibold tracking-tight text-foreground">{data?.summary.totalGroups ?? 0}</p>
               </div>
               <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-border bg-background text-foreground">
                 <FolderTree className="h-5 w-5" />
@@ -169,12 +169,12 @@ export function GroupsContent() {
           </CardContent>
         </Card>
 
-        <Card className="border-border bg-card shadow-sm">
-          <CardContent className="p-5">
+        <Card className="border-border/70 bg-card/92">
+          <CardContent className="p-4">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-sm text-muted-foreground">Top-level groups</p>
-                <p className="mt-3 text-3xl font-semibold tracking-tight text-foreground">{data?.summary.topLevelGroups ?? 0}</p>
+                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Top-level groups</p>
+                <p className="mt-2 text-3xl font-semibold tracking-tight text-foreground">{data?.summary.topLevelGroups ?? 0}</p>
               </div>
               <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-border bg-background text-foreground">
                 <Users className="h-5 w-5" />
@@ -183,12 +183,12 @@ export function GroupsContent() {
           </CardContent>
         </Card>
 
-        <Card className="border-border bg-card shadow-sm">
-          <CardContent className="p-5">
+        <Card className="border-border/70 bg-card/92">
+          <CardContent className="p-4">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-sm text-muted-foreground">Nested groups</p>
-                <p className="mt-3 text-3xl font-semibold tracking-tight text-foreground">{data?.summary.nestedGroups ?? 0}</p>
+                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Nested groups</p>
+                <p className="mt-2 text-3xl font-semibold tracking-tight text-foreground">{data?.summary.nestedGroups ?? 0}</p>
               </div>
               <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-border bg-background text-foreground">
                 <ShieldCheck className="h-5 w-5" />
@@ -197,13 +197,13 @@ export function GroupsContent() {
           </CardContent>
         </Card>
 
-        <Card className="border-border bg-card shadow-sm">
-          <CardContent className="p-5">
+        <Card className="border-border/70 bg-card/92">
+          <CardContent className="p-4">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-sm text-muted-foreground">Current filter</p>
-                <p className="mt-3 text-3xl font-semibold tracking-tight text-foreground">{data?.total ?? 0}</p>
-                <p className="mt-2 text-xs text-muted-foreground">{data?.summary.realm ?? "Keycloak realm"}</p>
+                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Current scope</p>
+                <p className="mt-2 text-3xl font-semibold tracking-tight text-foreground">{data?.total ?? 0}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{data?.summary.realm ?? "Keycloak realm"}</p>
               </div>
               <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-border bg-background text-foreground">
                 <FolderTree className="h-5 w-5" />
@@ -213,12 +213,12 @@ export function GroupsContent() {
         </Card>
       </div>
 
-      <Card className="border-border bg-card shadow-sm">
+      <Card className="border-border/70 bg-card/92">
         <CardHeader className="border-b border-border pb-4">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <CardTitle className="text-lg">Realm group hierarchy</CardTitle>
-              <CardDescription>Flattened group hierarchy from Keycloak with paths, depth, subgroup counts, and mapped roles.</CardDescription>
+              <CardTitle className="text-lg">Keycloak groups</CardTitle>
+              <CardDescription>Browse group structure and mappings.</CardDescription>
             </div>
 
             <div className="flex w-full flex-col gap-3 lg:w-auto lg:flex-row lg:items-center">
@@ -231,10 +231,10 @@ export function GroupsContent() {
                     setPage(1)
                   }}
                   placeholder="Search by group name or path"
-                  className="h-11 rounded-full bg-background pl-10"
+                  className="h-11 pl-10"
                 />
               </div>
-              <Button className="h-11 rounded-full px-5" onClick={() => setIsCreateOpen(true)}>
+              <Button className="h-11 px-5" onClick={() => setIsCreateOpen(true)}>
                 <Plus className="h-4 w-4" />
                 Create group
               </Button>
@@ -261,7 +261,7 @@ export function GroupsContent() {
             <>
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-muted/35">
+                  <TableRow className="bg-muted/20">
                     <TableHead className="px-5">Group path</TableHead>
                     <TableHead className="px-5">Structure</TableHead>
                     <TableHead className="px-5">Mappings</TableHead>
@@ -306,7 +306,7 @@ export function GroupsContent() {
                         </div>
                       </TableCell>
                       <TableCell className="px-5 py-4 text-right align-top">
-                        <Button asChild variant="outline" className="rounded-full bg-transparent px-4">
+                        <Button asChild variant="outline" className="bg-transparent px-4">
                           <Link href={`/groups/${group.id}`}>
                             View detail
                             <ArrowRight className="h-4 w-4" />
@@ -325,7 +325,7 @@ export function GroupsContent() {
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
-                    className="rounded-full bg-transparent"
+                    className="bg-transparent"
                     disabled={data.page <= 1}
                     onClick={() => setPage((current) => Math.max(current - 1, 1))}
                   >
@@ -333,7 +333,7 @@ export function GroupsContent() {
                   </Button>
                   <Button
                     variant="outline"
-                    className="rounded-full bg-transparent"
+                    className="bg-transparent"
                     disabled={data.page >= data.pageCount}
                     onClick={() => setPage((current) => Math.min(current + 1, data.pageCount))}
                   >

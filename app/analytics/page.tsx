@@ -1,16 +1,12 @@
-import { Sidebar } from "@/components/dashboard/sidebar"
+import { AppShell } from "@/components/dashboard/app-shell"
 import { Header } from "@/components/dashboard/header"
 import { AnalyticsContent } from "@/components/analytics/analytics-content"
 import { Button } from "@/components/ui/button"
 
 export default function AnalyticsPage() {
   return (
-    <div className="flex min-h-screen bg-background">
-      <div className="hidden lg:block">
-        <Sidebar />
-      </div>
-
-      <main className="flex-1 p-4 lg:ml-72 lg:p-6">
+    <AppShell>
+      <div>
         <Header
           title="Audit Log"
           description="Review access, configuration, and connector activity across the entire control plane from one consolidated audit console."
@@ -24,7 +20,7 @@ export default function AnalyticsPage() {
         <div className="mt-6">
           <AnalyticsContent />
         </div>
-      </main>
-    </div>
+      </div>
+    </AppShell>
   )
 }

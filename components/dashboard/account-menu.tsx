@@ -133,7 +133,7 @@ export function AccountMenu() {
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            className="ml-1 flex items-center gap-3 rounded-xl border border-border/80 bg-card px-2.5 py-2 text-left transition-colors hover:border-primary/25"
+            className="ml-1 flex items-center gap-3 rounded-xl border border-border/70 bg-background/70 px-2.5 py-2 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-sm transition-colors hover:border-primary/25"
           >
             <Avatar className="h-9 w-9 border border-primary/20">
               <AvatarImage src="/profile.jpg" alt={profile.fullName} />

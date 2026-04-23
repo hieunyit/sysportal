@@ -354,7 +354,7 @@ export function UsersContent() {
                 <p className="mt-2 text-sm text-foreground">{createResult.defaultGroupAssignment.groupName}</p>
                 <p className="mt-2 text-xs text-muted-foreground">
                   {createResult.defaultGroupAssignment.assigned
-                    ? "The employee account was added to the default Jira ServiceDesk group."
+                    ? "The user was added to the configured default group."
                     : createResult.defaultGroupAssignment.error
                       ? `User creation succeeded, but the default group assignment failed: ${createResult.defaultGroupAssignment.error}`
                       : "Default group assignment was not completed."}
@@ -385,7 +385,7 @@ export function UsersContent() {
               <Button
                 type="button"
                 variant="outline"
-                className="rounded-full bg-transparent"
+                className="rounded-lg bg-transparent"
                 onClick={() => router.push(`/users/${createResult.id}`)}
               >
                 Open user
@@ -393,7 +393,7 @@ export function UsersContent() {
               <Button
                 type="button"
                 variant="ghost"
-                className="rounded-full"
+                className="rounded-lg"
                 onClick={() => setCreateResult(null)}
               >
                 Dismiss
@@ -403,13 +403,13 @@ export function UsersContent() {
         </Alert>
       ) : null}
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Card className="border-border bg-card shadow-sm">
-          <CardContent className="p-5">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <Card className="border-border/70 bg-card/92">
+          <CardContent className="p-4">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-sm text-muted-foreground">Realm users</p>
-                <p className="mt-3 text-3xl font-semibold tracking-tight text-foreground">
+                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Realm users</p>
+                <p className="mt-2 text-3xl font-semibold tracking-tight text-foreground">
                   {data?.summary.totalUsers ?? 0}
                 </p>
               </div>
@@ -420,12 +420,12 @@ export function UsersContent() {
           </CardContent>
         </Card>
 
-        <Card className="border-border bg-card shadow-sm">
-          <CardContent className="p-5">
+        <Card className="border-border/70 bg-card/92">
+          <CardContent className="p-4">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-sm text-muted-foreground">Enabled users</p>
-                <p className="mt-3 text-3xl font-semibold tracking-tight text-foreground">
+                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Enabled users</p>
+                <p className="mt-2 text-3xl font-semibold tracking-tight text-foreground">
                   {data?.summary.enabledUsers ?? 0}
                 </p>
               </div>
@@ -436,12 +436,12 @@ export function UsersContent() {
           </CardContent>
         </Card>
 
-        <Card className="border-border bg-card shadow-sm">
-          <CardContent className="p-5">
+        <Card className="border-border/70 bg-card/92">
+          <CardContent className="p-4">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-sm text-muted-foreground">Verified email</p>
-                <p className="mt-3 text-3xl font-semibold tracking-tight text-foreground">
+                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Verified email</p>
+                <p className="mt-2 text-3xl font-semibold tracking-tight text-foreground">
                   {data?.summary.emailVerifiedUsers ?? 0}
                 </p>
               </div>
@@ -452,13 +452,13 @@ export function UsersContent() {
           </CardContent>
         </Card>
 
-        <Card className="border-border bg-card shadow-sm">
-          <CardContent className="p-5">
+        <Card className="border-border/70 bg-card/92">
+          <CardContent className="p-4">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-sm text-muted-foreground">Current scope</p>
-                <p className="mt-3 text-3xl font-semibold tracking-tight text-foreground">{data?.total ?? 0}</p>
-                <p className="mt-2 text-xs text-muted-foreground">{data?.summary.realm ?? "Keycloak realm"}</p>
+                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Current scope</p>
+                <p className="mt-2 text-3xl font-semibold tracking-tight text-foreground">{data?.total ?? 0}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{data?.summary.realm ?? "Keycloak realm"}</p>
               </div>
               <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-border bg-background text-foreground">
                 <KeyRound className="h-5 w-5" />
@@ -468,14 +468,12 @@ export function UsersContent() {
         </Card>
       </div>
 
-      <Card className="border-border bg-card shadow-sm">
+      <Card className="border-border/70 bg-card/92">
         <CardHeader className="border-b border-border pb-4">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <div>
-              <CardTitle className="text-lg">Realm user inventory</CardTitle>
-              <CardDescription>
-                Search the configured realm and open a full user workspace for edits, password resets, and session controls.
-              </CardDescription>
+              <CardTitle className="text-lg">Keycloak users</CardTitle>
+              <CardDescription>Search users and open account controls.</CardDescription>
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row xl:items-center">
@@ -488,13 +486,13 @@ export function UsersContent() {
                     setPage(1)
                   }}
                   placeholder="Search by username, email, or name"
-                  className="h-11 rounded-full bg-background pl-10"
+                  className="h-11 pl-10"
                 />
               </div>
 
               <Button
                 variant="outline"
-                className="h-11 rounded-full bg-transparent px-5"
+                className="h-11 bg-transparent px-5"
                 onClick={() => {
                   setError(null)
                   setIsImportOpen(true)
@@ -505,7 +503,7 @@ export function UsersContent() {
               </Button>
 
               <Button
-                className="h-11 rounded-full px-5"
+                className="h-11 px-5"
                 onClick={() => {
                   setError(null)
                   setIsCreateOpen(true)
@@ -539,7 +537,7 @@ export function UsersContent() {
             <>
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-muted/35">
+                  <TableRow className="bg-muted/20">
                     <TableHead className="px-5">User</TableHead>
                     <TableHead className="px-5">Status</TableHead>
                     <TableHead className="px-5">Groups</TableHead>
@@ -615,7 +613,7 @@ export function UsersContent() {
                         )}
                       </TableCell>
                       <TableCell className="px-5 py-4 text-right align-top">
-                        <Button asChild variant="outline" className="rounded-full bg-transparent px-4">
+                        <Button asChild variant="outline" className="bg-transparent px-4">
                           <Link href={`/users/${user.id}`}>
                             Manage user
                             <ArrowRight className="h-4 w-4" />
@@ -634,7 +632,7 @@ export function UsersContent() {
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
-                    className="rounded-full bg-transparent"
+                    className="rounded-lg bg-transparent"
                     disabled={data.page <= 1}
                     onClick={() => setPage((current) => Math.max(current - 1, 1))}
                   >
@@ -642,7 +640,7 @@ export function UsersContent() {
                   </Button>
                   <Button
                     variant="outline"
-                    className="rounded-full bg-transparent"
+                    className="bg-transparent"
                     disabled={data.page >= data.pageCount}
                     onClick={() => setPage((current) => Math.min(current + 1, data.pageCount))}
                   >

@@ -6,6 +6,7 @@ import {
   ArrowLeft,
   Globe2,
   LoaderCircle,
+  LogOut,
   Pencil,
   Plus,
   ShieldAlert,
@@ -14,6 +15,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import {
@@ -26,13 +28,13 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
-  OpenVpnConsoleShell,
   OpenVpnPanel,
 } from "@/components/openvpn/openvpn-console-shell"
 import type {
   OpenVpnAccessRoute,
   OpenVpnAccessRule,
   OpenVpnAccessRuleset,
+  OpenVpnConnectedClient,
   OpenVpnGroupProfile,
   OpenVpnUserProfile,
 } from "@/lib/openvpn-admin"
@@ -41,6 +43,7 @@ import {
   getStringPropValue,
   type OpenVpnSubjectType,
 } from "@/lib/openvpn-directory"
+import { formatTimestamp } from "@/lib/email-template-utils"
 import {
   OpenVpnAccessRoutesDialog,
   OpenVpnGroupEditorDialog,
@@ -50,6 +53,7 @@ import {
   type EditableOpenVpnGroupState,
   type EditableOpenVpnUserState,
 } from "@/components/openvpn/openvpn-management-dialogs"
+import { cn } from "@/lib/utils"
 
 interface OpenVpnDetailRuleset extends OpenVpnAccessRuleset {
   rules: OpenVpnAccessRule[]
@@ -61,6 +65,8 @@ interface OpenVpnSubjectDetailResponse {
   profile: OpenVpnUserProfile | OpenVpnGroupProfile
   accessLists: Record<"access_from_ipv6" | "access_from_ipv4" | "access_to_ipv4" | "access_to_ipv6", OpenVpnAccessRoute[]>
   rulesets: OpenVpnDetailRuleset[]
+  sessions: OpenVpnConnectedClient[]
+  warnings: string[]
 }
 
 function readErrorMessage(payload: unknown, fallback: string) {
@@ -140,6 +146,23 @@ function describeAccessRouteServices(route: OpenVpnAccessRoute) {
     .join(", ")
 }
 
+function formatBytes(value?: number) {
+  if (!value || Number.isNaN(value)) {
+    return "0 B"
+  }
+
+  const units = ["B", "KB", "MB", "GB", "TB"]
+  let amount = value
+  let unitIndex = 0
+
+  while (amount >= 1024 && unitIndex < units.length - 1) {
+    amount /= 1024
+    unitIndex += 1
+  }
+
+  return `${amount >= 10 || unitIndex === 0 ? amount.toFixed(0) : amount.toFixed(1)} ${units[unitIndex]}`
+}
+
 function toEditableUserState(profile: OpenVpnUserProfile): EditableOpenVpnUserState {
   return {
     name: profile.name,
@@ -176,14 +199,16 @@ function toEditableGroupState(profile: OpenVpnGroupProfile): EditableOpenVpnGrou
 function ProfileField({
   label,
   value,
+  className,
 }: {
   label: string
   value: ReactNode
+  className?: string
 }) {
   return (
-    <div className="grid gap-1 border-b border-border/70 py-3 last:border-b-0 sm:grid-cols-[11rem,1fr] sm:items-start sm:gap-4">
+    <div className={cn("rounded-[1rem] border border-border bg-background/70 p-4", className)}>
       <dt className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">{label}</dt>
-      <dd className="text-sm text-foreground">{value}</dd>
+      <dd className="mt-2 text-sm leading-6 text-foreground">{value}</dd>
     </div>
   )
 }
@@ -585,6 +610,22 @@ export function OpenVpnSubjectDetailContent({
     )
   }
 
+  async function handleDisconnectSessions() {
+    if (subjectType !== "user") {
+      return
+    }
+
+    await runMutation("OpenVPN sessions disconnected", () =>
+      fetch(`${apiBase}/sessions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({}),
+      }),
+    )
+  }
+
   async function handleQuickRuleSave() {
     if (!data) {
       return
@@ -812,44 +853,34 @@ export function OpenVpnSubjectDetailContent({
 
   if (isLoading) {
     return (
-      <OpenVpnConsoleShell
-        title={`Loading ${subjectType === "user" ? "user" : "group"} permissions`}
-        description="Retrieving profile properties, explicit access lists, and assigned domain rulesets from OpenVPN Access Server."
-        context={`Access Controls / ${subjectType === "user" ? "Users" : "Groups"}`}
-      >
-        <OpenVpnPanel title="OpenVPN permissions" bodyClassName="p-0">
-          <div className="flex min-h-[360px] items-center justify-center bg-muted/10">
-            <div className="flex items-center gap-3 text-sm text-muted-foreground">
-              <LoaderCircle className="h-4 w-4 animate-spin" />
-              Loading OpenVPN {subjectType} detail...
-            </div>
-          </div>
-        </OpenVpnPanel>
-      </OpenVpnConsoleShell>
+      <div className="flex min-h-[360px] items-center justify-center rounded-[1.5rem] border border-dashed border-border bg-card">
+        <div className="flex items-center gap-3 text-sm text-muted-foreground">
+          <LoaderCircle className="h-4 w-4 animate-spin" />
+          Loading OpenVPN {subjectType} detail...
+        </div>
+      </div>
     )
   }
 
   if (error || !data) {
     return (
-      <OpenVpnConsoleShell
-        title="OpenVPN detail unavailable"
-        description="The requested OpenVPN subject could not be loaded from Access Server."
-        context={`Access Controls / ${subjectType === "user" ? "Users" : "Groups"}`}
-        actions={
-          <Button asChild variant="outline" className="h-10 rounded-lg bg-transparent px-4">
+      <Card className="border-border bg-card shadow-sm">
+        <CardContent className="space-y-4 p-8">
+          <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-destructive/30 bg-destructive/10 text-destructive">
+            <ShieldAlert className="h-5 w-5" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-xl font-semibold tracking-tight text-foreground">OpenVPN detail unavailable</h2>
+            <p className="text-sm leading-6 text-muted-foreground">{error ?? "The requested subject could not be loaded."}</p>
+          </div>
+          <Button asChild variant="outline" className="rounded-lg px-5">
             <Link href={routeBase}>
               <ArrowLeft className="h-4 w-4" />
               Back to {subjectType === "user" ? "users" : "groups"}
             </Link>
           </Button>
-        }
-      >
-        <Alert variant="destructive">
-          <ShieldAlert className="h-4 w-4" />
-          <AlertTitle>Unable to load OpenVPN detail</AlertTitle>
-          <AlertDescription>{error ?? "The requested subject could not be loaded."}</AlertDescription>
-        </Alert>
-      </OpenVpnConsoleShell>
+        </CardContent>
+      </Card>
     )
   }
 
@@ -861,258 +892,116 @@ export function OpenVpnSubjectDetailContent({
   const isAdmin = getBooleanPropValue(profile.admin) ?? false
   const isQuickDomainDraft = quickDraft.address.trim() ? !isIpOrCidr(quickDraft.address.trim()) : false
   const isPortDisabled = isQuickDomainDraft || quickDraft.protocol === "all" || quickDraft.protocol === "icmp"
+  const uploadedBytes = data.sessions.reduce((total, session) => total + (session.bytes_sent ?? 0), 0)
+  const downloadedBytes = data.sessions.reduce((total, session) => total + (session.bytes_received ?? 0), 0)
+  const primaryGroup = subjectType === "user" ? (profile as OpenVpnUserProfile).group ?? "Unassigned" : null
 
   return (
-    <OpenVpnConsoleShell
-      title={`${subjectType === "user" ? "User permissions" : "Group permissions"}: ${data.name}`}
-      description={`Review the resolved ${subjectType} profile, explicit access lists, and assigned domain routing policy from OpenVPN Access Server.`}
-      context={`Access Controls / ${subjectType === "user" ? "Users" : "Groups"}`}
-      metrics={[
-        {
-          label: "Policy state",
-          value: isDenied ? "Denied" : "Allowed",
-          helper: isDenied ? "An explicit deny is applied" : "No explicit deny on this profile",
-          tone: isDenied ? "warning" : "success",
-        },
-        {
-          label: "Admin UI",
-          value: isAdmin ? "Enabled" : "Off",
-          helper: authMethod,
-        },
-        {
-          label: "Autologin",
-          value: isAutologin ? "Enabled" : "Off",
-          helper: subjectType === "user" ? "User autologin profile state" : "Group autologin policy state",
-        },
-        {
-          label: "Access entries",
-          value: totalAccessEntries,
-          helper: `${data.rulesets.length} domain ruleset${data.rulesets.length === 1 ? "" : "s"} attached`,
-        },
-      ]}
-      actions={
-        <>
-          <Button asChild variant="outline" className="h-10 rounded-lg bg-transparent px-4">
-            <Link href={routeBase}>
-              <ArrowLeft className="h-4 w-4" />
-              Back to {subjectType === "user" ? "users" : "groups"}
-            </Link>
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            className="h-10 rounded-lg bg-transparent px-4"
-            onClick={() => setIsEditOpen(true)}
-          >
-            <Pencil className="h-4 w-4" />
-            Edit profile
-          </Button>
-        </>
-      }
-    >
-      {feedback ? (
-        <Alert variant={feedback.tone === "error" ? "destructive" : "default"}>
-          <AlertTitle>{feedback.tone === "error" ? "Action failed" : "Action completed"}</AlertTitle>
-          <AlertDescription>{feedback.message}</AlertDescription>
-        </Alert>
-      ) : null}
+    <div className="space-y-6">
+      <div className="flex flex-col gap-6 md:flex-row md:items-start md:gap-0">
+        <div className="min-w-0 flex-1 space-y-6 md:pr-6">
+          <div className="space-y-4 px-1">
+            <Button asChild variant="ghost" className="h-8 rounded-xl px-3 text-muted-foreground">
+              <Link href={routeBase}>
+                <ArrowLeft className="h-4 w-4" />
+                Back to {subjectType === "user" ? "users" : "groups"}
+              </Link>
+            </Button>
 
-      <OpenVpnPanel
-        title={`${subjectType === "user" ? "Define user access rule" : "Define group access rule"}`}
-        description={
-          subjectType === "user"
-            ? "Use the quick rule board for the common NAT and Route rules, then fall back to advanced controls only when needed."
-            : "Editing a group rule here affects all users inheriting from this group."
-        }
-      >
-        <div className="space-y-4">
-          {quickError ? (
-            <Alert variant="destructive">
-              <AlertTitle>Unable to save quick rule</AlertTitle>
-              <AlertDescription>{quickError}</AlertDescription>
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-[2rem] font-semibold tracking-[-0.04em] text-foreground">{data.name}</h2>
+              <Badge
+                variant="outline"
+                className={
+                  isDenied
+                    ? "border-rose-500/20 bg-rose-500/10 text-rose-600 dark:text-rose-300"
+                    : "border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300"
+                }
+              >
+                {isDenied ? "Denied" : "Allowed"}
+              </Badge>
+              {isAdmin ? (
+                <Badge variant="outline" className="border-border bg-background text-muted-foreground">
+                  Admin UI
+                </Badge>
+              ) : null}
+              {isAutologin ? (
+                <Badge variant="outline" className="border-border bg-background text-muted-foreground">
+                  Autologin
+                </Badge>
+              ) : null}
+            </div>
+
+            <div className="grid gap-3 xl:grid-cols-3">
+              <div className="rounded-md border border-border/70 bg-card/92 p-4">
+                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Authentication</p>
+                <p className="mt-2 text-sm font-medium text-foreground">{authMethod}</p>
+              </div>
+              <div className="rounded-md border border-border/70 bg-card/92 p-4">
+                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
+                  {subjectType === "user" ? "Primary group" : "Members"}
+                </p>
+                <p className="mt-2 text-sm font-medium text-foreground">
+                  {subjectType === "user"
+                    ? primaryGroup
+                    : `${(profile as OpenVpnGroupProfile).member_count ?? 0}`}
+                </p>
+              </div>
+              <div className="rounded-md border border-border/70 bg-card/92 p-4">
+                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Web access</p>
+                <p className="mt-2 text-sm font-medium text-foreground">
+                  {getBooleanPropValue(profile.deny_web) ? "Denied" : "Allowed"}
+                </p>
+              </div>
+              <div className="rounded-md border border-border/70 bg-card/92 p-4">
+                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Rulesets</p>
+                <p className="mt-2 text-sm font-medium text-foreground">{data.rulesets.length}</p>
+              </div>
+              <div className="rounded-md border border-border/70 bg-card/92 p-4">
+                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Access entries</p>
+                <p className="mt-2 text-sm font-medium text-foreground">{totalAccessEntries}</p>
+              </div>
+              <div className="rounded-md border border-border/70 bg-card/92 p-4">
+                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Sessions</p>
+                <p className="mt-2 text-sm font-medium text-foreground">{data.sessions.length}</p>
+              </div>
+            </div>
+          </div>
+
+          {feedback ? (
+            <Alert variant={feedback.tone === "error" ? "destructive" : "default"}>
+              <AlertTitle>{feedback.tone === "error" ? "Action failed" : "Action completed"}</AlertTitle>
+              <AlertDescription>{feedback.message}</AlertDescription>
             </Alert>
           ) : null}
 
-          <div className="grid gap-3 xl:grid-cols-[minmax(0,1.4fr),minmax(10rem,0.42fr),minmax(9rem,0.34fr),minmax(10rem,0.4fr),auto]">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">A single IP address, CIDR block or domain name</label>
-              <Input
-                value={quickDraft.address}
-                disabled={pendingAction !== null}
-                onChange={(event) => setQuickDraft((current) => ({ ...current, address: event.target.value }))}
-                placeholder="Address (IP, CIDR or Domain)"
-                className="h-11 rounded-lg"
-              />
-            </div>
+          {data.warnings.length > 0 ? (
+            <Alert>
+              <AlertTitle>Some OpenVPN sections are limited</AlertTitle>
+              <AlertDescription>{data.warnings.join(" ")}</AlertDescription>
+            </Alert>
+          ) : null}
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Protocol</label>
-              <Select
-                value={quickDraft.protocol}
-                onValueChange={(value: QuickRuleProtocol) => setQuickDraft((current) => ({ ...current, protocol: value }))}
-                disabled={pendingAction !== null || isQuickDomainDraft}
+          <Tabs defaultValue="overview" className="space-y-5">
+            <TabsList className="grid h-auto w-full grid-cols-3 rounded-md border border-border/70 bg-card/92 p-1">
+            <TabsTrigger value="overview" className="h-11 rounded-sm">
+              Overview
+            </TabsTrigger>
+            <TabsTrigger value="access" className="h-11 rounded-sm">
+              Access
+            </TabsTrigger>
+            <TabsTrigger value="activity" className="h-11 rounded-sm">
+              Activity
+            </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="overview" className="space-y-6">
+            <div className="grid gap-4 xl:grid-cols-[1.15fr,0.85fr]">
+              <OpenVpnPanel
+                title="Effective properties"
+                description="Resolved profile values in a denser console layout."
               >
-                <SelectTrigger className="h-11 rounded-lg">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="tcp">TCP</SelectItem>
-                  <SelectItem value="udp">UDP</SelectItem>
-                  <SelectItem value="icmp">ICMP</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Port</label>
-              <Input
-                value={isPortDisabled ? "" : quickDraft.port}
-                disabled={pendingAction !== null || isPortDisabled}
-                onChange={(event) => setQuickDraft((current) => ({ ...current, port: event.target.value }))}
-                placeholder="All"
-                className="h-11 rounded-lg"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Reachable via</label>
-              <Select
-                value={quickDraft.reachableVia}
-                onValueChange={(value: "nat" | "route") =>
-                  setQuickDraft((current) => ({ ...current, reachableVia: value }))
-                }
-                disabled={pendingAction !== null}
-              >
-                <SelectTrigger className="h-11 rounded-lg">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="nat">NAT</SelectItem>
-                  <SelectItem value="route">Route</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex items-end gap-2">
-              <Button className="h-11 rounded-lg px-5" disabled={pendingAction !== null} onClick={() => void handleQuickRuleSave()}>
-                {editingQuickRule ? "Update rule" : "Save rule"}
-              </Button>
-              {editingQuickRule ? (
-                <Button type="button" variant="outline" className="h-11 rounded-lg px-5" onClick={resetQuickEditor}>
-                  Cancel
-                </Button>
-              ) : null}
-            </div>
-          </div>
-
-          <div className="overflow-hidden rounded-xl border border-border/80">
-            <Table className="[&_td]:py-4">
-              <TableHeader className="bg-slate-50/80 dark:bg-slate-900/30">
-                <TableRow className="hover:bg-transparent">
-                  <TableHead className="w-12 px-4">
-                    <input type="checkbox" className="h-4 w-4 rounded-sm border border-border" aria-label="Select all rules" />
-                  </TableHead>
-                  <TableHead className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                    Destination
-                  </TableHead>
-                  <TableHead className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                    Inherited from
-                  </TableHead>
-                  <TableHead className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                    Protocol
-                  </TableHead>
-                  <TableHead className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                    Port
-                  </TableHead>
-                  <TableHead className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                    Reachable via
-                  </TableHead>
-                  <TableHead className="w-28 pr-4 text-right text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                    Actions
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {quickAccessItems.length ? (
-                  quickAccessItems.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell className="px-4">
-                        <input type="checkbox" className="h-4 w-4 rounded-sm border border-border" aria-label={`Select ${item.destination}`} />
-                      </TableCell>
-                      <TableCell className="font-medium text-foreground">{item.destination}</TableCell>
-                      <TableCell>{item.sourceLabel}</TableCell>
-                      <TableCell>{item.protocolLabel}</TableCell>
-                      <TableCell>{item.portLabel}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="rounded-sm">
-                          {item.reachableVia.toUpperCase()}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="pr-4 text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon"
-                            className="h-9 w-9 rounded-lg bg-transparent"
-                            disabled={pendingAction !== null || !item.editable}
-                            title={item.editReason ?? "Edit rule"}
-                            onClick={() => startQuickEdit(item)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon"
-                            className="h-9 w-9 rounded-lg bg-transparent"
-                            disabled={pendingAction !== null}
-                            onClick={() => void handleQuickRuleDelete(item)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={7} className="px-4 py-12 text-center text-sm text-muted-foreground">
-                      No quick access rules have been defined yet.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </div>
-      </OpenVpnPanel>
-
-      <OpenVpnPanel
-        title="Advanced OpenVPN controls"
-        description="Use the full OpenVPN Access Server structures when you need inbound lists, multiple service filters, or explicit ruleset management."
-      >
-        <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="h-auto flex-wrap rounded-lg border border-border bg-card p-1">
-          <TabsTrigger value="overview" className="rounded-md px-3 py-2">
-            Properties
-          </TabsTrigger>
-          <TabsTrigger value="access" className="rounded-md px-3 py-2">
-            IP access lists
-          </TabsTrigger>
-          <TabsTrigger value="rules" className="rounded-md px-3 py-2">
-            Domain rulesets
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="overview" className="space-y-4">
-          <div className="grid gap-4 xl:grid-cols-[1.15fr,0.85fr]">
-            <OpenVpnPanel
-              title="Effective properties"
-              description="Resolved userprop values returned by Access Server for this subject."
-            >
-              <dl>
+                <dl className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
                 <ProfileField label="Authentication" value={authMethod} />
                 <ProfileField
                   label="VPN access"
@@ -1139,7 +1028,7 @@ export function OpenVpnSubjectDetailContent({
                 />
                 {subjectType === "user" ? (
                   <>
-                    <ProfileField label="Primary group" value={(profile as OpenVpnUserProfile).group ?? "Unassigned"} />
+                    <ProfileField label="Primary group" value={primaryGroup} />
                     <ProfileField label="Static IPv4" value={(profile as OpenVpnUserProfile).static_ipv4 ?? "None"} />
                     <ProfileField label="Static IPv6" value={(profile as OpenVpnUserProfile).static_ipv6 ?? "None"} />
                     <ProfileField
@@ -1154,21 +1043,13 @@ export function OpenVpnSubjectDetailContent({
                       }
                     />
                   </>
-                ) : (
-                  <>
-                    <ProfileField label="Members" value={(profile as OpenVpnGroupProfile).member_count ?? 0} />
-                    <ProfileField label="Assigned subnets" value={(profile as OpenVpnGroupProfile).subnets?.length ?? 0} />
-                    <ProfileField
-                      label="Dynamic ranges"
-                      value={(profile as OpenVpnGroupProfile).dynamic_ranges?.length ?? 0}
-                    />
-                  </>
-                )}
+                ) : null}
                 {getStringPropValue(profile.cc_commands) ? (
                   <ProfileField
                     label="Client config commands"
+                    className="md:col-span-2 2xl:col-span-3"
                     value={
-                      <pre className="overflow-x-auto rounded-md bg-muted/40 p-3 text-xs text-foreground">
+                      <pre className="overflow-x-auto whitespace-pre-wrap rounded-md bg-muted/40 p-3 text-xs text-foreground">
                         {getStringPropValue(profile.cc_commands)}
                       </pre>
                     }
@@ -1177,54 +1058,236 @@ export function OpenVpnSubjectDetailContent({
               </dl>
             </OpenVpnPanel>
 
-            <OpenVpnPanel
-              title={subjectType === "user" ? "Routing posture" : "Membership snapshot"}
-              description={
-                subjectType === "user"
-                  ? "Quick operational summary of the user-level network posture."
-                  : "Current group members returned by Access Server."
-              }
-            >
-              {subjectType === "user" ? (
-                <dl>
-                  <ProfileField label="Bypass subnets" value={profile.bypass_subnets?.length ?? 0} />
-                  <ProfileField
-                    label="Client-to-server subnets"
-                    value={(profile as OpenVpnUserProfile).client_to_server_subnets?.length ?? 0}
-                  />
-                  <ProfileField
-                    label="DMZ exposure"
-                    value={`${(profile as OpenVpnUserProfile).dmz_ip?.length ?? 0} IPv4 / ${(profile as OpenVpnUserProfile).dmz_ipv6?.length ?? 0} IPv6`}
-                  />
-                </dl>
-              ) : (
-                <ScrollArea className="max-h-80 pr-4">
-                  {(profile as OpenVpnGroupProfile).members?.length ? (
-                    <div className="space-y-2">
-                      {(profile as OpenVpnGroupProfile).members?.map((member) => (
-                        <div
-                          key={member}
-                          className="rounded-md border border-border bg-muted/20 px-3 py-2 text-sm text-foreground"
-                        >
-                          {member}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="rounded-md border border-dashed border-border bg-muted/10 px-4 py-10 text-sm text-muted-foreground">
-                      No members were returned for this group.
-                    </div>
-                  )}
-                </ScrollArea>
-              )}
-            </OpenVpnPanel>
-          </div>
-        </TabsContent>
+              <OpenVpnPanel
+                title={subjectType === "user" ? "Routing posture" : "Membership snapshot"}
+                description={
+                  subjectType === "user"
+                    ? "Network scope without forcing a long vertical scan."
+                    : "Current members and inherited footprint."
+                }
+                bodyClassName="space-y-4"
+              >
+                {subjectType === "user" ? (
+                  <dl className="grid gap-3 md:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+                    <ProfileField label="Bypass subnets" value={profile.bypass_subnets?.length ?? 0} />
+                    <ProfileField
+                      label="Client-to-server subnets"
+                      value={(profile as OpenVpnUserProfile).client_to_server_subnets?.length ?? 0}
+                    />
+                    <ProfileField
+                      label="DMZ exposure"
+                      value={`${(profile as OpenVpnUserProfile).dmz_ip?.length ?? 0} IPv4 / ${(profile as OpenVpnUserProfile).dmz_ipv6?.length ?? 0} IPv6`}
+                    />
+                    <ProfileField label="Live sessions" value={data.sessions.length} />
+                  </dl>
+                ) : (
+                  <>
+                    <dl className="grid gap-3 md:grid-cols-3">
+                      <ProfileField label="Members" value={(profile as OpenVpnGroupProfile).member_count ?? 0} />
+                      <ProfileField label="Assigned subnets" value={(profile as OpenVpnGroupProfile).subnets?.length ?? 0} />
+                      <ProfileField
+                        label="Dynamic ranges"
+                        value={(profile as OpenVpnGroupProfile).dynamic_ranges?.length ?? 0}
+                      />
+                    </dl>
 
-        <TabsContent value="access" className="space-y-4">
+                    <div className="rounded-[1rem] border border-border bg-background/50 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Members</p>
+                      <ScrollArea className="mt-3 max-h-72 pr-4">
+                        {(profile as OpenVpnGroupProfile).members?.length ? (
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            {(profile as OpenVpnGroupProfile).members?.map((member) => (
+                              <div
+                                key={member}
+                                className="rounded-lg border border-border bg-muted/20 px-3 py-2 text-sm text-foreground"
+                              >
+                                {member}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="rounded-lg border border-dashed border-border bg-muted/10 px-4 py-10 text-sm text-muted-foreground">
+                            No members were returned for this group.
+                          </div>
+                        )}
+                      </ScrollArea>
+                    </div>
+                  </>
+                )}
+              </OpenVpnPanel>
+            </div>
+          </TabsContent>
+
+            <TabsContent value="access" className="space-y-6">
           <OpenVpnPanel
-            title="Group and user access rules"
-            description="Edit the explicit IPv4 and IPv6 access lists attached to this subject."
+            title="Quick access rules"
+            description={
+              subjectType === "user"
+                ? "Add common NAT or route entries."
+                : "Rules here affect inheriting users."
+            }
+          >
+            <div className="space-y-4">
+              {quickError ? (
+                <Alert variant="destructive">
+                  <AlertTitle>Unable to save quick rule</AlertTitle>
+                  <AlertDescription>{quickError}</AlertDescription>
+                </Alert>
+              ) : null}
+
+              <div className="grid gap-3 xl:grid-cols-[minmax(0,1.4fr),minmax(10rem,0.42fr),minmax(9rem,0.34fr),minmax(10rem,0.4fr),auto]">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground">A single IP address, CIDR block or domain name</label>
+                  <Input
+                    value={quickDraft.address}
+                    disabled={pendingAction !== null}
+                    onChange={(event) => setQuickDraft((current) => ({ ...current, address: event.target.value }))}
+                    placeholder="Address (IP, CIDR or Domain)"
+                    className="h-11 rounded-lg"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground">Protocol</label>
+                  <Select
+                    value={quickDraft.protocol}
+                    onValueChange={(value: QuickRuleProtocol) => setQuickDraft((current) => ({ ...current, protocol: value }))}
+                    disabled={pendingAction !== null || isQuickDomainDraft}
+                  >
+                    <SelectTrigger className="h-11 rounded-lg">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All</SelectItem>
+                      <SelectItem value="tcp">TCP</SelectItem>
+                      <SelectItem value="udp">UDP</SelectItem>
+                      <SelectItem value="icmp">ICMP</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground">Port</label>
+                  <Input
+                    value={isPortDisabled ? "" : quickDraft.port}
+                    disabled={pendingAction !== null || isPortDisabled}
+                    onChange={(event) => setQuickDraft((current) => ({ ...current, port: event.target.value }))}
+                    placeholder="All"
+                    className="h-11 rounded-lg"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground">Reachable via</label>
+                  <Select
+                    value={quickDraft.reachableVia}
+                    onValueChange={(value: "nat" | "route") =>
+                      setQuickDraft((current) => ({ ...current, reachableVia: value }))
+                    }
+                    disabled={pendingAction !== null}
+                  >
+                    <SelectTrigger className="h-11 rounded-lg">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="nat">NAT</SelectItem>
+                      <SelectItem value="route">Route</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-end gap-2">
+                  <Button className="h-11 rounded-lg px-5" disabled={pendingAction !== null} onClick={() => void handleQuickRuleSave()}>
+                    {editingQuickRule ? "Update rule" : "Save rule"}
+                  </Button>
+                  {editingQuickRule ? (
+                    <Button type="button" variant="outline" className="h-11 rounded-lg px-5" onClick={resetQuickEditor}>
+                      Cancel
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="overflow-hidden rounded-xl border border-border/80">
+                <Table className="[&_td]:py-4">
+                  <TableHeader className="bg-slate-50/80 dark:bg-slate-900/30">
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                        Destination
+                      </TableHead>
+                      <TableHead className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                        Inherited from
+                      </TableHead>
+                      <TableHead className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                        Protocol
+                      </TableHead>
+                      <TableHead className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                        Port
+                      </TableHead>
+                      <TableHead className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                        Reachable via
+                      </TableHead>
+                      <TableHead className="w-28 pr-4 text-right text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                        Actions
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {quickAccessItems.length ? (
+                      quickAccessItems.map((item) => (
+                        <TableRow key={item.id}>
+                          <TableCell className="font-medium text-foreground">{item.destination}</TableCell>
+                          <TableCell>{item.sourceLabel}</TableCell>
+                          <TableCell>{item.protocolLabel}</TableCell>
+                          <TableCell>{item.portLabel}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="rounded-sm">
+                              {item.reachableVia.toUpperCase()}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="pr-4 text-right">
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                className="h-9 w-9 rounded-lg bg-transparent"
+                                disabled={pendingAction !== null || !item.editable}
+                                title={item.editReason ?? "Edit rule"}
+                                onClick={() => startQuickEdit(item)}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                className="h-9 w-9 rounded-lg bg-transparent"
+                                disabled={pendingAction !== null}
+                                onClick={() => void handleQuickRuleDelete(item)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={6} className="px-4 py-12 text-center text-sm text-muted-foreground">
+                          No quick access rules have been defined yet.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          </OpenVpnPanel>
+
+          <OpenVpnPanel
+            title="IP access lists"
+            description="Edit explicit IPv4 and IPv6 access lists."
           >
             <div className="grid gap-4 xl:grid-cols-2">
               {(
@@ -1297,12 +1360,10 @@ export function OpenVpnSubjectDetailContent({
               ))}
             </div>
           </OpenVpnPanel>
-        </TabsContent>
 
-        <TabsContent value="rules" className="space-y-4">
           <OpenVpnPanel
             title="Assigned domain rulesets"
-            description="Manage domain routing, filtering, NAT, and bypass behavior attached to this subject."
+            description="Manage routing, filtering, NAT, and bypass rulesets."
             actions={
               <Button className="rounded-lg" onClick={() => setIsCreateRulesetOpen(true)}>
                 <Plus className="h-4 w-4" />
@@ -1426,8 +1487,141 @@ export function OpenVpnSubjectDetailContent({
             )}
           </OpenVpnPanel>
         </TabsContent>
-        </Tabs>
-      </OpenVpnPanel>
+
+            <TabsContent value="activity">
+            <Card className="border-border/70 bg-card/92 shadow-none">
+              <CardHeader>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <CardTitle className="text-lg">Active VPN sessions</CardTitle>
+                    <CardDescription>
+                      {subjectType === "user"
+                        ? "Current connections for this user."
+                        : "Current connections for members of this group."}
+                    </CardDescription>
+                  </div>
+                  {subjectType === "user" && data.sessions.length > 0 ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="rounded-lg bg-transparent px-5"
+                      onClick={() => {
+                        void handleDisconnectSessions().catch(() => undefined)
+                      }}
+                      disabled={Boolean(pendingAction)}
+                    >
+                      <LogOut className="h-4 w-4" />
+                      Disconnect sessions
+                    </Button>
+                  ) : null}
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                <div className="grid gap-3 md:grid-cols-3">
+                  <div className="rounded-[1rem] border border-border bg-background p-4">
+                    <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Connected clients</p>
+                    <p className="mt-2 text-2xl font-semibold text-foreground">{data.sessions.length}</p>
+                  </div>
+                  <div className="rounded-[1rem] border border-border bg-background p-4">
+                    <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Uploaded</p>
+                    <p className="mt-2 text-2xl font-semibold text-foreground">{formatBytes(uploadedBytes)}</p>
+                  </div>
+                  <div className="rounded-[1rem] border border-border bg-background p-4">
+                    <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Downloaded</p>
+                    <p className="mt-2 text-2xl font-semibold text-foreground">{formatBytes(downloadedBytes)}</p>
+                  </div>
+                </div>
+
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/20">
+                      <TableHead>User</TableHead>
+                      <TableHead>Connected since</TableHead>
+                      <TableHead>Source</TableHead>
+                      <TableHead>Virtual address</TableHead>
+                      <TableHead>Traffic</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {data.sessions.length === 0 ? (
+                      <TableRow className="border-border">
+                        <TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">
+                          No active VPN sessions were returned.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      data.sessions.map((session) => (
+                        <TableRow key={`${session.daemon_id}-${session.client_id}`} className="border-border">
+                          <TableCell className="align-top">
+                            <div className="space-y-1">
+                              <p className="font-medium text-foreground">{session.username ?? session.commonname ?? "Unknown client"}</p>
+                              <p className="text-xs text-muted-foreground">{session.commonname ?? session.daemon_id}</p>
+                            </div>
+                          </TableCell>
+                          <TableCell className="align-top">{formatTimestamp(session.connected_since ?? null)}</TableCell>
+                          <TableCell className="align-top">{session.real_address ?? "-"}</TableCell>
+                          <TableCell className="align-top">
+                            <div className="space-y-1 text-sm">
+                              <div>{session.virtual_ipv4_address ?? "-"}</div>
+                              <div className="text-muted-foreground">{session.virtual_ipv6_address ?? "-"}</div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="align-top">
+                            <div className="space-y-1 text-sm">
+                              <div>Up {formatBytes(session.bytes_sent)}</div>
+                              <div className="text-muted-foreground">Down {formatBytes(session.bytes_received)}</div>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+            </TabsContent>
+          </Tabs>
+        </div>
+
+        <aside className="md:w-80 md:shrink-0 md:self-stretch md:border-l md:border-border/70 md:bg-card/30">
+          <div className="rounded-sm border border-border/70 bg-card/92 p-4 md:sticky md:top-6 md:rounded-none md:border-0 md:bg-transparent md:p-6">
+            <div className="space-y-1 pb-4">
+              <h3 className="text-lg font-semibold text-foreground">Actions</h3>
+              <p className="text-sm text-muted-foreground">Direct profile and policy controls.</p>
+            </div>
+            <div className="grid gap-2">
+              <Button type="button" className="h-10 justify-start rounded-sm px-4" onClick={() => setIsEditOpen(true)} disabled={Boolean(pendingAction)}>
+                <Pencil className="h-4 w-4" />
+                Edit profile
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-10 justify-start rounded-sm bg-transparent px-4"
+                onClick={() => setIsCreateRulesetOpen(true)}
+                disabled={Boolean(pendingAction)}
+              >
+                <Plus className="h-4 w-4" />
+                Create ruleset
+              </Button>
+              {subjectType === "user" ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-10 justify-start rounded-sm bg-transparent px-4"
+                  onClick={() => {
+                    void handleDisconnectSessions().catch(() => undefined)
+                  }}
+                  disabled={Boolean(pendingAction) || data.sessions.length === 0}
+                >
+                  <LogOut className="h-4 w-4" />
+                  Disconnect sessions
+                </Button>
+              ) : null}
+            </div>
+          </div>
+        </aside>
+      </div>
 
       {subjectType === "user" ? (
         <OpenVpnUserEditorDialog
@@ -1507,6 +1701,6 @@ export function OpenVpnSubjectDetailContent({
           onSubmit={(rules) => handleSaveRules(selectedRulesetForRules.id, rules)}
         />
       ) : null}
-    </OpenVpnConsoleShell>
+    </div>
   )
 }

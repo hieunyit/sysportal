@@ -1,64 +1,106 @@
-"use client"
-
-import { useState } from "react"
+import Link from "next/link"
 import {
   Activity,
-  AlertTriangle,
   ArrowRight,
-  BadgeCheck,
-  Clock3,
+  FileCode2,
   KeyRound,
   Network,
-  RefreshCcw,
-  ShieldCheck,
-  Users,
+  ServerCog,
 } from "lucide-react"
+import { AppShell } from "@/components/dashboard/app-shell"
 import { Header } from "@/components/dashboard/header"
-import { Sidebar } from "@/components/dashboard/sidebar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
-import { Progress } from "@/components/ui/progress"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
-import {
-  activityItems,
-  alertFeed,
-  apiCatalog,
-  approvalQueue,
-  controlGaps,
-  dashboardHero,
-  dashboardSummaryCards,
-  policyChecks,
-  systems,
-  todayOperations,
-} from "@/lib/identity-ops-data"
 
-const summaryIconMap = {
-  key: KeyRound,
-  network: Network,
-  shield: ShieldCheck,
-  alert: AlertTriangle,
-} as const
+const overviewMetrics = [
+  {
+    title: "Keycloak users",
+    value: "12,480",
+    detail: "Accounts ready for direct admin actions.",
+    icon: KeyRound,
+  },
+  {
+    title: "OpenVPN subjects",
+    value: "642",
+    detail: "Users and groups under policy control.",
+    icon: Network,
+  },
+  {
+    title: "Email templates",
+    value: "14",
+    detail: "Operational notification templates.",
+    icon: FileCode2,
+  },
+  {
+    title: "Audit events",
+    value: "80",
+    detail: "Recent events in the audit console.",
+    icon: Activity,
+  },
+] as const
 
-const gapIconMap = {
-  users: Users,
-  badge: BadgeCheck,
-  key: KeyRound,
-} as const
+const platformHealth = [
+  {
+    name: "Keycloak",
+    status: "Healthy",
+    detail: "User, group, and session operations are healthy.",
+  },
+  {
+    name: "OpenVPN",
+    status: "Monitoring",
+    detail: "Policy surfaces are available and under watch.",
+  },
+  {
+    name: "SMTP",
+    status: "Healthy",
+    detail: "Template delivery is available.",
+  },
+  {
+    name: "Settings store",
+    status: "Healthy",
+    detail: "Workspace preferences are being persisted.",
+  },
+] as const
+
+const operatingSurfaces = [
+  {
+    title: "Keycloak directory",
+    description: "Users, groups, sessions, and account administration.",
+    href: "/users",
+    icon: KeyRound,
+    badge: "Directory",
+  },
+  {
+    title: "OpenVPN access",
+    description: "Users, groups, routing, and rulesets.",
+    href: "/openvpn/users",
+    icon: Network,
+    badge: "VPN",
+  },
+  {
+    title: "Connections",
+    description: "Connector configuration and verification.",
+    href: "/connections",
+    icon: ServerCog,
+    badge: "Config",
+  },
+  {
+    title: "Audit log",
+    description: "Access and configuration history.",
+    href: "/analytics",
+    icon: Activity,
+    badge: "Audit",
+  },
+  {
+    title: "Templates",
+    description: "Email library and template editor.",
+    href: "/content-generator",
+    icon: FileCode2,
+    badge: "Templates",
+  },
+] as const
 
 function getStatusClass(status: string) {
   switch (status) {
@@ -71,313 +113,129 @@ function getStatusClass(status: string) {
   }
 }
 
-function getPriorityClass(priority: string) {
-  switch (priority) {
-    case "High":
-      return "border-rose-500/20 bg-rose-500/10 text-rose-300"
-    case "Medium":
-      return "border-amber-500/20 bg-amber-500/10 text-amber-300"
-    default:
-      return "border-slate-500/20 bg-slate-500/10 text-slate-300"
-  }
-}
-
-function getSeverityClass(severity: string) {
-  switch (severity) {
-    case "High":
-      return "text-rose-300"
-    case "Medium":
-      return "text-amber-300"
-    default:
-      return "text-cyan-300"
-  }
-}
-
 export default function DashboardPage() {
-  const [isCollapsed, setIsCollapsed] = useState(false)
-
   return (
-    <div className="flex min-h-screen bg-background">
-      <div className="hidden lg:block">
-        <Sidebar isCollapsed={isCollapsed} onToggle={() => setIsCollapsed(!isCollapsed)} />
-      </div>
+    <AppShell>
+      <Header
+        title="Identity operations console"
+        description="Operate Keycloak, OpenVPN, templates, connections, and audit from one workspace."
+        actions={
+          <>
+            <Button asChild>
+              <Link href="/users">
+                Open users
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link href="/connections">Review connections</Link>
+            </Button>
+          </>
+        }
+      />
 
-      <main
-        className={cn(
-          "flex-1 p-4 transition-all duration-300 md:p-5 lg:p-6",
-          isCollapsed ? "lg:ml-[4.75rem]" : "lg:ml-72",
-        )}
-      >
-        <Header
-          title="Identity and access operations center"
-          description="Track connector health, identity synchronization, approval queues, and access risk across Keycloak, OpenVPN, Jira, ServiceDesk, and connected governance services."
-          actions={
-            <>
-              <Button className="h-10 rounded-xl px-4 text-sm font-medium">
-                <ShieldCheck className="mr-2 h-4 w-4" />
-                Create access request
-              </Button>
-              <Button variant="outline" className="h-10 rounded-xl border-border/80 bg-card px-4 text-sm">
-                <RefreshCcw className="mr-2 h-4 w-4" />
-                Run sync now
-              </Button>
-            </>
-          }
-        />
+      <div className="mt-6 space-y-6">
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {overviewMetrics.map((metric) => (
+            <Card key={metric.title}>
+              <CardContent className="p-5">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">{metric.title}</p>
+                    <p className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-foreground">{metric.value}</p>
+                    <p className="mt-2 text-sm leading-6 text-muted-foreground">{metric.detail}</p>
+                  </div>
+                  <div className="flex h-12 w-12 items-center justify-center rounded-[1.25rem] border border-primary/20 bg-primary/10 text-primary">
+                    <metric.icon className="h-5 w-5" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </section>
 
-        <div className="mt-5 space-y-5">
+        <section className="grid gap-4 xl:grid-cols-[1.05fr,0.95fr]">
           <Card>
-            <CardContent className="px-6 py-6">
-              <div className="grid gap-6 xl:grid-cols-[1.3fr,0.95fr]">
-                <div className="space-y-5">
-                  <div className="space-y-3">
-                    <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary">
-                      {dashboardHero.badge}
-                    </Badge>
+            <CardHeader>
+              <CardTitle className="text-lg">Platform health</CardTitle>
+              <CardDescription>Current status of the main systems.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {platformHealth.map((system) => (
+                <div key={system.name} className="rounded-[1.2rem] border border-border/70 bg-background/60 p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
-                      <h2 className="text-2xl font-semibold tracking-tight text-foreground">{dashboardHero.title}</h2>
-                      <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-                        {dashboardHero.description}
-                      </p>
+                      <p className="text-base font-semibold tracking-[-0.02em] text-foreground">{system.name}</p>
+                      <p className="mt-2 text-sm leading-6 text-muted-foreground">{system.detail}</p>
                     </div>
-                  </div>
-
-                  <div className="grid gap-3 md:grid-cols-3">
-                    {[dashboardHero.shift, dashboardHero.sla, dashboardHero.release].map((item) => (
-                      <div key={item.label} className="rounded-xl border border-border/80 bg-muted/20 p-4">
-                        <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">{item.label}</p>
-                        <p className="mt-3 text-lg font-semibold text-foreground">{item.value}</p>
-                        <p className="mt-1 text-sm text-muted-foreground">{item.detail}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="rounded-xl border border-border/80 bg-muted/20 p-5">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-semibold text-foreground">Priority alerts</p>
-                      <p className="text-sm text-muted-foreground">Issues that can directly impact access delivery</p>
-                    </div>
-                    <Badge variant="outline" className="border-rose-500/20 bg-rose-500/10 text-rose-300">
-                      2 high priority
+                    <Badge variant="outline" className={cn("shrink-0", getStatusClass(system.status))}>
+                      {system.status}
                     </Badge>
                   </div>
-
-                  <div className="mt-5 space-y-4">
-                    {alertFeed.map((alert) => (
-                      <div key={alert.title} className="rounded-xl border border-border/80 bg-background p-4">
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="font-medium text-foreground">{alert.title}</p>
-                            <p className="mt-1 text-sm leading-6 text-muted-foreground">{alert.detail}</p>
-                          </div>
-                          <span className={cn("shrink-0 text-xs font-semibold", getSeverityClass(alert.severity))}>
-                            {alert.severity}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
                 </div>
-              </div>
+              ))}
             </CardContent>
           </Card>
 
-          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {dashboardSummaryCards.map((card) => {
-              const Icon = summaryIconMap[card.icon]
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Focus areas</CardTitle>
+              <CardDescription>The main operator surfaces in this workspace.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="rounded-[1.2rem] border border-border/70 bg-background/60 p-4">
+                <p className="text-sm font-semibold text-foreground">Keycloak administration</p>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  User, group, and session management stays first-class.
+                </p>
+              </div>
+              <div className="rounded-[1.2rem] border border-border/70 bg-background/60 p-4">
+                <p className="text-sm font-semibold text-foreground">OpenVPN policy control</p>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  User and group policy stays close to routing detail.
+                </p>
+              </div>
+              <div className="rounded-[1.2rem] border border-border/70 bg-background/60 p-4">
+                <p className="text-sm font-semibold text-foreground">Operational support layers</p>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  Audit, settings, and templates stay visible without filler pages.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </section>
 
-              return (
-                <Card key={card.title}>
-                  <CardContent className="px-5 py-5">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <p className="text-sm text-muted-foreground">{card.title}</p>
-                        <p className="mt-3 text-3xl font-semibold tracking-tight text-foreground">{card.value}</p>
-                        <p className="mt-2 text-sm text-muted-foreground">{card.detail}</p>
-                      </div>
-                      <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/12 text-primary">
-                        <Icon className="h-5 w-5" />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )
-            })}
-          </section>
-
-          <section className="grid gap-4 xl:grid-cols-[1.45fr,0.95fr]">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Connector health</CardTitle>
-                <CardDescription>Current synchronization state, ownership, and live workload across managed systems.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow className="hover:bg-transparent">
-                      <TableHead>System</TableHead>
-                      <TableHead>Owner</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Last sync</TableHead>
-                      <TableHead className="text-right">Workload</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {systems.map((system) => (
-                      <TableRow key={system.id}>
-                        <TableCell className="font-medium text-foreground">{system.name}</TableCell>
-                        <TableCell className="text-muted-foreground">{system.owner}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className={cn("rounded-full", getStatusClass(system.status))}>
-                            {system.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">{system.sync}</TableCell>
-                        <TableCell className="text-right text-muted-foreground">{system.workload}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-
-            <div className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Policy coverage</CardTitle>
-                  <CardDescription>Governance checks for privileged access, authentication strength, and source-of-truth alignment.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-5">
-                  {policyChecks.map((item) => (
-                    <div key={item.label} className="space-y-2">
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="text-sm text-foreground">{item.label}</p>
-                        <span className="text-sm font-medium text-muted-foreground">{item.value}%</span>
-                      </div>
-                      <Progress value={item.value} className="h-2.5 bg-primary/12" />
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Recent activity</CardTitle>
-                  <CardDescription>Latest events recorded by the control plane.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {activityItems.map((item) => (
-                    <div key={`${item.title}-${item.time}`} className="flex items-start gap-3">
-                      <div className="mt-1 flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary">
-                        <Activity className="h-4 w-4" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between gap-3">
-                          <p className="font-medium text-foreground">{item.title}</p>
-                          <span className="text-xs text-muted-foreground">{item.time}</span>
-                        </div>
-                        <p className="mt-1 text-sm text-muted-foreground">{item.meta}</p>
-                      </div>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-            </div>
-          </section>
-
-          <section className="grid gap-4 xl:grid-cols-[1.1fr,0.9fr,0.9fr]">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Approval queue</CardTitle>
-                <CardDescription>Requests that still need a decision inside the next two hours.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {approvalQueue.map((item) => (
-                  <div key={item.id} className="rounded-xl border border-border/80 bg-muted/20 p-4">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="space-y-1.5">
-                        <p className="font-medium text-foreground">{item.request}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {item.requester} | {item.system}
-                        </p>
-                      </div>
-                      <Badge variant="outline" className={cn("rounded-full", getPriorityClass(item.priority))}>
-                        {item.priority}
-                      </Badge>
-                    </div>
-                    <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
-                      <span className="inline-flex items-center gap-2">
-                        <Clock3 className="h-4 w-4" />
-                        SLA remaining {item.sla}
-                      </span>
-                      <Button
-                        variant="ghost"
-                        className="h-auto px-0 font-medium text-primary hover:bg-transparent hover:text-primary/80"
-                      >
-                        Open details
-                        <ArrowRight className="h-4 w-4" />
-                      </Button>
-                    </div>
+        <section className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
+          {operatingSurfaces.map((surface) => (
+            <Link
+              key={surface.href}
+              href={surface.href}
+              className="group rounded-[1.4rem] border border-border/70 bg-card/92 p-5 shadow-[0_28px_70px_-48px_rgba(15,23,42,0.9)] transition-all hover:border-primary/30 hover:-translate-y-0.5"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="space-y-3">
+                  <Badge variant="outline">{surface.badge}</Badge>
+                  <div>
+                    <h2 className="text-xl font-semibold tracking-[-0.03em] text-foreground">{surface.title}</h2>
+                    <p className="mt-3 text-sm leading-6 text-muted-foreground">{surface.description}</p>
                   </div>
-                ))}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Today&apos;s operations</CardTitle>
-                <CardDescription>Shift milestones that can impact access delivery and synchronization.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {todayOperations.map((item) => (
-                  <div key={`${item.time}-${item.title}`} className="flex items-start gap-3">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                      <Clock3 className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-foreground">{item.time}</p>
-                      <p className="mt-1 text-sm text-foreground">{item.title}</p>
-                      <p className="text-sm text-muted-foreground">{item.detail}</p>
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">API coverage</CardTitle>
-                <CardDescription>Included mock management endpoints for UI data, approval flows, and platform actions.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="rounded-xl border border-border/80 bg-muted/20 p-4">
-                  <p className="text-3xl font-semibold tracking-tight text-foreground">{apiCatalog.length}</p>
-                  <p className="mt-1 text-sm text-muted-foreground">Available endpoints under app/api</p>
                 </div>
-                {controlGaps.map((item) => {
-                  const Icon = gapIconMap[item.icon]
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[1.25rem] border border-primary/20 bg-primary/10 text-primary">
+                  <surface.icon className="h-5 w-5" />
+                </div>
+              </div>
 
-                  return (
-                    <div key={item.title} className="rounded-xl border border-border/80 bg-muted/20 p-4">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                            <Icon className="h-4 w-4" />
-                          </div>
-                          <p className="text-sm text-foreground">{item.title}</p>
-                        </div>
-                        <span className="text-2xl font-semibold tracking-tight text-foreground">{item.value}</span>
-                      </div>
-                    </div>
-                  )
-                })}
-              </CardContent>
-            </Card>
-          </section>
-        </div>
-      </main>
-    </div>
+              <div className="mt-5 flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Open surface</span>
+                <span className="inline-flex items-center gap-2 font-semibold text-foreground">
+                  Continue
+                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                </span>
+              </div>
+            </Link>
+          ))}
+        </section>
+      </div>
+    </AppShell>
   )
 }

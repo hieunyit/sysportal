@@ -1,16 +1,20 @@
-import { Sidebar } from "@/components/dashboard/sidebar"
+import { AppShell } from "@/components/dashboard/app-shell"
+import { Header } from "@/components/dashboard/header"
 import { OpenVpnUsersContent } from "@/components/openvpn/users-content"
 
 export default function OpenVpnUsersPage() {
   return (
-    <div className="flex min-h-screen bg-background">
-      <div className="hidden lg:block">
-        <Sidebar />
-      </div>
+    <AppShell>
+      <div>
+        <Header
+          title="OpenVPN Users"
+          description="Browse VPN users and open direct policy controls."
+        />
 
-      <main className="flex-1 p-4 lg:ml-72 lg:p-5">
+        <div className="mt-6">
         <OpenVpnUsersContent />
-      </main>
-    </div>
+        </div>
+      </div>
+    </AppShell>
   )
 }

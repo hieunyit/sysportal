@@ -1,12 +1,7 @@
 "use client"
 
 import type { ReactNode } from "react"
-import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { GitBranch, Network, UserRound, Users } from "lucide-react"
-import { AccountMenu } from "@/components/dashboard/account-menu"
-import { MobileNav } from "@/components/dashboard/mobile-nav"
-import { Badge } from "@/components/ui/badge"
+import { GitBranch } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 type OpenVpnMetricTone = "neutral" | "success" | "warning" | "danger"
@@ -17,11 +12,6 @@ interface OpenVpnMetric {
   helper?: string
   tone?: OpenVpnMetricTone
 }
-
-const openVpnNavItems = [
-  { href: "/openvpn/users", label: "Users", icon: UserRound },
-  { href: "/openvpn/groups", label: "Groups", icon: Users },
-]
 
 function metricToneClassName(tone: OpenVpnMetricTone = "neutral") {
   switch (tone) {
@@ -51,39 +41,21 @@ export function OpenVpnConsoleShell({
   metrics?: OpenVpnMetric[]
   children: ReactNode
 }) {
-  const pathname = usePathname()
-
   return (
     <div className="space-y-4">
-      <section className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-        <div className="flex items-center justify-between gap-3 border-b border-border/80 px-5 py-4">
-          <div className="flex items-center gap-3">
-            <MobileNav />
-            <Badge
-              variant="outline"
-              className="hidden h-8 items-center gap-2 rounded-lg border-border/80 bg-muted/30 px-3 text-foreground md:inline-flex"
-            >
-              <Network className="h-3.5 w-3.5" />
-              OpenVPN Access Server
-            </Badge>
-          </div>
+      <section className="relative overflow-hidden rounded-[1.35rem] border border-border/70 bg-card/92 shadow-[0_20px_50px_-42px_rgba(15,23,42,0.9)]">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(45,212,191,0.14),transparent_24%),radial-gradient(circle_at_bottom_right,rgba(59,130,246,0.14),transparent_24%)]" />
 
-          <div className="flex items-center gap-2 self-end xl:self-auto">
-            <AccountMenu />
-          </div>
-        </div>
-
-        <div className="border-b border-border/80 px-5 py-5">
+        <div className="relative border-b border-border/70 px-5 py-4">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                <GitBranch className="h-3.5 w-3.5" />
+            <div className="max-w-2xl space-y-2">
+              <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-background/55 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                <GitBranch className="h-3.5 w-3.5 text-primary" />
                 <span>{context}</span>
-                <span className="hidden lg:inline">Global &gt; Group &gt; User inheritance</span>
               </div>
               <div>
-                <h1 className="text-2xl font-semibold tracking-tight text-foreground md:text-3xl">{title}</h1>
-                <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">{description}</p>
+                <h1 className="text-[1.85rem] font-semibold tracking-[-0.04em] text-foreground md:text-[2.1rem]">{title}</h1>
+                <p className="mt-2 max-w-2xl text-sm leading-5 text-muted-foreground">{description}</p>
               </div>
             </div>
 
@@ -91,34 +63,10 @@ export function OpenVpnConsoleShell({
           </div>
         </div>
 
-        <div className="border-b border-border/80 px-5 py-3">
-          <nav className="flex flex-wrap gap-2">
-            {openVpnNavItems.map((item) => {
-              const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`)
-
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={cn(
-                    "inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
-                    isActive
-                      ? "border-border bg-accent text-accent-foreground"
-                      : "border-transparent text-muted-foreground hover:border-border hover:bg-muted/40 hover:text-foreground",
-                  )}
-                >
-                  <item.icon className="h-4 w-4" />
-                  <span>{item.label}</span>
-                </Link>
-              )
-            })}
-          </nav>
-        </div>
-
         {metrics?.length ? (
-          <div className="grid gap-px bg-border/70 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="relative grid gap-px bg-border/70 sm:grid-cols-2 xl:grid-cols-4">
             {metrics.map((metric) => (
-              <div key={metric.label} className="bg-card px-5 py-4">
+              <div key={metric.label} className="bg-card/92 px-4 py-3.5">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                   {metric.label}
                 </p>
@@ -155,18 +103,18 @@ export function OpenVpnPanel({
   return (
     <section
       className={cn(
-        "overflow-hidden rounded-2xl border border-border/80 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)]",
+        "overflow-hidden rounded-[1.15rem] border border-border/70 bg-card/92 shadow-[0_20px_50px_-42px_rgba(15,23,42,0.9)]",
         className,
       )}
     >
-      <div className="flex flex-col gap-3 border-b border-border/80 px-5 py-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex flex-col gap-3 border-b border-border/70 px-5 py-3.5 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-base font-semibold tracking-tight text-foreground">{title}</h2>
-          {description ? <p className="mt-1 text-sm text-muted-foreground">{description}</p> : null}
+          {description ? <p className="mt-1 text-sm leading-5 text-muted-foreground">{description}</p> : null}
         </div>
         {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
       </div>
-      <div className={cn("px-5 py-5", bodyClassName)}>{children}</div>
+      <div className={cn("px-5 py-4", bodyClassName)}>{children}</div>
     </section>
   )
 }

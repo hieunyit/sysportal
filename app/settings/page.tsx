@@ -1,15 +1,11 @@
-import { Sidebar } from "@/components/dashboard/sidebar"
+import { AppShell } from "@/components/dashboard/app-shell"
 import { Header } from "@/components/dashboard/header"
 import { SettingsContent } from "@/components/settings/settings-content"
 
 export default function SettingsPage() {
   return (
-    <div className="flex min-h-screen bg-background">
-      <div className="hidden lg:block">
-        <Sidebar />
-      </div>
-
-      <main className="flex-1 p-4 lg:ml-72 lg:p-6">
+    <AppShell>
+      <div>
         <Header
           title="Workspace settings"
           description="Manage notification routing and workspace appearance without mixing in connector credentials."
@@ -18,7 +14,7 @@ export default function SettingsPage() {
         <div className="mt-6">
           <SettingsContent />
         </div>
-      </main>
-    </div>
+      </div>
+    </AppShell>
   )
 }

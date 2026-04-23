@@ -1,16 +1,17 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Inter, JetBrains_Mono } from "next/font/google"
+import { IBM_Plex_Mono, Plus_Jakarta_Sans } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import { ThemeProvider } from "@/components/theme-provider"
 import "./globals.css"
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" })
-const jetbrainsMono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" })
+const plusJakartaSans = Plus_Jakarta_Sans({ subsets: ["latin"], variable: "--font-plus-jakarta" })
+const ibmPlexMono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-ibm-plex-mono" })
 
 export const metadata: Metadata = {
-  title: "IdentityOps Hub - Identity and Access Operations",
-  description: "Operational control plane for Keycloak, OpenVPN, Jira, ServiceDesk, and connected access-management systems.",
+  title: "IdentityOps Console",
+  description:
+    "Unified operations console for Keycloak, OpenVPN, connector health, audit visibility, and notification workflows.",
   generator: "v0.app",
   icons: {
     icon: [
@@ -37,7 +38,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${inter.variable} ${jetbrainsMono.variable}`}>
+    <html lang="en" suppressHydrationWarning className={`${plusJakartaSans.variable} ${ibmPlexMono.variable}`}>
       <body className="font-sans antialiased">
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} storageKey="identityops-theme">
           {children}
