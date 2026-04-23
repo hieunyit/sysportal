@@ -761,6 +761,139 @@ export const emailTemplates = [
       LoginURL: "https://sso.mobifonesolutions.vn/",
     },
   },
+  {
+    id: "account-notification",
+    name: "Account Granted Notification",
+    category: "notification",
+    subject: "[MobiFone Solutions] Tài khoản của bạn đã được cấp - {{.RecipientName}}",
+    description: "Account granted notification email for non-employee users with login credentials and access information.",
+    html: `
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Thông báo cấp tài khoản</title>
+</head>
+<body style="margin:0; padding:0; background:#edf4fb; font-family:Arial, Helvetica, sans-serif; color:#0f172a;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#edf4fb; padding:36px 14px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:760px; background:#ffffff; border:1px solid #d7e0ea; border-radius:22px; overflow:hidden; box-shadow:0 18px 42px rgba(15,23,42,0.09);">
+          <tr>
+            <td style="height:6px; background:linear-gradient(90deg,#005baa 0%,#0a77c9 35%,#ef3340 100%);"></td>
+          </tr>
+          <tr>
+            <td style="padding:34px 38px 14px; background:linear-gradient(180deg,#f8fbff 0%,#eef6ff 100%);">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td style="padding:0 0 18px;">
+                    <img src="https://mobifonesolutions.vn/images/mbfs-logo.svg" alt="MobiFone Solutions" width="210" style="display:block; width:210px; max-width:100%; height:auto; border:0;" />
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <div style="font-size:38px; line-height:1.18; font-weight:700; color:#0f172a; text-transform:uppercase;">
+                      Tài khoản của bạn<br />đã được cấp
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding-top:18px;">
+                    <p style="margin:0 0 8px; font-size:15px; line-height:1.8; color:#334155;">
+                      Thân gửi <strong>{{.RecipientName}}</strong>,
+                    </p>
+                    <p style="margin:0; font-size:15px; line-height:1.8; color:#475569;">
+                      Tài khoản hệ thống của bạn đã được tạo. Dưới đây là thông tin đăng nhập và hướng dẫn truy cập.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding:10px 38px 16px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f7fbff; border:1px solid #d8e7f6; border-radius:18px;">
+                <tr>
+                  <td style="padding:24px 26px 10px; font-size:18px; font-weight:700; color:#0f2747;">
+                    Thông tin tài khoản
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:0 26px 22px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td style="padding:14px 0; border-bottom:1px solid #dce9f7; font-size:14px; color:#60758d; width:180px;">Họ tên</td>
+                        <td style="padding:14px 0; border-bottom:1px solid #dce9f7; font-size:15px; font-weight:700; color:#0f172a; text-align:right;">{{.RecipientName}}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding:14px 0; border-bottom:1px solid #dce9f7; font-size:14px; color:#60758d;">Email</td>
+                        <td style="padding:14px 0; border-bottom:1px solid #dce9f7; font-size:15px; font-weight:700; color:#0f172a; text-align:right;">{{.Email}}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding:14px 0 0; font-size:14px; color:#60758d;">Mật khẩu tạm thời</td>
+                        <td style="padding:14px 0 0; text-align:right;">
+                          <span style="display:inline-block; padding:9px 14px; border-radius:12px; background:#eef6ff; border:1px solid #bfdbfe; color:#0f2747; font-size:15px; font-weight:700;">{{.TemporaryPassword}}</span>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding:0 38px 20px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td style="padding:0 0 18px; font-size:14px; line-height:1.8; color:#475569;">
+                    Vui lòng đăng nhập và thay đổi mật khẩu của bạn tại lần truy cập đầu tiên. Bạn sẽ được chuyển hướng đến trang đổi mật khẩu tự động.
+                  </td>
+                </tr>
+                <tr>
+                  <td align="right">
+                    <a href="{{.LoginURL}}" target="_blank" style="display:inline-block; padding:15px 28px; border-radius:16px; background:#0f67b6; color:#ffffff; text-decoration:none; font-size:15px; font-weight:700; box-shadow:0 14px 28px rgba(15,103,182,0.22);">
+                      Đăng nhập ngay
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding:24px 38px 14px; background:radial-gradient(circle at top right,#dbeafe 0%,#eff6ff 35%,#ffffff 75%); border-top:1px solid #d8e7f6;">
+              <p style="margin:0 0 8px; font-size:15px; line-height:1.8; color:#334155;">Trân trọng,</p>
+              <p style="margin:0; font-size:15px; line-height:1.8; font-weight:700; color:#0f2747;">Công ty Cổ phần Giải pháp Số MobiFone(MobiFone Solutions)</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:16px 38px 22px; background:radial-gradient(circle at top right,#dbeafe 0%,#eff6ff 35%,#ffffff 75%); border-top:1px solid #d8e7f6;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td style="font-size:14px; line-height:1.8; color:#36506e; text-align:left;">Số 38 Phố Phan Đình Phùng, Phường Ba Đình, TP Hà Nội</td>
+                </tr>
+                <tr>
+                  <td style="font-size:14px; line-height:1.8; color:#36506e; text-align:left;">hr@mobifonesolutions.vn | 0932325002</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`.trim(),
+    sampleData: {
+      RecipientName: "Nguyen Van A",
+      Email: "nguyenvana@mobifonesolutions.vn",
+      TemporaryPassword: "TempPass@123",
+      LoginURL: "https://sso.mobifonesolutions.vn/",
+    },
+  },
 ] as const
 
 export const settingsProfile = {

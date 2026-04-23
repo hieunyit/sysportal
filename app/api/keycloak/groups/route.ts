@@ -9,7 +9,7 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const page = Math.max(Number(searchParams.get("page") ?? "1"), 1)
-    const pageSize = Math.min(Math.max(Number(searchParams.get("pageSize") ?? "18"), 1), 50)
+    const pageSize = Math.min(Math.max(Number(searchParams.get("pageSize") ?? "18"), 1), 200)
     const search = searchParams.get("search")?.trim().toLowerCase() ?? ""
     const client = await createKeycloakAdminClient()
     const configuredRealm = (getSystemConnection("keycloak").config as { realm: string }).realm
