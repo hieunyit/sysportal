@@ -1,7 +1,6 @@
-import { NextResponse } from "next/server"
-import { getErrorDetail } from "@/lib/error-utils"
+import { apiErrorResponse, apiSuccess } from "@/lib/api-response"
 import { appendAuditLog, getSystemConnection } from "@/lib/settings-store"
-import { createKeycloakAdminClient, KeycloakApiError } from "@/lib/keycloak-admin"
+import { createKeycloakAdminClient } from "@/lib/keycloak-admin"
 
 export const runtime = "nodejs"
 
@@ -27,16 +26,20 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
       },
     })
 
-    return NextResponse.json({
-      success: true,
-    })
-  } catch (error) {
-    return NextResponse.json(
+    return apiSuccess(
       {
-        error: "Unable to log out Keycloak user sessions",
-        detail: getErrorDetail(error, "Keycloak logout failed"),
+        success: true,
+        id,
       },
-      { status: error instanceof KeycloakApiError ? error.status : 500 },
+      {
+        message: `Logged out Keycloak user ${user.username ?? id}.`,
+      },
     )
+  } catch (error) {
+    return apiErrorResponse(error, {
+      error: "Unable to log out Keycloak user sessions",
+      detail: "Keycloak logout failed",
+      source: "keycloak",
+    })
   }
 }

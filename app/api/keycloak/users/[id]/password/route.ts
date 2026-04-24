@@ -1,9 +1,8 @@
-import { NextResponse } from "next/server"
-import { getErrorDetail } from "@/lib/error-utils"
+import { apiErrorResponse, apiSuccess, apiValidationError } from "@/lib/api-response"
 import { keycloakPasswordResetSchema } from "@/lib/keycloak-user-mutations"
 import { formatZodError } from "@/lib/settings-validation"
 import { appendAuditLog, getSystemConnection } from "@/lib/settings-store"
-import { createKeycloakAdminClient, KeycloakApiError } from "@/lib/keycloak-admin"
+import { createKeycloakAdminClient } from "@/lib/keycloak-admin"
 
 export const runtime = "nodejs"
 
@@ -14,13 +13,12 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const parsed = keycloakPasswordResetSchema.safeParse(payload)
 
     if (!parsed.success) {
-      return NextResponse.json(
-        {
-          error: "Invalid password reset payload",
-          issues: formatZodError(parsed.error),
-        },
-        { status: 400 },
-      )
+      return apiValidationError({
+        error: "Invalid password reset payload",
+        issues: formatZodError(parsed.error),
+        source: "keycloak",
+        status: 400,
+      })
     }
 
     const client = await createKeycloakAdminClient()
@@ -43,21 +41,29 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       },
     })
 
-    return NextResponse.json({
-      success: true,
-    })
+    return apiSuccess(
+      {
+        success: true,
+        id,
+      },
+      {
+        message: `Reset password for Keycloak user ${user.username ?? id}.`,
+      },
+    )
   } catch (error) {
-    const detail = getErrorDetail(error, "Keycloak password reset failed")
+    const detail =
+      error instanceof Error && error.message.trim()
+        ? error.message
+        : "Keycloak password reset failed"
     const userStorageHint = detail.toLowerCase().includes("account is read only")
       ? " This user appears to be managed by a read-only user storage provider. Direct password reset must be done in the upstream directory or the federation provider must be writable."
       : ""
 
-    return NextResponse.json(
-      {
-        error: "Unable to reset Keycloak user password",
-        detail: `${detail}${userStorageHint}`,
-      },
-      { status: userStorageHint ? 409 : error instanceof KeycloakApiError ? error.status : 500 },
-    )
+    return apiErrorResponse(error, {
+      error: "Unable to reset Keycloak user password",
+      detail: `${detail}${userStorageHint}`,
+      source: "keycloak",
+      status: userStorageHint ? 409 : undefined,
+    })
   }
 }

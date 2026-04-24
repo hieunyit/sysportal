@@ -1,6 +1,5 @@
-import { NextResponse } from "next/server"
-import { getErrorDetail } from "@/lib/error-utils"
-import { createKeycloakAdminClient, KeycloakApiError, type KeycloakUserRepresentation } from "@/lib/keycloak-admin"
+import { apiErrorResponse, apiSuccess } from "@/lib/api-response"
+import { createKeycloakAdminClient, type KeycloakUserRepresentation } from "@/lib/keycloak-admin"
 import { appendAuditLog, getSystemConnection } from "@/lib/settings-store"
 
 export const runtime = "nodejs"
@@ -33,7 +32,7 @@ export async function GET(request: Request) {
     const purpose = searchParams.get("purpose")?.trim().toLowerCase() ?? "manager"
 
     if (query.length < 2) {
-      return NextResponse.json({
+      return apiSuccess({
         items: [],
         query,
       })
@@ -91,17 +90,15 @@ export async function GET(request: Request) {
       },
     })
 
-    return NextResponse.json({
+    return apiSuccess({
       items,
       query,
     })
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: "Unable to search Keycloak users",
-        detail: getErrorDetail(error, "Keycloak user lookup is unavailable"),
-      },
-      { status: error instanceof KeycloakApiError ? error.status : 500 },
-    )
+    return apiErrorResponse(error, {
+      error: "Unable to search Keycloak users",
+      detail: "Keycloak user lookup is unavailable",
+      source: "keycloak",
+    })
   }
 }

@@ -1,6 +1,6 @@
 "use client"
 
-import { type ChangeEvent, type FormEvent, useEffect, useMemo, useState } from "react"
+import { type ChangeEvent, type FormEvent, type WheelEvent, useEffect, useMemo, useState } from "react"
 import { AlertCircle, Check, ChevronsUpDown, LoaderCircle, Plus, Trash2 } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
@@ -81,15 +81,13 @@ interface ManagerLookupItem {
   ldapEntryDn: string
 }
 
-interface SettingsOptionLists {
-  role: string[]
-  team: string[]
+interface DirectoryOptionLists {
   department: string[]
   workAddress: string[]
 }
 
-interface SettingsOptionListsResponse {
-  items: SettingsOptionLists
+interface DirectoryOptionListsResponse {
+  items: DirectoryOptionLists
 }
 
 interface UserEditorDialogProps {
@@ -128,11 +126,13 @@ const partnerInformationGroupName = "Partner Information"
 const userTypeFieldName = "userType"
 const defaultCreateRequiredActions = ["UPDATE_PASSWORD", "CONFIGURE_TOTP"]
 const defaultEmployeeGroupName = "jira-servicedesk-users"
-const emptySettingsOptionLists: SettingsOptionLists = {
-  role: [],
-  team: [],
+const emptyDirectoryOptionLists: DirectoryOptionLists = {
   department: [],
   workAddress: [],
+}
+
+function stopWheelPropagation(event: WheelEvent<HTMLDivElement>) {
+  event.stopPropagation()
 }
 
 function createEntryId() {
@@ -405,10 +405,14 @@ function SearchableSelectField({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+      <PopoverContent
+        className="w-[--radix-popover-trigger-width] p-0"
+        align="start"
+        onWheelCapture={stopWheelPropagation}
+      >
         <Command>
           <CommandInput placeholder="Search options..." />
-          <CommandList>
+          <CommandList className="max-h-72 overscroll-contain">
             <CommandEmpty>No matching option.</CommandEmpty>
             {options.map((option) => (
               <CommandItem
@@ -553,14 +557,18 @@ function ManagerLookupField({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+      <PopoverContent
+        className="w-[--radix-popover-trigger-width] p-0"
+        align="start"
+        onWheelCapture={stopWheelPropagation}
+      >
         <Command shouldFilter={false}>
           <CommandInput
             placeholder="Search manager by username or full name..."
             value={query}
             onValueChange={setQuery}
           />
-          <CommandList>
+          <CommandList className="max-h-72 overscroll-contain">
             {isLoading ? <CommandEmpty>Searching users...</CommandEmpty> : null}
             {!isLoading && error ? <CommandEmpty>{error}</CommandEmpty> : null}
             {!isLoading && !error && query.trim().length < 2 ? (
@@ -790,7 +798,7 @@ export function UserEditorDialog({
   const [workStartDate, setWorkStartDate] = useState("")
   const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([])
   const [availableGroups, setAvailableGroups] = useState<Array<{ id: string; name: string }>>([])
-  const [settingsOptionLists, setSettingsOptionLists] = useState<SettingsOptionLists>(emptySettingsOptionLists)
+  const [directoryOptionLists, setDirectoryOptionLists] = useState<DirectoryOptionLists>(emptyDirectoryOptionLists)
   const [groupsLoading, setGroupsLoading] = useState(false)
   const [groupSearchQuery, setGroupSearchQuery] = useState("")
   const [requiredActionsInput, setRequiredActionsInput] = useState("")
@@ -822,20 +830,37 @@ export function UserEditorDialog({
     setWorkStartDate("")
     setSelectedGroupIds([])
     setGroupSearchQuery("")
-    setSettingsOptionLists(emptySettingsOptionLists)
+    setDirectoryOptionLists(emptyDirectoryOptionLists)
     setFormError(null)
+
+    const loadDirectoryOptions = async () => {
+      try {
+        const optionsResponse = await fetch("/api/settings/directory-options", { cache: "no-store" })
+        const optionData = (await optionsResponse.json().catch(() => null)) as DirectoryOptionListsResponse | null
+
+        if (optionsResponse.ok && optionData?.items) {
+          setDirectoryOptionLists({
+            department: optionData.items.department ?? [],
+            workAddress: optionData.items.workAddress ?? [],
+          })
+          return
+        }
+
+        setDirectoryOptionLists(emptyDirectoryOptionLists)
+      } catch {
+        setDirectoryOptionLists(emptyDirectoryOptionLists)
+      }
+    }
+
+    void loadDirectoryOptions()
 
     // Fetch available groups for selection
     if (mode === "create") {
-      const fetchCreateOptions = async () => {
+      const fetchCreateGroups = async () => {
         try {
           setGroupsLoading(true)
-          const [groupsResponse, optionsResponse] = await Promise.all([
-            fetch("/api/keycloak/groups?pageSize=100"),
-            fetch("/api/settings/options", { cache: "no-store" }),
-          ])
+          const groupsResponse = await fetch("/api/keycloak/groups?pageSize=100")
           const groupData = (await groupsResponse.json().catch(() => null)) as { items?: Array<{ id?: string; name?: string }> } | null
-          const optionData = (await optionsResponse.json().catch(() => null)) as SettingsOptionListsResponse | null
 
           if (groupsResponse.ok && groupData?.items) {
             setAvailableGroups(
@@ -846,24 +871,14 @@ export function UserEditorDialog({
           } else {
             setAvailableGroups([])
           }
-
-          if (optionsResponse.ok && optionData?.items) {
-            setSettingsOptionLists({
-              role: optionData.items.role ?? [],
-              team: optionData.items.team ?? [],
-              department: optionData.items.department ?? [],
-              workAddress: optionData.items.workAddress ?? [],
-            })
-          }
         } catch {
           setAvailableGroups([])
-          setSettingsOptionLists(emptySettingsOptionLists)
         } finally {
           setGroupsLoading(false)
         }
       }
 
-      void fetchCreateOptions()
+      void fetchCreateGroups()
     }
   }, [initialValue, open, profileMetadata, mode])
 
@@ -887,17 +902,19 @@ export function UserEditorDialog({
 
   const resolvedVisibleAttributeEntries = useMemo(() => {
     return visibleAttributeEntries.map((entry) => {
-      if (mode === "create" && entry.name === "department" && settingsOptionLists.department.length > 0) {
+      if (entry.name === "department" && directoryOptionLists.department.length > 0) {
+        const currentValues = entry.values.map((value) => value.trim()).filter(Boolean)
+
         return {
           ...entry,
           inputType: "select" as const,
-          options: settingsOptionLists.department,
+          options: Array.from(new Set([...currentValues, ...directoryOptionLists.department])),
         }
       }
 
       return entry
     })
-  }, [mode, settingsOptionLists.department, visibleAttributeEntries])
+  }, [directoryOptionLists.department, visibleAttributeEntries])
 
   const metadataDefinedCount = useMemo(
     () => resolvedVisibleAttributeEntries.filter((entry) => entry.metadataDefined).length,
@@ -1157,10 +1174,10 @@ export function UserEditorDialog({
                     <div className="grid gap-5 md:grid-cols-2">
                       <div className="space-y-2">
                         <Label htmlFor="create-work-address">Work address</Label>
-                        {settingsOptionLists.workAddress.length > 0 ? (
+                        {directoryOptionLists.workAddress.length > 0 ? (
                           <SearchableSelectField
                             value={workAddress}
-                            options={settingsOptionLists.workAddress}
+                            options={directoryOptionLists.workAddress}
                             placeholder="Select a work address"
                             disabled={isSubmitting}
                             onChange={setWorkAddress}

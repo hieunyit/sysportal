@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { ZodError } from "zod"
-import { getErrorDetail } from "@/lib/error-utils"
+import { apiErrorResponse, apiSuccess, apiValidationError } from "@/lib/api-response"
 import { createOpenVpnAdminClient, OpenVpnApiError } from "@/lib/openvpn-admin"
 import { getNextRulesetPosition } from "@/lib/openvpn-directory"
 import { appendAuditLog } from "@/lib/settings-store"
@@ -46,31 +46,27 @@ export async function POST(request: Request, { params }: { params: Promise<{ nam
       metadata: { rulesetId: created.id },
     })
 
-    return NextResponse.json(
+    return apiSuccess(
       {
         id: created.id,
         name: payload.name,
         comment: payload.comment,
       },
-      { status: 201 },
+      { status: 201, message: `Created OpenVPN ruleset ${payload.name}.` },
     )
   } catch (error) {
     if (error instanceof ZodError) {
-      return NextResponse.json(
-        {
-          error: "Invalid OpenVPN ruleset payload",
-          issues: formatOpenVpnZodError(error),
-        },
-        { status: 422 },
-      )
+      return apiValidationError({
+        error: "Invalid OpenVPN ruleset payload",
+        issues: formatOpenVpnZodError(error),
+        source: "openvpn",
+      })
     }
 
-    return NextResponse.json(
-      {
-        error: "Unable to create OpenVPN ruleset",
-        detail: getErrorDetail(error, "OpenVPN ruleset creation failed"),
-      },
-      { status: error instanceof OpenVpnApiError ? error.status : 500 },
-    )
+    return apiErrorResponse(error, {
+      error: "Unable to create OpenVPN ruleset",
+      detail: "OpenVPN ruleset creation failed",
+      source: "openvpn",
+    })
   }
 }

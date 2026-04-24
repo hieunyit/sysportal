@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { getErrorDetail } from "@/lib/error-utils"
+import { apiErrorResponse, apiNotFound, apiSuccess, apiValidationError } from "@/lib/api-response"
 import { appendAuditLog, getSystemConnection } from "@/lib/settings-store"
 import {
   createKeycloakAdminClient,
@@ -49,7 +49,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
     const group = allGroups.find((item) => item.id === id)
 
     if (!group) {
-      return NextResponse.json({ error: "Keycloak group not found" }, { status: 404 })
+      return apiNotFound("Keycloak group not found", `Keycloak group "${id}" was not found.`, "keycloak")
     }
 
     const [members, roleMappings, adminEvents] = await Promise.all([
@@ -75,7 +75,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
     )
     const warnings = [adminEvents.warning].filter(Boolean)
 
-    return NextResponse.json({
+    return apiSuccess({
       summary: {
         realm: realm.realm ?? configuredRealm,
         displayName: realm.displayName ?? null,
@@ -120,13 +120,11 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
       warnings,
     })
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: "Unable to load Keycloak group detail",
-        detail: getErrorDetail(error, "Keycloak group detail is unavailable"),
-      },
-      { status: error instanceof KeycloakApiError ? error.status : 500 },
-    )
+    return apiErrorResponse(error, {
+      error: "Unable to load Keycloak group detail",
+      detail: "Keycloak group detail is unavailable",
+      source: "keycloak",
+    })
   }
 }
 
@@ -143,18 +141,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         : ""
 
     if (!name) {
-      return NextResponse.json(
-        {
-          error: "Invalid Keycloak group payload",
-          issues: [
-            {
-              path: "name",
-              message: "Group name is required",
-            },
-          ],
-        },
-        { status: 422 },
-      )
+      return apiValidationError({
+        error: "Invalid Keycloak group payload",
+        issues: [{ path: "name", message: "Group name is required" }],
+        source: "keycloak",
+      })
     }
 
     const client = await createKeycloakAdminClient()
@@ -182,19 +173,19 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       },
     })
 
-    return NextResponse.json({
+    return apiSuccess({
       id: updated.id ?? id,
       name: updated.name ?? name,
       path: updated.path ?? null,
       description: updated.description ?? null,
+    }, {
+      message: `Updated Keycloak group ${updated.path ?? updated.name ?? id}.`,
     })
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: "Unable to update Keycloak group",
-        detail: getErrorDetail(error, "Keycloak group update failed"),
-      },
-      { status: error instanceof KeycloakApiError ? error.status : 500 },
-    )
+    return apiErrorResponse(error, {
+      error: "Unable to update Keycloak group",
+      detail: "Keycloak group update failed",
+      source: "keycloak",
+    })
   }
 }

@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { LoaderCircle, Plus, Trash2 } from "lucide-react"
+import { type WheelEvent, useEffect, useState } from "react"
+import { Check, ChevronsUpDown, LoaderCircle, Plus, Trash2 } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import {
   Dialog,
@@ -12,8 +12,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import {
+  Command,
+  CommandEmpty,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import {
@@ -24,6 +32,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { cn } from "@/lib/utils"
 import type {
   OpenVpnAccessRoute,
   OpenVpnAccessRule,
@@ -80,6 +89,13 @@ interface AccessRuleDraft {
   action: OpenVpnAccessRule["action"]
   position: string
   comment: string
+}
+
+interface KeycloakLookupUser {
+  id: string
+  username: string
+  displayName: string
+  email: string
 }
 
 const defaultUserState: EditableOpenVpnUserState = {
@@ -281,6 +297,242 @@ function readErrorMessage(error: unknown, fallback: string) {
   return fallback
 }
 
+function stopWheelPropagation(event: WheelEvent<HTMLDivElement>) {
+  event.stopPropagation()
+}
+
+function SearchableStringSelectField({
+  value,
+  options,
+  placeholder,
+  disabled,
+  searchPlaceholder,
+  emptyText,
+  onChange,
+}: {
+  value: string
+  options: string[]
+  placeholder: string
+  disabled: boolean
+  searchPlaceholder: string
+  emptyText: string
+  onChange: (value: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className={cn(
+            "w-full justify-between rounded-[0.85rem] border-border bg-background px-3 text-left font-normal",
+            !value && "text-muted-foreground",
+          )}
+          disabled={disabled}
+        >
+          <span className="truncate">{value || placeholder}</span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        className="w-[--radix-popover-trigger-width] p-0"
+        align="start"
+        onWheelCapture={stopWheelPropagation}
+      >
+        <Command>
+          <CommandInput placeholder={searchPlaceholder} />
+          <CommandList className="max-h-72 overscroll-contain">
+            <CommandEmpty>{emptyText}</CommandEmpty>
+            {options.map((option) => (
+              <CommandItem
+                key={option}
+                value={option}
+                onSelect={(selectedValue) => {
+                  onChange(selectedValue === value ? "" : selectedValue)
+                  setOpen(false)
+                }}
+              >
+                <Check
+                  className={cn(
+                    "mr-2 h-4 w-4",
+                    value === option ? "opacity-100" : "opacity-0",
+                  )}
+                />
+                <span className="truncate">{option}</span>
+              </CommandItem>
+            ))}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+function KeycloakUserLookupField({
+  value,
+  disabled,
+  onChange,
+}: {
+  value: string
+  disabled: boolean
+  onChange: (value: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState("")
+  const [items, setItems] = useState<KeycloakLookupUser[]>([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!open) {
+      return
+    }
+
+    const trimmedQuery = query.trim()
+
+    if (trimmedQuery.length < 2) {
+      setItems([])
+      setError(null)
+      setIsLoading(false)
+      return
+    }
+
+    let isActive = true
+    const controller = new AbortController()
+    const timeoutId = globalThis.setTimeout(async () => {
+      try {
+        setIsLoading(true)
+        setError(null)
+
+        const response = await fetch(
+          `/api/keycloak/users/lookup?purpose=openvpn-user&query=${encodeURIComponent(trimmedQuery)}`,
+          {
+            cache: "no-store",
+            signal: controller.signal,
+          },
+        )
+        const payload = (await response.json().catch(() => null)) as
+          | { items?: KeycloakLookupUser[]; detail?: string; error?: string }
+          | null
+
+        if (!response.ok) {
+          throw new Error(payload?.detail ?? payload?.error ?? "Unable to search Keycloak users")
+        }
+
+        if (!isActive) {
+          return
+        }
+
+        setItems(payload?.items ?? [])
+      } catch (lookupError) {
+        if (!isActive || controller.signal.aborted) {
+          return
+        }
+
+        setItems([])
+        setError(lookupError instanceof Error ? lookupError.message : "Unable to search Keycloak users")
+      } finally {
+        if (isActive) {
+          setIsLoading(false)
+        }
+      }
+    }, 250)
+
+    return () => {
+      isActive = false
+      controller.abort()
+      globalThis.clearTimeout(timeoutId)
+    }
+  }, [open, query])
+
+  const selectedUser = items.find((item) => item.username === value)
+  const triggerLabel = selectedUser
+    ? `${selectedUser.username} · ${selectedUser.displayName || selectedUser.email || "Keycloak user"}`
+    : value || "Search Keycloak username"
+
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen)
+        if (!nextOpen) {
+          setQuery("")
+          setItems([])
+          setError(null)
+        }
+      }}
+    >
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className={cn(
+            "w-full justify-between rounded-[0.85rem] border-border bg-background px-3 text-left font-normal",
+            !value && "text-muted-foreground",
+          )}
+          disabled={disabled}
+        >
+          <span className="truncate">{triggerLabel}</span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        className="w-[--radix-popover-trigger-width] p-0"
+        align="start"
+        onWheelCapture={stopWheelPropagation}
+      >
+        <Command shouldFilter={false}>
+          <CommandInput
+            placeholder="Search Keycloak user by username, name, or email..."
+            value={query}
+            onValueChange={setQuery}
+          />
+          <CommandList className="max-h-72 overscroll-contain">
+            {isLoading ? <CommandEmpty>Searching Keycloak users...</CommandEmpty> : null}
+            {!isLoading && error ? <CommandEmpty>{error}</CommandEmpty> : null}
+            {!isLoading && !error && query.trim().length < 2 ? (
+              <CommandEmpty>Type at least 2 characters to search.</CommandEmpty>
+            ) : null}
+            {!isLoading && !error && query.trim().length >= 2 && items.length === 0 ? (
+              <CommandEmpty>No matching Keycloak user found.</CommandEmpty>
+            ) : null}
+            {items.map((item) => (
+              <CommandItem
+                key={item.id || item.username}
+                value={`${item.username} ${item.displayName} ${item.email}`}
+                onSelect={() => {
+                  onChange(item.username)
+                  setOpen(false)
+                }}
+              >
+                <Check
+                  className={cn(
+                    "mr-2 h-4 w-4",
+                    value === item.username ? "opacity-100" : "opacity-0",
+                  )}
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{item.username}</p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {item.displayName || "Keycloak user"}
+                    {item.email ? ` · ${item.email}` : ""}
+                  </p>
+                </div>
+              </CommandItem>
+            ))}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
 export function OpenVpnUserEditorDialog({
   mode,
   open,
@@ -297,6 +549,8 @@ export function OpenVpnUserEditorDialog({
   onSubmit: (payload: EditableOpenVpnUserState) => Promise<void> | void
 }) {
   const [state, setState] = useState<EditableOpenVpnUserState>(value ?? defaultUserState)
+  const [availableGroups, setAvailableGroups] = useState<string[]>([])
+  const [isLoadingGroups, setIsLoadingGroups] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -304,23 +558,94 @@ export function OpenVpnUserEditorDialog({
     setSubmitError(null)
   }, [value, open])
 
+  useEffect(() => {
+    if (!open) {
+      return
+    }
+
+    let isActive = true
+
+    async function loadGroups() {
+      try {
+        setIsLoadingGroups(true)
+        const response = await fetch("/api/openvpn/groups?pageSize=50", {
+          cache: "no-store",
+        })
+        const payload = (await response.json().catch(() => null)) as
+          | { items?: Array<{ name?: string | null }> }
+          | null
+
+        if (!isActive) {
+          return
+        }
+
+        if (!response.ok) {
+          setAvailableGroups([])
+          return
+        }
+
+        setAvailableGroups(
+          Array.from(
+            new Set(
+              (payload?.items ?? [])
+                .map((item) => item.name?.trim() ?? "")
+                .filter(Boolean),
+            ),
+          ),
+        )
+      } catch {
+        if (isActive) {
+          setAvailableGroups([])
+        }
+      } finally {
+        if (isActive) {
+          setIsLoadingGroups(false)
+        }
+      }
+    }
+
+    void loadGroups()
+
+    return () => {
+      isActive = false
+    }
+  }, [open])
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     try {
       setSubmitError(null)
+
+      const normalizedAuthMethod = state.auth_method.trim().toLowerCase()
+
+      if (mode === "create" && !state.name.trim()) {
+        throw new Error("Username is required")
+      }
+
+      if (!normalizedAuthMethod) {
+        throw new Error("Authentication method is required")
+      }
+
       await onSubmit({
         ...state,
         name: state.name.trim(),
         group: state.group.trim(),
-        auth_method: state.auth_method.trim(),
-        static_ipv4: state.static_ipv4.trim(),
-        static_ipv6: state.static_ipv6.trim(),
-        cc_commands: state.cc_commands,
+        auth_method: normalizedAuthMethod,
+        autologin: false,
+        deny: false,
+        deny_web: false,
+        static_ipv4: "",
+        static_ipv6: "",
+        cc_commands: "",
+        totp: normalizedAuthMethod === "local" ? state.totp : false,
+        allow_password_change: normalizedAuthMethod === "local" ? state.allow_password_change : false,
       })
     } catch (error) {
       setSubmitError(readErrorMessage(error, "Unable to save the OpenVPN user profile"))
     }
   }
+
+  const usingSaml = state.auth_method.trim().toLowerCase() === "saml"
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -345,55 +670,70 @@ export function OpenVpnUserEditorDialog({
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="openvpn-user-name">Username</Label>
-                  <Input
-                    id="openvpn-user-name"
-                    value={state.name}
-                    disabled={pending || mode === "edit"}
-                    onChange={(event) => setState((current) => ({ ...current, name: event.target.value }))}
-                  />
+                  {mode === "create" ? (
+                    <KeycloakUserLookupField
+                      value={state.name}
+                      disabled={pending}
+                      onChange={(value) => setState((current) => ({ ...current, name: value }))}
+                    />
+                  ) : (
+                    <Input
+                      id="openvpn-user-name"
+                      value={state.name}
+                      disabled
+                      onChange={(event) => setState((current) => ({ ...current, name: event.target.value }))}
+                    />
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    Choose an existing identity from Keycloak instead of entering a free-form username.
+                  </p>
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="openvpn-user-group">Primary group</Label>
-                  <Input
-                    id="openvpn-user-group"
+                  <SearchableStringSelectField
                     value={state.group}
                     disabled={pending}
-                    onChange={(event) => setState((current) => ({ ...current, group: event.target.value }))}
+                    options={availableGroups}
+                    placeholder={isLoadingGroups ? "Loading OpenVPN groups..." : "Select existing OpenVPN group"}
+                    searchPlaceholder="Search OpenVPN groups..."
+                    emptyText={isLoadingGroups ? "Loading OpenVPN groups..." : "No matching OpenVPN group."}
+                    onChange={(value) => setState((current) => ({ ...current, group: value }))}
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Pick from existing OpenVPN groups. Leave empty if the profile should not inherit a primary group.
+                  </p>
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="openvpn-user-auth-method">Authentication method</Label>
-                  <Input
-                    id="openvpn-user-auth-method"
+                  <Select
                     value={state.auth_method}
                     disabled={pending}
-                    onChange={(event) => setState((current) => ({ ...current, auth_method: event.target.value }))}
-                    placeholder="local, pam, ldap, saml..."
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="openvpn-user-static-ipv4">Static IPv4</Label>
-                  <Input
-                    id="openvpn-user-static-ipv4"
-                    value={state.static_ipv4}
-                    disabled={pending}
-                    onChange={(event) => setState((current) => ({ ...current, static_ipv4: event.target.value }))}
-                    placeholder="10.8.0.10"
-                  />
-                </div>
-
-                <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="openvpn-user-static-ipv6">Static IPv6</Label>
-                  <Input
-                    id="openvpn-user-static-ipv6"
-                    value={state.static_ipv6}
-                    disabled={pending}
-                    onChange={(event) => setState((current) => ({ ...current, static_ipv6: event.target.value }))}
-                    placeholder="fd00::10"
-                  />
+                    onValueChange={(value) =>
+                      setState((current) => ({
+                        ...current,
+                        auth_method: value,
+                        ...(value === "saml"
+                          ? {
+                              totp: false,
+                              allow_password_change: false,
+                            }
+                          : {}),
+                      }))
+                    }
+                  >
+                    <SelectTrigger id="openvpn-user-auth-method">
+                      <SelectValue placeholder="Select authentication method" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="local">local</SelectItem>
+                      <SelectItem value="saml">saml</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Restrict user creation to the supported OpenVPN methods used in this workspace.
+                  </p>
                 </div>
               </div>
 
@@ -405,53 +745,27 @@ export function OpenVpnUserEditorDialog({
                   onCheckedChange={(value) => setState((current) => ({ ...current, admin: value }))}
                 />
                 <FieldSwitch
-                  id="openvpn-user-autologin"
-                  label="Allow autologin profiles"
-                  checked={state.autologin}
-                  onCheckedChange={(value) => setState((current) => ({ ...current, autologin: value }))}
-                />
-                <FieldSwitch
-                  id="openvpn-user-deny"
-                  label="Deny VPN access"
-                  checked={state.deny}
-                  onCheckedChange={(value) => setState((current) => ({ ...current, deny: value }))}
-                />
-                <FieldSwitch
-                  id="openvpn-user-deny-web"
-                  label="Deny web access"
-                  checked={state.deny_web}
-                  onCheckedChange={(value) => setState((current) => ({ ...current, deny_web: value }))}
-                />
-                <FieldSwitch
-                  id="openvpn-user-totp"
-                  label="Require TOTP"
-                  checked={state.totp}
-                  onCheckedChange={(value) => setState((current) => ({ ...current, totp: value }))}
-                />
-                <FieldSwitch
-                  id="openvpn-user-password-change"
-                  label="Allow password change"
-                  checked={state.allow_password_change}
-                  onCheckedChange={(value) => setState((current) => ({ ...current, allow_password_change: value }))}
-                />
-                <FieldSwitch
                   id="openvpn-user-generate-profiles"
                   label="Allow self-service profile generation"
                   checked={state.allow_generate_profiles}
                   onCheckedChange={(value) => setState((current) => ({ ...current, allow_generate_profiles: value }))}
                 />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="openvpn-user-cc-commands">Client config commands</Label>
-                <Textarea
-                  id="openvpn-user-cc-commands"
-                  value={state.cc_commands}
-                  disabled={pending}
-                  onChange={(event) => setState((current) => ({ ...current, cc_commands: event.target.value }))}
-                  placeholder="Optional custom OpenVPN directives"
-                  className="min-h-32"
-                />
+                {!usingSaml ? (
+                  <FieldSwitch
+                    id="openvpn-user-totp"
+                    label="Require TOTP"
+                    checked={state.totp}
+                    onCheckedChange={(value) => setState((current) => ({ ...current, totp: value }))}
+                  />
+                ) : null}
+                {!usingSaml ? (
+                  <FieldSwitch
+                    id="openvpn-user-password-change"
+                    label="Allow password change"
+                    checked={state.allow_password_change}
+                    onCheckedChange={(value) => setState((current) => ({ ...current, allow_password_change: value }))}
+                  />
+                ) : null}
               </div>
             </div>
           </ScrollArea>

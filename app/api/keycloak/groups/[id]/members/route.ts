@@ -1,7 +1,6 @@
-import { NextResponse } from "next/server"
-import { getErrorDetail } from "@/lib/error-utils"
+import { apiErrorResponse, apiSuccess, apiValidationError } from "@/lib/api-response"
 import { appendAuditLog, getSystemConnection } from "@/lib/settings-store"
-import { createKeycloakAdminClient, KeycloakApiError } from "@/lib/keycloak-admin"
+import { createKeycloakAdminClient } from "@/lib/keycloak-admin"
 
 export const runtime = "nodejs"
 
@@ -12,18 +11,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const userId = typeof payload?.userId === "string" ? payload.userId.trim() : ""
 
     if (!userId) {
-      return NextResponse.json(
-        {
-          error: "Invalid group member payload",
-          issues: [
-            {
-              path: "userId",
-              message: "User ID is required",
-            },
-          ],
-        },
-        { status: 422 },
-      )
+      return apiValidationError({
+        error: "Invalid group member payload",
+        issues: [{ path: "userId", message: "User ID is required" }],
+        source: "keycloak",
+      })
     }
 
     const client = await createKeycloakAdminClient()
@@ -46,19 +38,21 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       },
     })
 
-    return NextResponse.json(
+    return apiSuccess(
       {
         success: true,
+        userId,
       },
-      { status: 201 },
+      {
+        status: 201,
+        message: `Added ${user.username ?? userId} to Keycloak group ${group.path ?? group.name ?? id}.`,
+      },
     )
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: "Unable to add member to Keycloak group",
-        detail: getErrorDetail(error, "Keycloak group membership update failed"),
-      },
-      { status: error instanceof KeycloakApiError ? error.status : 500 },
-    )
+    return apiErrorResponse(error, {
+      error: "Unable to add member to Keycloak group",
+      detail: "Keycloak group membership update failed",
+      source: "keycloak",
+    })
   }
 }

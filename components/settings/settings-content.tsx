@@ -1,8 +1,12 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { BellRing, ListChecks, LoaderCircle, MoonStar, RefreshCcw } from "lucide-react"
-import { OptionListsContent } from "@/components/settings/option-lists-content"
+import { BellRing, Building2, LoaderCircle, MoonStar, RefreshCcw, Shield } from "lucide-react"
+import { toast } from "sonner"
+import {
+  DirectoryOptionListsContent,
+  ProfileOptionListsContent,
+} from "@/components/settings/option-lists-content"
 import { useTheme } from "@/components/theme-provider"
 import { Button } from "@/components/ui/button"
 import {
@@ -14,6 +18,7 @@ import {
 } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { readApiErrorMessage, readApiSuccessMessage } from "@/lib/api-client"
 import { cn } from "@/lib/utils"
 
 interface NotificationSetting {
@@ -88,22 +93,26 @@ export function SettingsContent() {
           fetch("/api/settings/appearance", { cache: "no-store" }),
         ])
 
-        if (!notificationsResponse.ok || !appearanceResponse.ok) {
-          throw new Error("Unable to load workspace settings")
+        const notificationsPayload = (await notificationsResponse.json().catch(() => null)) as {
+          items: NotificationSetting[]
+        } | null
+        const appearancePayload = (await appearanceResponse.json().catch(() => null)) as AppearanceSettings | null
+
+        if (!notificationsResponse.ok) {
+          throw new Error(readApiErrorMessage(notificationsPayload, "Unable to load workspace settings"))
         }
 
-        const notificationsPayload = (await notificationsResponse.json()) as {
-          items: NotificationSetting[]
+        if (!appearanceResponse.ok) {
+          throw new Error(readApiErrorMessage(appearancePayload, "Unable to load workspace settings"))
         }
-        const appearancePayload = (await appearanceResponse.json()) as AppearanceSettings
 
         if (!isActive) {
           return
         }
 
-        setNotifications(notificationsPayload.items)
-        setAppearance(appearancePayload)
-        setTheme(appearancePayload.theme)
+        setNotifications(notificationsPayload?.items ?? [])
+        setAppearance(appearancePayload ?? { theme: "dark" })
+        setTheme(appearancePayload?.theme ?? "dark")
         setNotificationMessage(null)
         setAppearanceMessage(null)
       } catch (error) {
@@ -114,6 +123,9 @@ export function SettingsContent() {
         const message = error instanceof Error ? error.message : "Unable to load workspace settings"
         setNotificationMessage(message)
         setAppearanceMessage(message)
+        toast.error("Unable to load workspace settings", {
+          description: message,
+        })
       } finally {
         if (isActive) {
           setIsLoading(false)
@@ -148,19 +160,29 @@ export function SettingsContent() {
         body: JSON.stringify({ enabled }),
       })
 
+      const payload = (await response.json().catch(() => null)) as NotificationSetting | null
+
       if (!response.ok) {
-        throw new Error("Unable to update notification setting")
+        throw new Error(readApiErrorMessage(payload, "Unable to update notification setting"))
       }
 
-      const updated = (await response.json()) as NotificationSetting
+      const updated = payload as NotificationSetting
 
       setNotifications((current) =>
         current.map((item) => (item.id === updated.id ? updated : item)),
       )
-      setNotificationMessage(`Updated "${updated.label}" at ${formatTimestamp(updated.updatedAt)}`)
+      const nextMessage = `Updated "${updated.label}" at ${formatTimestamp(updated.updatedAt)}`
+      setNotificationMessage(nextMessage)
+      toast.success("Notification preference updated", {
+        description: nextMessage,
+      })
     } catch (error) {
       setNotifications(previous)
-      setNotificationMessage(error instanceof Error ? error.message : "Unable to update notification setting")
+      const message = error instanceof Error ? error.message : "Unable to update notification setting"
+      setNotificationMessage(message)
+      toast.error("Unable to update notification setting", {
+        description: message,
+      })
     } finally {
       setIsUpdatingNotificationId(null)
     }
@@ -182,18 +204,27 @@ export function SettingsContent() {
         body: JSON.stringify({ theme: nextTheme }),
       })
 
+      const saved = (await response.json().catch(() => null)) as AppearanceSettings | null
+
       if (!response.ok) {
-        throw new Error("Unable to update appearance settings")
+        throw new Error(readApiErrorMessage(saved, "Unable to update appearance settings"))
       }
 
-      const saved = (await response.json()) as AppearanceSettings
-      setAppearance(saved)
-      setTheme(saved.theme)
-      setAppearanceMessage(`Theme saved as ${saved.theme} at ${formatTimestamp(saved.updatedAt)}`)
+      const nextAppearance = saved as AppearanceSettings
+      setAppearance(nextAppearance)
+      setTheme(nextAppearance.theme)
+      setAppearanceMessage(`Theme saved as ${nextAppearance.theme} at ${formatTimestamp(nextAppearance.updatedAt)}`)
+      toast.success("Appearance updated", {
+        description: readApiSuccessMessage(nextAppearance, `Theme saved as ${nextAppearance.theme}.`),
+      })
     } catch (error) {
       setTheme(previousTheme)
       setAppearance((current) => ({ ...current, theme: previousTheme }))
-      setAppearanceMessage(error instanceof Error ? error.message : "Unable to update appearance settings")
+      const message = error instanceof Error ? error.message : "Unable to update appearance settings"
+      setAppearanceMessage(message)
+      toast.error("Unable to update appearance settings", {
+        description: message,
+      })
     } finally {
       setIsSavingAppearance(false)
     }
@@ -201,7 +232,7 @@ export function SettingsContent() {
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full gap-5">
-      <TabsList className="grid h-auto w-full grid-cols-1 gap-2 rounded-2xl border border-border/80 bg-card p-2 md:grid-cols-3">
+      <TabsList className="grid h-auto w-full grid-cols-1 gap-2 rounded-2xl border border-border/80 bg-card p-2 md:grid-cols-2 xl:grid-cols-4">
         <TabsTrigger value="notifications" className="h-10 rounded-lg">
           <BellRing className="h-4 w-4" />
           Notification preferences
@@ -210,9 +241,13 @@ export function SettingsContent() {
           <MoonStar className="h-4 w-4" />
           Appearance
         </TabsTrigger>
-        <TabsTrigger value="option-lists" className="h-10 rounded-lg">
-          <ListChecks className="h-4 w-4" />
-          Field lists
+        <TabsTrigger value="profile-options" className="h-10 rounded-lg">
+          <Shield className="h-4 w-4" />
+          Role and team
+        </TabsTrigger>
+        <TabsTrigger value="directory-options" className="h-10 rounded-lg">
+          <Building2 className="h-4 w-4" />
+          Department and address
         </TabsTrigger>
       </TabsList>
 
@@ -377,8 +412,12 @@ export function SettingsContent() {
         </Card>
       </TabsContent>
 
-      <TabsContent value="option-lists" className="w-full">
-        <OptionListsContent />
+      <TabsContent value="profile-options" className="w-full">
+        <ProfileOptionListsContent />
+      </TabsContent>
+
+      <TabsContent value="directory-options" className="w-full">
+        <DirectoryOptionListsContent />
       </TabsContent>
     </Tabs>
   )

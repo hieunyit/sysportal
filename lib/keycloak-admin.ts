@@ -204,12 +204,14 @@ export interface KeycloakComponentRepresentation {
 export class KeycloakApiError extends Error {
   status: number
   detail?: string
+  payload?: unknown
 
-  constructor(message: string, status: number, detail?: string) {
+  constructor(message: string, status: number, detail?: string, payload?: unknown) {
     super(message)
     this.name = "KeycloakApiError"
     this.status = status
     this.detail = detail
+    this.payload = payload
   }
 }
 
@@ -341,6 +343,7 @@ async function requestAccessToken(config: KeycloakConnectionRecord) {
       "Unable to discover the Keycloak token endpoint.",
       discoveryResponse.status,
       readErrorDetail(discoveryPayload, "OIDC discovery failed."),
+      discoveryPayload,
     )
   }
 
@@ -368,6 +371,7 @@ async function requestAccessToken(config: KeycloakConnectionRecord) {
       "Unable to obtain a Keycloak admin access token.",
       tokenResponse.status,
       readErrorDetail(tokenPayload, "Client credentials flow failed."),
+      tokenPayload,
     )
   }
 
@@ -427,6 +431,7 @@ async function keycloakRequestResponse<T>(
       `Keycloak request failed for ${path}.`,
       response.status,
       readErrorDetail(payload, `HTTP ${response.status}`),
+      payload,
     )
   }
 

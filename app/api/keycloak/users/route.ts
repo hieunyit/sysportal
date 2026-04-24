@@ -1,5 +1,11 @@
 import { randomInt } from "node:crypto"
 import { NextResponse } from "next/server"
+import {
+  apiErrorResponse,
+  apiProblemResponse,
+  apiSuccess,
+  apiValidationError,
+} from "@/lib/api-response"
 import { getErrorDetail } from "@/lib/error-utils"
 import { renderTemplateText } from "@/lib/email-template-utils"
 import { sendSmtpEmail } from "@/lib/connection-tests"
@@ -388,7 +394,7 @@ export async function GET(request: Request) {
       }),
     )
 
-    return NextResponse.json({
+    return apiSuccess({
       summary: {
         realm: realm.realm ?? configuredRealm,
         displayName: realm.displayName ?? null,
@@ -404,13 +410,11 @@ export async function GET(request: Request) {
       search,
     })
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: "Unable to load Keycloak users",
-        detail: getErrorDetail(error, "Keycloak user inventory is unavailable"),
-      },
-      { status: error instanceof KeycloakApiError ? error.status : 500 },
-    )
+    return apiErrorResponse(error, {
+      error: "Unable to load Keycloak users",
+      detail: "Keycloak user inventory is unavailable",
+      source: "keycloak",
+    })
   }
 }
 
@@ -420,13 +424,11 @@ export async function POST(request: Request) {
     const parsed = keycloakUserCreateSchema.safeParse(payload)
 
     if (!parsed.success) {
-      return NextResponse.json(
-        {
-          error: "Invalid Keycloak user payload",
-          issues: formatZodError(parsed.error),
-        },
-        { status: 422 },
-      )
+      return apiValidationError({
+        error: "Invalid Keycloak user payload",
+        issues: formatZodError(parsed.error),
+        source: "keycloak",
+      })
     }
 
     const client = await createKeycloakAdminClient()
@@ -446,22 +448,20 @@ export async function POST(request: Request) {
       try {
         resolvedManagerValue = await resolveManagerAttribute(client, managerValue)
       } catch (managerLookupError) {
-        return NextResponse.json(
-          {
-            error: "Keycloak user validation failed",
-            detail: managerLookupError instanceof Error ? managerLookupError.message : "Manager lookup failed",
-            issues: [
-              {
-                path: "attributes.manager",
-                message:
-                  managerLookupError instanceof Error
-                    ? managerLookupError.message
-                    : "Manager lookup failed",
-              },
-            ],
-          },
-          { status: 422 },
-        )
+        return apiValidationError({
+          error: "Keycloak user validation failed",
+          detail: managerLookupError instanceof Error ? managerLookupError.message : "Manager lookup failed",
+          issues: [
+            {
+              path: "attributes.manager",
+              message:
+                managerLookupError instanceof Error
+                  ? managerLookupError.message
+                  : "Manager lookup failed",
+            },
+          ],
+          source: "keycloak",
+        })
       }
 
       if (!createPayload.attributes) {
@@ -475,14 +475,12 @@ export async function POST(request: Request) {
     const metadataIssues = validateKeycloakProfileInput(createPayload as Record<string, unknown>, profileMetadata)
 
     if (metadataIssues.length > 0) {
-      return NextResponse.json(
-        {
-          error: "Keycloak user validation failed",
-          detail: "The payload does not satisfy the current Keycloak user profile policy.",
-          issues: metadataIssues,
-        },
-        { status: 422 },
-      )
+      return apiValidationError({
+        error: "Keycloak user validation failed",
+        detail: "The payload does not satisfy the current Keycloak user profile policy.",
+        issues: metadataIssues,
+        source: "keycloak",
+      })
     }
 
     const userType = getFirstAttributeValue(createPayload.attributes?.userType)
@@ -511,18 +509,17 @@ export async function POST(request: Request) {
         : { resolvedGroups: [], unresolvedGroups: [] }
 
     if (userType === "employee" && !welcomeRecipientEmail) {
-      return NextResponse.json(
-        {
-          error: "Invalid Keycloak user payload",
-          issues: [
-            {
-              path: "welcomeRecipientEmail",
-              message: "Welcome recipient email is required for employee accounts",
-            },
-          ],
-        },
-        { status: 400 },
-      )
+      return apiValidationError({
+        error: "Invalid Keycloak user payload",
+        issues: [
+          {
+            path: "welcomeRecipientEmail",
+            message: "Welcome recipient email is required for employee accounts",
+          },
+        ],
+        source: "keycloak",
+        status: 400,
+      })
     }
 
     const created =
@@ -837,7 +834,7 @@ export async function POST(request: Request) {
       upsertSettingOption("workAddress", workAddress)
     }
 
-    return NextResponse.json(
+    return apiSuccess(
       {
         id: created.userId,
         location: created.location,
@@ -859,19 +856,25 @@ export async function POST(request: Request) {
           enabled: Boolean(user.enabled),
         },
       },
-      { status: 201 },
+      { status: 201, message: `Created Keycloak user ${toDisplayName(user)}.` },
     )
   } catch (error) {
     if (error instanceof KeycloakApiError && error.status === 400) {
-      return NextResponse.json(mapKeycloakValidationError(error), { status: 422 })
+      const mapped = mapKeycloakValidationError(error)
+      return apiProblemResponse({
+        status: 422,
+        error: mapped.error,
+        detail: mapped.detail,
+        issues: mapped.issues,
+        source: "keycloak",
+        upstream: error.payload,
+      })
     }
 
-    return NextResponse.json(
-      {
-        error: "Unable to create Keycloak user",
-        detail: getErrorDetail(error, "Keycloak user creation failed"),
-      },
-      { status: error instanceof KeycloakApiError ? error.status : 500 },
-    )
+    return apiErrorResponse(error, {
+      error: "Unable to create Keycloak user",
+      detail: "Keycloak user creation failed",
+      source: "keycloak",
+    })
   }
 }

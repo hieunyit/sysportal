@@ -5,6 +5,8 @@ const optionalCredential = z.string().trim().max(160)
 
 export const connectorKeySchema = z.enum(["keycloak", "openvpn", "smtp", "smtp-welcome"])
 export const settingsOptionKindSchema = z.enum(["role", "team", "department", "workAddress"])
+export const profileOptionKindSchema = z.enum(["role", "team"])
+export const directoryOptionKindSchema = z.enum(["department", "workAddress"])
 
 export const profileSettingsSchema = z.object({
   fullName: z.string().trim().min(1).max(120),

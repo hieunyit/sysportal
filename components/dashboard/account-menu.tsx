@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { LogOut, PencilLine } from "lucide-react"
+import { toast } from "sonner"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import {
@@ -29,6 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { readApiErrorMessage, readApiSuccessMessage } from "@/lib/api-client"
 
 interface ProfileSettings {
   fullName: string
@@ -76,7 +78,6 @@ export function AccountMenu() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
-  const [message, setMessage] = useState<string | null>(null)
 
   useEffect(() => {
     let isActive = true
@@ -121,13 +122,14 @@ export function AccountMenu() {
         setSessionUser(sessionData.authenticated ? sessionData.user : null)
         setProfile(nextProfile)
         setDraft(nextProfile)
-        setMessage(null)
       } catch (error) {
         if (!isActive) {
           return
         }
 
-        setMessage(error instanceof Error ? error.message : "Unable to load profile")
+        toast.error("Unable to load profile", {
+          description: error instanceof Error ? error.message : "Unable to load profile",
+        })
       } finally {
         if (isActive) {
           setIsLoading(false)
@@ -153,7 +155,6 @@ export function AccountMenu() {
 
   async function saveProfile() {
     setIsSaving(true)
-    setMessage(null)
 
     try {
       const response = await fetch("/api/settings/profile", {
@@ -164,31 +165,37 @@ export function AccountMenu() {
         body: JSON.stringify(draft),
       })
 
+      const payload = (await response.json().catch(() => null)) as ProfileSettingsResponse | null
+
       if (!response.ok) {
-        throw new Error("Unable to save profile")
+        throw new Error(readApiErrorMessage(payload, "Unable to save profile"))
       }
 
-      const payload = (await response.json()) as ProfileSettingsResponse
+      const savedProfile = payload as ProfileSettingsResponse
       const nextOptions = {
-        roles: Array.from(new Set([payload.profile.role, ...(payload.options.roles ?? [])].filter(Boolean))),
-        teams: Array.from(new Set([payload.profile.team, ...(payload.options.teams ?? [])].filter(Boolean))),
+        roles: Array.from(new Set([savedProfile.profile.role, ...(savedProfile.options.roles ?? [])].filter(Boolean))),
+        teams: Array.from(new Set([savedProfile.profile.team, ...(savedProfile.options.teams ?? [])].filter(Boolean))),
       }
       const nextProfile =
         sessionUser
           ? {
-              ...payload.profile,
-              fullName: sessionUser.name || sessionUser.preferredUsername || payload.profile.fullName,
-              email: sessionUser.email || payload.profile.email,
+              ...savedProfile.profile,
+              fullName: sessionUser.name || sessionUser.preferredUsername || savedProfile.profile.fullName,
+              email: sessionUser.email || savedProfile.profile.email,
             }
-          : payload.profile
+          : savedProfile.profile
 
       setOptions(nextOptions)
       setProfile(nextProfile)
       setDraft(nextProfile)
-      setMessage("Profile updated")
       setIsDialogOpen(false)
+      toast.success("Profile updated", {
+        description: readApiSuccessMessage(savedProfile, "Role and team were saved."),
+      })
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to save profile")
+      toast.error("Unable to save profile", {
+        description: error instanceof Error ? error.message : "Unable to save profile",
+      })
     } finally {
       setIsSaving(false)
     }
@@ -310,7 +317,6 @@ export function AccountMenu() {
             </div>
           </div>
 
-          {message && <p className="text-sm text-muted-foreground">{message}</p>}
           {isLoading && <p className="text-sm text-muted-foreground">Loading profile...</p>}
 
           <DialogFooter>

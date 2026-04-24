@@ -4,6 +4,7 @@ import Link from "next/link"
 import { useDeferredValue, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { KeyRound, LoaderCircle, Plus, Search, ShieldAlert, ShieldCheck, UserRound } from "lucide-react"
+import { toast } from "sonner"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -14,6 +15,7 @@ import {
   OpenVpnUserEditorDialog,
   type EditableOpenVpnUserState,
 } from "@/components/openvpn/openvpn-management-dialogs"
+import { readApiErrorMessage, readApiSuccessMessage } from "@/lib/api-client"
 
 interface OpenVpnUserListResponse {
   summary: {
@@ -40,28 +42,6 @@ interface OpenVpnUserListResponse {
   pageSize: number
   pageCount: number
   search: string
-}
-
-function readErrorMessage(payload: unknown, fallback: string) {
-  if (!payload || typeof payload !== "object") {
-    return fallback
-  }
-
-  const response = payload as {
-    detail?: string
-    error?: string
-    issues?: Array<{ path?: string; message?: string }>
-  }
-  const issues = response.issues
-    ?.map((issue) => {
-      const path = issue.path?.trim()
-      const message = issue.message?.trim()
-      return path ? `${path}: ${message}` : message
-    })
-    .filter(Boolean)
-    .join("; ")
-
-  return response.detail ?? issues ?? response.error ?? fallback
 }
 
 const defaultCreateState: EditableOpenVpnUserState = {
@@ -143,7 +123,7 @@ export function OpenVpnUsersContent() {
         const payload = await response.json()
 
         if (!response.ok) {
-          throw new Error(readErrorMessage(payload, "Unable to load OpenVPN users"))
+          throw new Error(readApiErrorMessage(payload, "Unable to load OpenVPN users"))
         }
 
         if (!isActive) {
@@ -185,11 +165,14 @@ export function OpenVpnUsersContent() {
       const responsePayload = await response.json().catch(() => null)
 
       if (!response.ok) {
-        throw new Error(readErrorMessage(responsePayload, "Unable to create OpenVPN user"))
+        throw new Error(readApiErrorMessage(responsePayload, "Unable to create OpenVPN user"))
       }
 
       setIsCreateOpen(false)
       setRefreshKey((current) => current + 1)
+      toast.success("OpenVPN user created", {
+        description: readApiSuccessMessage(responsePayload, `User ${payload.name} was created.`),
+      })
       router.push(`/openvpn/users/${encodeURIComponent(payload.name)}`)
     } finally {
       setIsCreating(false)

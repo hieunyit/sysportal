@@ -64,14 +64,27 @@ export interface ProfileSettingsRecord {
   updatedAt: string
 }
 
-export const settingsOptionKinds = ["role", "team", "department", "workAddress"] as const
+export const profileOptionKinds = ["role", "team"] as const
+export const directoryOptionKinds = ["department", "workAddress"] as const
+export const settingsOptionKinds = [...profileOptionKinds, ...directoryOptionKinds] as const
 
 export type SettingsOptionKind = (typeof settingsOptionKinds)[number]
-type ProfileOptionKind = Extract<SettingsOptionKind, "role" | "team">
+export type ProfileOptionKind = (typeof profileOptionKinds)[number]
+export type DirectoryOptionKind = (typeof directoryOptionKinds)[number]
 
 export interface ProfileOptionsRecord {
   roles: string[]
   teams: string[]
+}
+
+export interface ProfileOptionListsRecord {
+  role: string[]
+  team: string[]
+}
+
+export interface DirectoryOptionListsRecord {
+  department: string[]
+  workAddress: string[]
 }
 
 export interface SettingsOptionListsRecord {
@@ -175,6 +188,22 @@ declare global {
 }
 
 const SETTINGS_DB_PATH = join(process.cwd(), "data", "identityops-settings.sqlite3")
+const legacyDirectoryDepartmentOptions = [
+  "Human Resources",
+  "Finance",
+  "Platform Engineering",
+  "Security Operations",
+  "Infrastructure Operations",
+  "Customer Delivery",
+] as const
+const optionListSeedVersion = {
+  role: "v1",
+  team: "v1",
+  department: "v2",
+  workAddress: "v1",
+} as const
+const legacyProfileOptionsMigrationVersion = "v1"
+const legacyProfileOptionsMigrationKey = "settings-option-migration:settings_profile_options"
 
 function getTableColumnNames(database: SqliteDatabase, tableName: string) {
   return new Set(
@@ -229,20 +258,18 @@ function ensureSchema(database: SqliteDatabase) {
       updated_at TEXT NOT NULL
     );
 
-    CREATE TABLE IF NOT EXISTS settings_profile_options (
-      kind TEXT NOT NULL CHECK (kind IN ('role', 'team')),
-      value TEXT NOT NULL,
-      sort_order INTEGER NOT NULL DEFAULT 0,
-      updated_at TEXT NOT NULL,
-      PRIMARY KEY (kind, value)
-    );
-
     CREATE TABLE IF NOT EXISTS settings_option_lists (
       kind TEXT NOT NULL,
       value TEXT NOT NULL,
       sort_order INTEGER NOT NULL DEFAULT 0,
       updated_at TEXT NOT NULL,
       PRIMARY KEY (kind, value)
+    );
+
+    CREATE TABLE IF NOT EXISTS settings_meta (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at TEXT NOT NULL
     );
 
     CREATE TABLE IF NOT EXISTS settings_connections (
@@ -389,15 +416,44 @@ function ensureSchema(database: SqliteDatabase) {
   }
 
   if (tableExists(database, "settings_profile_options")) {
-    database.exec(`
-      INSERT INTO settings_option_lists (kind, value, sort_order, updated_at)
-      SELECT kind, value, sort_order, updated_at
-      FROM settings_profile_options
-      WHERE kind IN ('role', 'team')
-      ON CONFLICT(kind, value) DO UPDATE SET
-        sort_order = excluded.sort_order,
-        updated_at = excluded.updated_at
-    `)
+    const migratedLegacyProfileOptions =
+      getSettingsMetaValue(database, legacyProfileOptionsMigrationKey) === legacyProfileOptionsMigrationVersion
+
+    if (!migratedLegacyProfileOptions) {
+      try {
+        database.exec(`
+          BEGIN IMMEDIATE;
+
+          INSERT INTO settings_option_lists (kind, value, sort_order, updated_at)
+          SELECT kind, value, sort_order, updated_at
+          FROM settings_profile_options
+          WHERE kind IN ('role', 'team')
+          ON CONFLICT(kind, value) DO UPDATE SET
+            sort_order = excluded.sort_order,
+            updated_at = excluded.updated_at;
+
+          DROP TABLE settings_profile_options;
+
+          COMMIT;
+        `)
+      } catch (error) {
+        try {
+          database.exec("ROLLBACK;")
+        } catch {
+          // Ignore rollback errors if SQLite already closed the transaction.
+        }
+
+        throw error
+      }
+
+      setSettingsMetaValue(
+        database,
+        legacyProfileOptionsMigrationKey,
+        legacyProfileOptionsMigrationVersion,
+      )
+    } else {
+      database.exec(`DROP TABLE settings_profile_options`)
+    }
   }
 
   const connectionColumns = getTableColumnNames(database, "settings_connections")
@@ -429,6 +485,93 @@ function ensureSchema(database: SqliteDatabase) {
   if (!emailTemplateColumns.has("updated_at")) {
     database.exec(`ALTER TABLE email_templates ADD COLUMN updated_at TEXT NOT NULL DEFAULT ''`)
   }
+}
+
+function countSettingOptionsByKind(database: SqliteDatabase, kind: SettingsOptionKind) {
+  const row = database
+    .prepare(`
+      SELECT COUNT(*) AS total
+      FROM settings_option_lists
+      WHERE kind = ?
+    `)
+    .get(kind) as { total: number }
+
+  return row.total
+}
+
+function normalizeSettingOptionItems(items: string[]) {
+  return Array.from(new Set(items.map((item) => item.trim()).filter(Boolean)))
+}
+
+function getSettingsMetaValue(database: SqliteDatabase, key: string) {
+  const row = database
+    .prepare(`
+      SELECT value
+      FROM settings_meta
+      WHERE key = ?
+    `)
+    .get(key) as { value: string } | undefined
+
+  return row?.value ?? null
+}
+
+function setSettingsMetaValue(database: SqliteDatabase, key: string, value: string, updatedAt = new Date().toISOString()) {
+  database
+    .prepare(`
+      INSERT INTO settings_meta (key, value, updated_at)
+      VALUES (?, ?, ?)
+      ON CONFLICT(key) DO UPDATE SET
+        value = excluded.value,
+        updated_at = excluded.updated_at
+    `)
+    .run(key, value, updatedAt)
+}
+
+function replaceSettingOptionListValues(
+  database: SqliteDatabase,
+  kind: SettingsOptionKind,
+  items: string[],
+  updatedAt = new Date().toISOString(),
+) {
+  const normalizedItems = normalizeSettingOptionItems(items)
+
+  database
+    .prepare(`
+      DELETE FROM settings_option_lists
+      WHERE kind = ?
+    `)
+    .run(kind)
+
+  const insertStatement = database.prepare(`
+    INSERT INTO settings_option_lists (kind, value, sort_order, updated_at)
+    VALUES (?, ?, ?, ?)
+  `)
+
+  normalizedItems.forEach((value, index) => {
+    insertStatement.run(kind, value, index, updatedAt)
+  })
+
+  return normalizedItems
+}
+
+function ensureOptionListSeeded(
+  database: SqliteDatabase,
+  kind: SettingsOptionKind,
+  items: string[],
+  updatedAt = new Date().toISOString(),
+) {
+  const seedKey = `settings-option-seed:${kind}`
+  const currentSeedVersion = getSettingsMetaValue(database, seedKey)
+
+  if (currentSeedVersion === optionListSeedVersion[kind]) {
+    return
+  }
+
+  if (countSettingOptionsByKind(database, kind) === 0) {
+    replaceSettingOptionListValues(database, kind, items, updatedAt)
+  }
+
+  setSettingsMetaValue(database, seedKey, optionListSeedVersion[kind], updatedAt)
 }
 
 function seedDefaults(database: SqliteDatabase) {
@@ -473,44 +616,32 @@ function seedDefaults(database: SqliteDatabase) {
     new Set(defaultDirectoryWorkAddressOptions.map((item) => item.trim()).filter(Boolean)),
   )
 
-  const insertProfileOption = database.prepare(`
-    INSERT INTO settings_option_lists (kind, value, sort_order, updated_at)
-    VALUES (?, ?, ?, ?)
-    ON CONFLICT(kind, value) DO UPDATE SET
-      updated_at = excluded.updated_at
-  `)
+  ensureOptionListSeeded(database, "role", defaultRoleOptions, now)
+  ensureOptionListSeeded(database, "team", defaultTeamOptions, now)
+  ensureOptionListSeeded(database, "workAddress", defaultWorkAddressOptions, now)
 
-  defaultRoleOptions.forEach((value, index) => {
-    insertProfileOption.run("role", value, index, now)
-  })
+  const currentDepartmentOptions = listSettingOptionsByKind(database, "department")
+  const legacyDepartmentSet = new Set(legacyDirectoryDepartmentOptions.map((item) => item.trim()))
+  const preservedDepartmentOptions = currentDepartmentOptions.filter(
+    (item) => !legacyDepartmentSet.has(item.trim()),
+  )
+  const departmentSeedKey = "settings-option-seed:department"
+  const currentDepartmentSeedVersion = getSettingsMetaValue(database, departmentSeedKey)
 
-  defaultTeamOptions.forEach((value, index) => {
-    insertProfileOption.run("team", value, index, now)
-  })
+  if (
+    currentDepartmentSeedVersion !== optionListSeedVersion.department ||
+    currentDepartmentOptions.length === 0 ||
+    currentDepartmentOptions.some((item) => legacyDepartmentSet.has(item.trim()))
+  ) {
+    replaceSettingOptionListValues(
+      database,
+      "department",
+      [...defaultDepartmentOptions, ...preservedDepartmentOptions],
+      now,
+    )
+  }
 
-  defaultDepartmentOptions.forEach((value, index) => {
-    insertProfileOption.run("department", value, index, now)
-  })
-
-  defaultWorkAddressOptions.forEach((value, index) => {
-    insertProfileOption.run("workAddress", value, index, now)
-  })
-
-  database.exec(`
-    INSERT INTO settings_option_lists (kind, value, sort_order, updated_at)
-    SELECT 'role', role, ${defaultRoleOptions.length}, '${now.replace(/'/g, "''")}'
-    FROM settings_profile
-    WHERE TRIM(COALESCE(role, '')) <> ''
-    ON CONFLICT(kind, value) DO UPDATE SET
-      updated_at = excluded.updated_at;
-
-    INSERT INTO settings_option_lists (kind, value, sort_order, updated_at)
-    SELECT 'team', team, ${defaultTeamOptions.length}, '${now.replace(/'/g, "''")}'
-    FROM settings_profile
-    WHERE TRIM(COALESCE(team, '')) <> ''
-    ON CONFLICT(kind, value) DO UPDATE SET
-      updated_at = excluded.updated_at;
-  `)
+  setSettingsMetaValue(database, departmentSeedKey, optionListSeedVersion.department, now)
 
   database
     .prepare(`
@@ -905,14 +1036,28 @@ export function getProfileSettingsBundle() {
   } as ProfileSettingsBundleRecord
 }
 
-export function getSettingsOptionLists() {
+export function getProfileOptionLists() {
   const database = getDatabase()
 
   return {
     role: listSettingOptionsByKind(database, "role"),
     team: listSettingOptionsByKind(database, "team"),
+  } as ProfileOptionListsRecord
+}
+
+export function getDirectoryOptionLists() {
+  const database = getDatabase()
+
+  return {
     department: listSettingOptionsByKind(database, "department"),
     workAddress: listSettingOptionsByKind(database, "workAddress"),
+  } as DirectoryOptionListsRecord
+}
+
+export function getSettingsOptionLists() {
+  return {
+    ...getProfileOptionLists(),
+    ...getDirectoryOptionLists(),
   } as SettingsOptionListsRecord
 }
 
@@ -942,28 +1087,21 @@ export function updateProfileSettings(input: Omit<ProfileSettingsRecord, "update
 export function replaceSettingsOptionList(kind: SettingsOptionKind, items: string[]) {
   const database = getDatabase()
   const updatedAt = new Date().toISOString()
-  const normalizedItems = Array.from(new Set(items.map((item) => item.trim()).filter(Boolean)))
-  database
-    .prepare(`
-      DELETE FROM settings_option_lists
-      WHERE kind = ?
-    `)
-    .run(kind)
-
-  const insertStatement = database.prepare(`
-    INSERT INTO settings_option_lists (kind, value, sort_order, updated_at)
-    VALUES (?, ?, ?, ?)
-  `)
-
-  normalizedItems.forEach((value, index) => {
-    insertStatement.run(kind, value, index, updatedAt)
-  })
+  replaceSettingOptionListValues(database, kind, items, updatedAt)
 
   return {
     kind,
     items: listSettingOptionsByKind(database, kind),
     updatedAt,
   }
+}
+
+export function replaceProfileOptionList(kind: ProfileOptionKind, items: string[]) {
+  return replaceSettingsOptionList(kind, items)
+}
+
+export function replaceDirectoryOptionList(kind: DirectoryOptionKind, items: string[]) {
+  return replaceSettingsOptionList(kind, items)
 }
 
 export function upsertSettingOption(kind: SettingsOptionKind, value: string) {

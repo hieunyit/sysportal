@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { getErrorDetail } from "@/lib/error-utils"
+import { apiErrorResponse, apiSuccess } from "@/lib/api-response"
 import { getSystemConnection } from "@/lib/settings-store"
 import {
   createKeycloakAdminClient,
@@ -623,7 +623,7 @@ export async function GET(request: Request) {
       )
     }
 
-    return NextResponse.json({
+    return apiSuccess({
       summary: {
         realm: realm.realm ?? configuredRealm,
         displayName: realm.displayName ?? null,
@@ -653,12 +653,10 @@ export async function GET(request: Request) {
       generatedAt: new Date().toISOString(),
     })
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: "Unable to load Keycloak sessions",
-        detail: getErrorDetail(error, "Keycloak session inventory is unavailable"),
-      },
-      { status: error instanceof KeycloakApiError ? error.status : 500 },
-    )
+    return apiErrorResponse(error, {
+      error: "Unable to load Keycloak sessions",
+      detail: "Keycloak session inventory is unavailable",
+      source: "keycloak",
+    })
   }
 }

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { ZodError } from "zod"
-import { getErrorDetail } from "@/lib/error-utils"
+import { apiErrorResponse, apiNotFound, apiSuccess, apiValidationError } from "@/lib/api-response"
 import {
   createOpenVpnAdminClient,
   OpenVpnApiError,
@@ -27,32 +27,28 @@ export async function GET(_: Request, { params }: { params: Promise<{ name: stri
     const detail = await loadOpenVpnSubjectDetail(client, "user", decodedName)
 
     if (!detail) {
-      return NextResponse.json({ error: "OpenVPN user not found" }, { status: 404 })
+      return apiNotFound("OpenVPN user not found", `OpenVPN user "${decodedName}" was not found.`, "openvpn")
     }
 
-    return NextResponse.json({
+    return apiSuccess({
       name: decodedName,
       listType: parsedListType,
       routes: detail.accessLists[parsedListType],
     })
   } catch (error) {
     if (error instanceof ZodError) {
-      return NextResponse.json(
-        {
-          error: "Invalid OpenVPN access list type",
-          issues: formatOpenVpnZodError(error),
-        },
-        { status: 422 },
-      )
+      return apiValidationError({
+        error: "Invalid OpenVPN access list type",
+        issues: formatOpenVpnZodError(error),
+        source: "openvpn",
+      })
     }
 
-    return NextResponse.json(
-      {
-        error: "Unable to load OpenVPN access routes",
-        detail: getErrorDetail(error, "OpenVPN access list is unavailable"),
-      },
-      { status: error instanceof OpenVpnApiError ? error.status : 500 },
-    )
+    return apiErrorResponse(error, {
+      error: "Unable to load OpenVPN access routes",
+      detail: "OpenVPN access list is unavailable",
+      source: "openvpn",
+    })
   }
 }
 
@@ -80,24 +76,29 @@ export async function PUT(request: Request, { params }: { params: Promise<{ name
       metadata: { routeCount: payload.routes.length },
     })
 
-    return new NextResponse(null, { status: 204 })
+    return apiSuccess(
+      {
+        name: decodedName,
+        listType: parsedListType,
+        routeCount: payload.routes.length,
+      },
+      {
+        message: `Updated ${parsedListType} access routes for ${decodedName}.`,
+      },
+    )
   } catch (error) {
     if (error instanceof ZodError) {
-      return NextResponse.json(
-        {
-          error: "Invalid OpenVPN access route payload",
-          issues: formatOpenVpnZodError(error),
-        },
-        { status: 422 },
-      )
+      return apiValidationError({
+        error: "Invalid OpenVPN access route payload",
+        issues: formatOpenVpnZodError(error),
+        source: "openvpn",
+      })
     }
 
-    return NextResponse.json(
-      {
-        error: "Unable to update OpenVPN access routes",
-        detail: getErrorDetail(error, "OpenVPN access route update failed"),
-      },
-      { status: error instanceof OpenVpnApiError ? error.status : 500 },
-    )
+    return apiErrorResponse(error, {
+      error: "Unable to update OpenVPN access routes",
+      detail: "OpenVPN access route update failed",
+      source: "openvpn",
+    })
   }
 }

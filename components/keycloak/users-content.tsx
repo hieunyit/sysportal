@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { useDeferredValue, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
+import { toast } from "sonner"
 import {
   ArrowRight,
   CheckCircle2,
@@ -29,6 +30,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { formatTimestamp } from "@/lib/email-template-utils"
+import { readApiErrorMessage, readApiSuccessMessage } from "@/lib/api-client"
 import { UserImportDialog } from "@/components/keycloak/user-import-dialog"
 import { UserEditorDialog } from "@/components/keycloak/user-management-dialogs"
 
@@ -96,28 +98,6 @@ interface CreateUserResultNotice {
   userType: string
 }
 
-function readErrorMessage(payload: unknown, fallback: string) {
-  if (!payload || typeof payload !== "object") {
-    return fallback
-  }
-
-  const response = payload as {
-    detail?: string
-    error?: string
-    issues?: Array<{ path?: string; message?: string }>
-  }
-  const issueMessage = response.issues
-    ?.map((issue) => {
-      const path = issue.path?.trim()
-      const message = issue.message?.trim()
-      return path ? `${path}: ${message}` : message
-    })
-    .filter(Boolean)
-    .join("; ")
-
-  return response.detail ?? issueMessage ?? response.error ?? fallback
-}
-
 function getUserStatusClass(user: UserListItem) {
   if (!user.enabled) {
     return "border-rose-500/20 bg-rose-500/10 text-rose-600 dark:text-rose-300"
@@ -177,7 +157,7 @@ export function UsersContent() {
         const payload = await response.json()
 
         if (!response.ok) {
-          throw new Error(readErrorMessage(payload, "Unable to load Keycloak users"))
+          throw new Error(readApiErrorMessage(payload, "Unable to load Keycloak users"))
         }
 
         if (!isActive) {
@@ -222,7 +202,7 @@ export function UsersContent() {
         const payload = await response.json()
 
         if (!response.ok) {
-          throw new Error(readErrorMessage(payload, "Unable to load Keycloak user profile metadata"))
+          throw new Error(readApiErrorMessage(payload, "Unable to load Keycloak user profile metadata"))
         }
 
         if (!isActive) {
@@ -265,15 +245,15 @@ export function UsersContent() {
         },
         body: JSON.stringify(payload),
       })
-      const responsePayload = await response.json()
+      const responsePayload = await response.json().catch(() => null)
 
       if (!response.ok) {
-        throw new Error(readErrorMessage(responsePayload, "Unable to create Keycloak user"))
+        throw new Error(readApiErrorMessage(responsePayload, "Unable to create Keycloak user"))
       }
 
       setIsCreateOpen(false)
       setRefreshKey((current) => current + 1)
-      setCreateResult({
+      const nextCreateResult = {
         id: String(responsePayload.id ?? ""),
         username: String(responsePayload.user?.username ?? payload.username ?? ""),
         generatedPassword:
@@ -312,6 +292,16 @@ export function UsersContent() {
               }
             : null,
         userType: String(responsePayload.userType ?? ""),
+      } satisfies CreateUserResultNotice
+
+      const needsFollowUp =
+        Boolean(nextCreateResult.generatedPassword) ||
+        Boolean(nextCreateResult.defaultGroupAssignment && !nextCreateResult.defaultGroupAssignment.assigned) ||
+        Boolean(nextCreateResult.welcomeEmail && !nextCreateResult.welcomeEmail.sent)
+
+      setCreateResult(needsFollowUp ? nextCreateResult : null)
+      toast.success("Keycloak user created", {
+        description: readApiSuccessMessage(responsePayload, `User ${nextCreateResult.username} was created.`),
       })
     } finally {
       setIsCreating(false)
@@ -495,6 +485,7 @@ export function UsersContent() {
                 className="h-11 bg-transparent px-5"
                 onClick={() => {
                   setError(null)
+                  setCreateResult(null)
                   setIsImportOpen(true)
                 }}
               >
@@ -506,6 +497,7 @@ export function UsersContent() {
                 className="h-11 px-5"
                 onClick={() => {
                   setError(null)
+                  setCreateResult(null)
                   setIsCreateOpen(true)
                 }}
               >

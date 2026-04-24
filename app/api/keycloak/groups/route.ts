@@ -1,7 +1,6 @@
-import { NextResponse } from "next/server"
-import { getErrorDetail } from "@/lib/error-utils"
+import { createKeycloakAdminClient } from "@/lib/keycloak-admin"
+import { apiErrorResponse, apiSuccess, apiValidationError } from "@/lib/api-response"
 import { appendAuditLog, getSystemConnection } from "@/lib/settings-store"
-import { createKeycloakAdminClient, KeycloakApiError } from "@/lib/keycloak-admin"
 
 export const runtime = "nodejs"
 
@@ -46,7 +45,7 @@ export async function GET(request: Request) {
       ),
     }))
 
-    return NextResponse.json({
+    return apiSuccess({
       summary: {
         realm: realm.realm ?? configuredRealm,
         displayName: realm.displayName ?? null,
@@ -62,13 +61,11 @@ export async function GET(request: Request) {
       search,
     })
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: "Unable to load Keycloak groups",
-        detail: getErrorDetail(error, "Keycloak group inventory is unavailable"),
-      },
-      { status: error instanceof KeycloakApiError ? error.status : 500 },
-    )
+    return apiErrorResponse(error, {
+      error: "Unable to load Keycloak groups",
+      detail: "Keycloak group inventory is unavailable",
+      source: "keycloak",
+    })
   }
 }
 
@@ -85,18 +82,11 @@ export async function POST(request: Request) {
         : undefined
 
     if (!name) {
-      return NextResponse.json(
-        {
-          error: "Invalid Keycloak group payload",
-          issues: [
-            {
-              path: "name",
-              message: "Group name is required",
-            },
-          ],
-        },
-        { status: 422 },
-      )
+      return apiValidationError({
+        error: "Invalid Keycloak group payload",
+        issues: [{ path: "name", message: "Group name is required" }],
+        source: "keycloak",
+      })
     }
 
     const client = await createKeycloakAdminClient()
@@ -120,22 +110,23 @@ export async function POST(request: Request) {
       },
     })
 
-    return NextResponse.json(
+    return apiSuccess(
       {
         id: group?.id ?? created.groupId ?? null,
         name: group?.name ?? name,
         path: group?.path ?? null,
         description: group?.description ?? description ?? null,
       },
-      { status: 201 },
+      {
+        status: 201,
+        message: `Created Keycloak group ${group?.path ?? name}.`,
+      },
     )
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: "Unable to create Keycloak group",
-        detail: getErrorDetail(error, "Keycloak group create failed"),
-      },
-      { status: error instanceof KeycloakApiError ? error.status : 500 },
-    )
+    return apiErrorResponse(error, {
+      error: "Unable to create Keycloak group",
+      detail: "Keycloak group create failed",
+      source: "keycloak",
+    })
   }
 }

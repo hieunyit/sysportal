@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { getErrorDetail } from "@/lib/error-utils"
+import { apiErrorResponse, apiSuccess } from "@/lib/api-response"
 import { createOpenVpnAdminClient, OpenVpnApiError } from "@/lib/openvpn-admin"
 import { appendAuditLog } from "@/lib/settings-store"
 
@@ -31,14 +31,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ nam
       detail: `Disconnected OpenVPN sessions for ${decodedName}`,
     })
 
-    return new NextResponse(null, { status: 204 })
-  } catch (error) {
-    return NextResponse.json(
+    return apiSuccess(
       {
-        error: "Unable to disconnect OpenVPN sessions",
-        detail: getErrorDetail(error, "OpenVPN session disconnect failed"),
+        name: decodedName,
       },
-      { status: error instanceof OpenVpnApiError ? error.status : 500 },
+      {
+        message: `Disconnected OpenVPN sessions for ${decodedName}.`,
+      },
     )
+  } catch (error) {
+    return apiErrorResponse(error, {
+      error: "Unable to disconnect OpenVPN sessions",
+      detail: "OpenVPN session disconnect failed",
+      source: "openvpn",
+    })
   }
 }

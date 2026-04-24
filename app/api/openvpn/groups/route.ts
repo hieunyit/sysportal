@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { ZodError } from "zod"
-import { getErrorDetail } from "@/lib/error-utils"
+import { apiErrorResponse, apiSuccess, apiValidationError } from "@/lib/api-response"
 import {
   createOpenVpnAdminClient,
   OpenVpnApiError,
@@ -42,7 +42,7 @@ export async function GET(request: Request) {
       dynamicRangeCount: profile.dynamic_ranges?.length ?? 0,
     }))
 
-    return NextResponse.json({
+    return apiSuccess({
       summary: {
         totalGroups: profiles.length,
         adminGroups: profiles.filter((profile) => getBooleanPropValue(profile.admin)).length,
@@ -57,13 +57,11 @@ export async function GET(request: Request) {
       search,
     })
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: "Unable to load OpenVPN groups",
-        detail: getErrorDetail(error, "OpenVPN group inventory is unavailable"),
-      },
-      { status: error instanceof OpenVpnApiError ? error.status : 500 },
-    )
+    return apiErrorResponse(error, {
+      error: "Unable to load OpenVPN groups",
+      detail: "OpenVPN group inventory is unavailable",
+      source: "openvpn",
+    })
   }
 }
 
@@ -86,30 +84,26 @@ export async function POST(request: Request) {
       detail: `Created OpenVPN group ${payload.name}`,
     })
 
-    return NextResponse.json(
+    return apiSuccess(
       {
         name: payload.name,
         profile: created,
       },
-      { status: 201 },
+      { status: 201, message: `Created OpenVPN group ${payload.name}.` },
     )
   } catch (error) {
     if (error instanceof ZodError) {
-      return NextResponse.json(
-        {
-          error: "Invalid OpenVPN group payload",
-          issues: formatOpenVpnZodError(error),
-        },
-        { status: 422 },
-      )
+      return apiValidationError({
+        error: "Invalid OpenVPN group payload",
+        issues: formatOpenVpnZodError(error),
+        source: "openvpn",
+      })
     }
 
-    return NextResponse.json(
-      {
-        error: "Unable to create OpenVPN group",
-        detail: getErrorDetail(error, "OpenVPN group creation failed"),
-      },
-      { status: error instanceof OpenVpnApiError ? error.status : 500 },
-    )
+    return apiErrorResponse(error, {
+      error: "Unable to create OpenVPN group",
+      detail: "OpenVPN group creation failed",
+      source: "openvpn",
+    })
   }
 }

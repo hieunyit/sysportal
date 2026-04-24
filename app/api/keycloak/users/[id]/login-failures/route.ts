@@ -1,7 +1,6 @@
-import { NextResponse } from "next/server"
-import { getErrorDetail } from "@/lib/error-utils"
+import { apiErrorResponse, apiSuccess } from "@/lib/api-response"
 import { appendAuditLog, getSystemConnection } from "@/lib/settings-store"
-import { createKeycloakAdminClient, KeycloakApiError } from "@/lib/keycloak-admin"
+import { createKeycloakAdminClient } from "@/lib/keycloak-admin"
 
 export const runtime = "nodejs"
 
@@ -27,16 +26,20 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
       },
     })
 
-    return NextResponse.json({
-      success: true,
-    })
-  } catch (error) {
-    return NextResponse.json(
+    return apiSuccess(
       {
-        error: "Unable to clear Keycloak login failures",
-        detail: getErrorDetail(error, "Keycloak brute-force unlock failed"),
+        success: true,
+        id,
       },
-      { status: error instanceof KeycloakApiError ? error.status : 500 },
+      {
+        message: `Cleared Keycloak brute-force lock state for ${user.username ?? id}.`,
+      },
     )
+  } catch (error) {
+    return apiErrorResponse(error, {
+      error: "Unable to clear Keycloak login failures",
+      detail: "Keycloak brute-force unlock failed",
+      source: "keycloak",
+    })
   }
 }

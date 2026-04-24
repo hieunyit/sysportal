@@ -1,6 +1,5 @@
-import { NextResponse } from "next/server"
-import { getErrorDetail } from "@/lib/error-utils"
-import { createKeycloakAdminClient, KeycloakApiError } from "@/lib/keycloak-admin"
+import { apiErrorResponse, apiSuccess } from "@/lib/api-response"
+import { createKeycloakAdminClient } from "@/lib/keycloak-admin"
 
 export const runtime = "nodejs"
 
@@ -25,16 +24,14 @@ export async function GET(request: Request) {
         description: group.description ?? null,
       }))
 
-    return NextResponse.json({
+    return apiSuccess({
       items,
     })
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: "Unable to search Keycloak groups",
-        detail: getErrorDetail(error, "Keycloak group lookup is unavailable"),
-      },
-      { status: error instanceof KeycloakApiError ? error.status : 500 },
-    )
+    return apiErrorResponse(error, {
+      error: "Unable to search Keycloak groups",
+      detail: "Keycloak group lookup is unavailable",
+      source: "keycloak",
+    })
   }
 }

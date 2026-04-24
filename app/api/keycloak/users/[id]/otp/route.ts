@@ -1,7 +1,6 @@
-import { NextResponse } from "next/server"
-import { getErrorDetail } from "@/lib/error-utils"
+import { apiErrorResponse, apiSuccess } from "@/lib/api-response"
 import { appendAuditLog, getSystemConnection } from "@/lib/settings-store"
-import { createKeycloakAdminClient, KeycloakApiError } from "@/lib/keycloak-admin"
+import { createKeycloakAdminClient } from "@/lib/keycloak-admin"
 
 export const runtime = "nodejs"
 
@@ -27,17 +26,20 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
       },
     })
 
-    return NextResponse.json({
-      success: true,
-      removedCount: result.removedCount,
-    })
-  } catch (error) {
-    return NextResponse.json(
+    return apiSuccess(
       {
-        error: "Unable to reset Keycloak user OTP",
-        detail: getErrorDetail(error, "Keycloak OTP reset failed"),
+        success: true,
+        removedCount: result.removedCount,
       },
-      { status: error instanceof KeycloakApiError ? error.status : 500 },
+      {
+        message: `Reset Keycloak OTP credentials for ${user.username ?? id}.`,
+      },
     )
+  } catch (error) {
+    return apiErrorResponse(error, {
+      error: "Unable to reset Keycloak user OTP",
+      detail: "Keycloak OTP reset failed",
+      source: "keycloak",
+    })
   }
 }

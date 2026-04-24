@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server"
-import { getErrorDetail } from "@/lib/error-utils"
+import {
+  apiErrorResponse,
+  apiProblemResponse,
+  apiSuccess,
+  apiValidationError,
+} from "@/lib/api-response"
 import {
   buildFullUserUpdateModel,
   keycloakUserPatchSchema,
@@ -36,7 +41,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
     const client = await createKeycloakAdminClient()
     const user = await client.getUser(id)
 
-    return NextResponse.json({
+    return apiSuccess({
       profile: {
         username: user.username ?? "",
         firstName: user.firstName ?? "",
@@ -51,13 +56,11 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
       updateModel: buildFullUserUpdateModel(user),
     })
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: "Unable to load Keycloak user profile",
-        detail: getErrorDetail(error, "Keycloak user profile is unavailable"),
-      },
-      { status: error instanceof KeycloakApiError ? error.status : 500 },
-    )
+    return apiErrorResponse(error, {
+      error: "Unable to load Keycloak user profile",
+      detail: "Keycloak user profile is unavailable",
+      source: "keycloak",
+    })
   }
 }
 
@@ -68,13 +71,11 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const parsed = keycloakUserPatchSchema.safeParse(payload)
 
     if (!parsed.success) {
-      return NextResponse.json(
-        {
-          error: "Invalid Keycloak user profile payload",
-          issues: formatZodError(parsed.error),
-        },
-        { status: 422 },
-      )
+      return apiValidationError({
+        error: "Invalid Keycloak user profile payload",
+        issues: formatZodError(parsed.error),
+        source: "keycloak",
+      })
     }
 
     const client = await createKeycloakAdminClient()
@@ -87,14 +88,12 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     )
 
     if (metadataIssues.length > 0) {
-      return NextResponse.json(
-        {
-          error: "Keycloak user validation failed",
-          detail: "The payload does not satisfy the current Keycloak user profile policy.",
-          issues: metadataIssues,
-        },
-        { status: 422 },
-      )
+      return apiValidationError({
+        error: "Keycloak user validation failed",
+        detail: "The payload does not satisfy the current Keycloak user profile policy.",
+        issues: metadataIssues,
+        source: "keycloak",
+      })
     }
 
     await client.updateUser(id, nextPayload)
@@ -114,18 +113,31 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       },
     })
 
-    return new NextResponse(null, { status: 204 })
+    return apiSuccess(
+      {
+        id,
+      },
+      {
+        message: `Updated Keycloak user profile for ${toDisplayName(user)}.`,
+      },
+    )
   } catch (error) {
     if (error instanceof KeycloakApiError && error.status === 400) {
-      return NextResponse.json(mapKeycloakValidationError(error), { status: 422 })
+      const mapped = mapKeycloakValidationError(error)
+      return apiProblemResponse({
+        status: 422,
+        error: mapped.error,
+        detail: mapped.detail,
+        issues: mapped.issues,
+        source: "keycloak",
+        upstream: error.payload,
+      })
     }
 
-    return NextResponse.json(
-      {
-        error: "Unable to update Keycloak user profile",
-        detail: getErrorDetail(error, "Keycloak user profile update failed"),
-      },
-      { status: error instanceof KeycloakApiError ? error.status : 500 },
-    )
+    return apiErrorResponse(error, {
+      error: "Unable to update Keycloak user profile",
+      detail: "Keycloak user profile update failed",
+      source: "keycloak",
+    })
   }
 }

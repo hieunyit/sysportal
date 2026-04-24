@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { ZodError } from "zod"
-import { getErrorDetail } from "@/lib/error-utils"
+import { apiErrorResponse, apiSuccess, apiValidationError } from "@/lib/api-response"
 import {
   createOpenVpnAdminClient,
   OpenVpnApiError,
@@ -43,7 +43,7 @@ export async function GET(request: Request) {
       staticIpv6: profile.static_ipv6 ?? null,
     }))
 
-    return NextResponse.json({
+    return apiSuccess({
       summary: {
         totalUsers: profiles.length,
         adminUsers: profiles.filter((profile) => getBooleanPropValue(profile.admin)).length,
@@ -58,13 +58,11 @@ export async function GET(request: Request) {
       search,
     })
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: "Unable to load OpenVPN users",
-        detail: getErrorDetail(error, "OpenVPN user inventory is unavailable"),
-      },
-      { status: error instanceof OpenVpnApiError ? error.status : 500 },
-    )
+    return apiErrorResponse(error, {
+      error: "Unable to load OpenVPN users",
+      detail: "OpenVPN user inventory is unavailable",
+      source: "openvpn",
+    })
   }
 }
 
@@ -88,30 +86,26 @@ export async function POST(request: Request) {
       metadata: { group: payload.group ?? null },
     })
 
-    return NextResponse.json(
+    return apiSuccess(
       {
         name: payload.name,
         profile: created,
       },
-      { status: 201 },
+      { status: 201, message: `Created OpenVPN user ${payload.name}.` },
     )
   } catch (error) {
     if (error instanceof ZodError) {
-      return NextResponse.json(
-        {
-          error: "Invalid OpenVPN user payload",
-          issues: formatOpenVpnZodError(error),
-        },
-        { status: 422 },
-      )
+      return apiValidationError({
+        error: "Invalid OpenVPN user payload",
+        issues: formatOpenVpnZodError(error),
+        source: "openvpn",
+      })
     }
 
-    return NextResponse.json(
-      {
-        error: "Unable to create OpenVPN user",
-        detail: getErrorDetail(error, "OpenVPN user creation failed"),
-      },
-      { status: error instanceof OpenVpnApiError ? error.status : 500 },
-    )
+    return apiErrorResponse(error, {
+      error: "Unable to create OpenVPN user",
+      detail: "OpenVPN user creation failed",
+      source: "openvpn",
+    })
   }
 }

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { ZodError } from "zod"
-import { getErrorDetail } from "@/lib/error-utils"
+import { apiErrorResponse, apiNotFound, apiSuccess, apiValidationError } from "@/lib/api-response"
 import { createOpenVpnAdminClient, OpenVpnApiError } from "@/lib/openvpn-admin"
 import { loadOpenVpnSubjectDetail } from "@/lib/openvpn-directory"
 import { appendAuditLog } from "@/lib/settings-store"
@@ -20,18 +20,16 @@ export async function GET(_: Request, { params }: { params: Promise<{ name: stri
     const detail = await loadOpenVpnSubjectDetail(client, "group", decodedName)
 
     if (!detail) {
-      return NextResponse.json({ error: "OpenVPN group not found" }, { status: 404 })
+      return apiNotFound("OpenVPN group not found", `OpenVPN group "${decodedName}" was not found.`, "openvpn")
     }
 
-    return NextResponse.json(detail)
+    return apiSuccess(detail)
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: "Unable to load OpenVPN group",
-        detail: getErrorDetail(error, "OpenVPN group detail is unavailable"),
-      },
-      { status: error instanceof OpenVpnApiError ? error.status : 500 },
-    )
+    return apiErrorResponse(error, {
+      error: "Unable to load OpenVPN group",
+      detail: "OpenVPN group detail is unavailable",
+      source: "openvpn",
+    })
   }
 }
 
@@ -60,24 +58,27 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ na
       detail: `Updated OpenVPN group ${decodedName}`,
     })
 
-    return new NextResponse(null, { status: 204 })
+    return apiSuccess(
+      {
+        name: decodedName,
+      },
+      {
+        message: `Updated OpenVPN group ${decodedName}.`,
+      },
+    )
   } catch (error) {
     if (error instanceof ZodError) {
-      return NextResponse.json(
-        {
-          error: "Invalid OpenVPN group payload",
-          issues: formatOpenVpnZodError(error),
-        },
-        { status: 422 },
-      )
+      return apiValidationError({
+        error: "Invalid OpenVPN group payload",
+        issues: formatOpenVpnZodError(error),
+        source: "openvpn",
+      })
     }
 
-    return NextResponse.json(
-      {
-        error: "Unable to update OpenVPN group",
-        detail: getErrorDetail(error, "OpenVPN group update failed"),
-      },
-      { status: error instanceof OpenVpnApiError ? error.status : 500 },
-    )
+    return apiErrorResponse(error, {
+      error: "Unable to update OpenVPN group",
+      detail: "OpenVPN group update failed",
+      source: "openvpn",
+    })
   }
 }

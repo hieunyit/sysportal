@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { getErrorDetail } from "@/lib/error-utils"
+import { apiErrorResponse, apiSuccess, apiValidationError } from "@/lib/api-response"
 import { createOpenVpnAdminClient, OpenVpnApiError } from "@/lib/openvpn-admin"
 import { appendAuditLog } from "@/lib/settings-store"
 
@@ -15,7 +15,12 @@ export async function DELETE(
     const parsedRulesetId = Number(rulesetId)
 
     if (!Number.isInteger(parsedRulesetId) || parsedRulesetId <= 0) {
-      return NextResponse.json({ error: "Invalid ruleset id" }, { status: 422 })
+      return apiValidationError({
+        error: "Invalid ruleset id",
+        detail: "Ruleset id must be a positive integer.",
+        issues: [{ path: "rulesetId", message: "Ruleset id must be a positive integer." }],
+        source: "openvpn",
+      })
     }
 
     const client = await createOpenVpnAdminClient()
@@ -37,14 +42,20 @@ export async function DELETE(
       detail: `Unassigned OpenVPN ruleset ${parsedRulesetId} from user ${decodedName}`,
     })
 
-    return new NextResponse(null, { status: 204 })
-  } catch (error) {
-    return NextResponse.json(
+    return apiSuccess(
       {
-        error: "Unable to unassign OpenVPN ruleset",
-        detail: getErrorDetail(error, "OpenVPN ruleset assignment update failed"),
+        rulesetId: parsedRulesetId,
+        owner: decodedName,
       },
-      { status: error instanceof OpenVpnApiError ? error.status : 500 },
+      {
+        message: `Unassigned OpenVPN ruleset ${parsedRulesetId} from ${decodedName}.`,
+      },
     )
+  } catch (error) {
+    return apiErrorResponse(error, {
+      error: "Unable to unassign OpenVPN ruleset",
+      detail: "OpenVPN ruleset assignment update failed",
+      source: "openvpn",
+    })
   }
 }

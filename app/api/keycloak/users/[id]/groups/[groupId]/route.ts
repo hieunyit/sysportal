@@ -1,7 +1,6 @@
-import { NextResponse } from "next/server"
-import { getErrorDetail } from "@/lib/error-utils"
+import { apiErrorResponse, apiSuccess } from "@/lib/api-response"
 import { appendAuditLog, getSystemConnection } from "@/lib/settings-store"
-import { createKeycloakAdminClient, KeycloakApiError } from "@/lib/keycloak-admin"
+import { createKeycloakAdminClient } from "@/lib/keycloak-admin"
 
 export const runtime = "nodejs"
 
@@ -31,14 +30,19 @@ export async function DELETE(
       },
     })
 
-    return new NextResponse(null, { status: 204 })
-  } catch (error) {
-    return NextResponse.json(
+    return apiSuccess(
       {
-        error: "Unable to remove Keycloak user from group",
-        detail: getErrorDetail(error, "Keycloak group removal failed"),
+        groupId,
       },
-      { status: error instanceof KeycloakApiError ? error.status : 500 },
+      {
+        message: `Removed ${user.username ?? id} from Keycloak group ${group.path ?? group.name ?? groupId}.`,
+      },
     )
+  } catch (error) {
+    return apiErrorResponse(error, {
+      error: "Unable to remove Keycloak user from group",
+      detail: "Keycloak group removal failed",
+      source: "keycloak",
+    })
   }
 }

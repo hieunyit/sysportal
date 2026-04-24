@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { ZodError } from "zod"
-import { getErrorDetail } from "@/lib/error-utils"
+import { apiErrorResponse, apiSuccess, apiValidationError } from "@/lib/api-response"
 import { createOpenVpnAdminClient, OpenVpnApiError } from "@/lib/openvpn-admin"
 import { appendAuditLog } from "@/lib/settings-store"
 import {
@@ -16,7 +16,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const parsedId = Number(id)
 
     if (!Number.isInteger(parsedId) || parsedId <= 0) {
-      return NextResponse.json({ error: "Invalid ruleset id" }, { status: 422 })
+      return apiValidationError({
+        error: "Invalid ruleset id",
+        detail: "Ruleset id must be a positive integer.",
+        issues: [{ path: "id", message: "Ruleset id must be a positive integer." }],
+        source: "openvpn",
+      })
     }
 
     const body = await request.json()
@@ -39,25 +44,28 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       detail: `Updated OpenVPN ruleset ${payload.name}`,
     })
 
-    return new NextResponse(null, { status: 204 })
+    return apiSuccess(
+      {
+        id: parsedId,
+      },
+      {
+        message: `Updated OpenVPN ruleset ${payload.name}.`,
+      },
+    )
   } catch (error) {
     if (error instanceof ZodError) {
-      return NextResponse.json(
-        {
-          error: "Invalid OpenVPN ruleset payload",
-          issues: formatOpenVpnZodError(error),
-        },
-        { status: 422 },
-      )
+      return apiValidationError({
+        error: "Invalid OpenVPN ruleset payload",
+        issues: formatOpenVpnZodError(error),
+        source: "openvpn",
+      })
     }
 
-    return NextResponse.json(
-      {
-        error: "Unable to update OpenVPN ruleset",
-        detail: getErrorDetail(error, "OpenVPN ruleset update failed"),
-      },
-      { status: error instanceof OpenVpnApiError ? error.status : 500 },
-    )
+    return apiErrorResponse(error, {
+      error: "Unable to update OpenVPN ruleset",
+      detail: "OpenVPN ruleset update failed",
+      source: "openvpn",
+    })
   }
 }
 
@@ -67,7 +75,12 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
     const parsedId = Number(id)
 
     if (!Number.isInteger(parsedId) || parsedId <= 0) {
-      return NextResponse.json({ error: "Invalid ruleset id" }, { status: 422 })
+      return apiValidationError({
+        error: "Invalid ruleset id",
+        detail: "Ruleset id must be a positive integer.",
+        issues: [{ path: "id", message: "Ruleset id must be a positive integer." }],
+        source: "openvpn",
+      })
     }
 
     const client = await createOpenVpnAdminClient()
@@ -83,14 +96,19 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
       detail: `Deleted OpenVPN ruleset ${parsedId}`,
     })
 
-    return new NextResponse(null, { status: 204 })
-  } catch (error) {
-    return NextResponse.json(
+    return apiSuccess(
       {
-        error: "Unable to delete OpenVPN ruleset",
-        detail: getErrorDetail(error, "OpenVPN ruleset delete failed"),
+        id: parsedId,
       },
-      { status: error instanceof OpenVpnApiError ? error.status : 500 },
+      {
+        message: `Deleted OpenVPN ruleset ${parsedId}.`,
+      },
     )
+  } catch (error) {
+    return apiErrorResponse(error, {
+      error: "Unable to delete OpenVPN ruleset",
+      detail: "OpenVPN ruleset delete failed",
+      source: "openvpn",
+    })
   }
 }
