@@ -55,9 +55,6 @@ const defaultCreateState: EditableOpenVpnUserState = {
   totp: false,
   allow_password_change: false,
   allow_generate_profiles: false,
-  static_ipv4: "",
-  static_ipv6: "",
-  cc_commands: "",
 }
 
 function renderPolicyBadges(item: OpenVpnUserListResponse["items"][number]) {

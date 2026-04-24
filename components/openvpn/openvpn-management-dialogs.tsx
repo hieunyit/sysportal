@@ -52,9 +52,6 @@ export interface EditableOpenVpnUserState {
   totp: boolean
   allow_password_change: boolean
   allow_generate_profiles: boolean
-  static_ipv4: string
-  static_ipv6: string
-  cc_commands: string
 }
 
 export interface EditableOpenVpnGroupState {
@@ -109,9 +106,6 @@ const defaultUserState: EditableOpenVpnUserState = {
   totp: false,
   allow_password_change: false,
   allow_generate_profiles: false,
-  static_ipv4: "",
-  static_ipv6: "",
-  cc_commands: "",
 }
 
 const defaultGroupState: EditableOpenVpnGroupState = {
@@ -634,9 +628,6 @@ export function OpenVpnUserEditorDialog({
         autologin: false,
         deny: false,
         deny_web: false,
-        static_ipv4: "",
-        static_ipv6: "",
-        cc_commands: "",
         totp: normalizedAuthMethod === "local" ? state.totp : false,
         allow_password_change: normalizedAuthMethod === "local" ? state.allow_password_change : false,
       })
