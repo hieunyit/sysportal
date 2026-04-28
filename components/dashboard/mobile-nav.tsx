@@ -12,9 +12,9 @@ export function MobileNav() {
         <Button
           variant="outline"
           size="icon"
-          className="lg:hidden border-gray-200 bg-white shadow-none"
+          className="lg:hidden border-gray-200 bg-white shadow-none h-9 w-9"
         >
-          <Menu className="w-5 h-5" />
+          <Menu className="w-4 h-4" />
           <span className="sr-only">Open menu</span>
         </Button>
       </SheetTrigger>

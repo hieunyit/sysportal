@@ -180,7 +180,7 @@ export default function DashboardPage() {
         }
       />
 
-      <div className="mt-6 space-y-6 px-6 pb-6">
+      <div className="p-6 space-y-6">
         {/* Key Metrics */}
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {keyMetrics.map((metric) => (
