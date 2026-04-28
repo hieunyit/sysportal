@@ -1,4 +1,5 @@
 import { createKeycloakAdminClient } from "@/lib/keycloak-admin"
+import { isApiAuthResponse, requireAdminApiSession } from "@/lib/auth/api"
 import { apiErrorResponse, apiSuccess, apiValidationError } from "@/lib/api-response"
 import { appendAuditLog, getSystemConnection } from "@/lib/settings-store"
 
@@ -6,6 +7,12 @@ export const runtime = "nodejs"
 
 export async function GET(request: Request) {
   try {
+    const auth = await requireAdminApiSession(request)
+
+    if (isApiAuthResponse(auth)) {
+      return auth
+    }
+
     const { searchParams } = new URL(request.url)
     const page = Math.max(Number(searchParams.get("page") ?? "1"), 1)
     const pageSize = Math.min(Math.max(Number(searchParams.get("pageSize") ?? "18"), 1), 200)
@@ -71,6 +78,12 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const auth = await requireAdminApiSession(request)
+
+    if (isApiAuthResponse(auth)) {
+      return auth
+    }
+
     const payload = (await request.json().catch(() => null)) as
       | { name?: unknown; description?: unknown }
       | null
@@ -98,7 +111,7 @@ export async function POST(request: Request) {
     const group = created.groupId ? await client.getGroup(created.groupId) : null
 
     appendAuditLog({
-      actorName: "Identity Admin",
+      actorName: auth.actorName,
       category: "edit",
       action: "keycloak.group.created",
       resourceType: "keycloak-group",

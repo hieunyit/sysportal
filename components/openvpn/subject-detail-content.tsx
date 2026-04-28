@@ -324,59 +324,61 @@ function buildQuickAccessItems(data: OpenVpnSubjectDetailResponse): QuickAccessR
     ] as const
   ).flatMap((listType) =>
     data.accessLists[listType]
-      .map((route, routeIndex) => {
+      .flatMap((route, routeIndex): QuickAccessRuleItem[] => {
         if (route.type !== "route" && route.type !== "nat") {
-          return null
+          return []
         }
 
         const service = summarizeRouteService(route)
         const destination = route.subnet ? `${route.subnet.netip}/${route.subnet.prefix_length}` : describeAccessRoute(route)
 
-        return {
-          id: `network:${listType}:${routeIndex}`,
-          kind: "network",
-          destination,
-          sourceLabel: data.name,
-          protocolLabel: service.protocolLabel,
-          protocol: service.protocol,
-          portLabel: service.portLabel,
-          port: service.port,
-          reachableVia: route.type,
-          editable: service.editable,
-          editReason: service.editReason,
-          listType,
-          routeIndex,
-        } satisfies QuickAccessRuleItem
-      })
-      .filter((item): item is QuickAccessRuleItem => Boolean(item)),
+        return [
+          {
+            id: `network:${listType}:${routeIndex}`,
+            kind: "network",
+            destination,
+            sourceLabel: data.name,
+            protocolLabel: service.protocolLabel,
+            protocol: service.protocol,
+            portLabel: service.portLabel,
+            port: service.port,
+            reachableVia: route.type,
+            editable: service.editable,
+            editReason: service.editReason,
+            listType,
+            routeIndex,
+          },
+        ]
+      }),
   )
 
   const domainItems: QuickAccessRuleItem[] = data.rulesets.flatMap((ruleset) =>
     ruleset.rules
-      .map((rule) => {
+      .flatMap((rule): QuickAccessRuleItem[] => {
         if (rule.type !== "domain_routing") {
-          return null
+          return []
         }
 
         const editable = rule.action === "nat" || rule.action === "route"
 
-        return {
-          id: `domain:${ruleset.id}:${rule.id ?? rule.position}`,
-          kind: "domain",
-          destination: rule.match_data,
-          sourceLabel: data.name,
-          protocolLabel: "All",
-          protocol: "all",
-          portLabel: "All",
-          port: "",
-          reachableVia: rule.action,
-          editable,
-          editReason: editable ? undefined : "Only NAT and Route actions are editable from the quick board.",
-          rulesetId: ruleset.id,
-          ruleId: rule.id,
-        } satisfies QuickAccessRuleItem
-      })
-      .filter((item): item is QuickAccessRuleItem => Boolean(item)),
+        return [
+          {
+            id: `domain:${ruleset.id}:${rule.id ?? rule.position}`,
+            kind: "domain",
+            destination: rule.match_data,
+            sourceLabel: data.name,
+            protocolLabel: "All",
+            protocol: "all",
+            portLabel: "All",
+            port: "",
+            reachableVia: rule.action,
+            editable,
+            editReason: editable ? undefined : "Only NAT and Route actions are editable from the quick board.",
+            rulesetId: ruleset.id,
+            ruleId: rule.id,
+          },
+        ]
+      }),
   )
 
   return [...domainItems, ...networkItems]

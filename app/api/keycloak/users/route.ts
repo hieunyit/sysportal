@@ -1,5 +1,6 @@
 import { randomInt } from "node:crypto"
 import { NextResponse } from "next/server"
+import { isApiAuthResponse, requireAdminApiSession } from "@/lib/auth/api"
 import {
   apiErrorResponse,
   apiProblemResponse,
@@ -341,6 +342,12 @@ async function withLdapSyncRegistrations<T>(
 
 export async function GET(request: Request) {
   try {
+    const auth = await requireAdminApiSession(request)
+
+    if (isApiAuthResponse(auth)) {
+      return auth
+    }
+
     const { searchParams } = new URL(request.url)
     const page = Math.max(Number(searchParams.get("page") ?? "1"), 1)
     const pageSize = Math.min(Math.max(Number(searchParams.get("pageSize") ?? "12"), 1), 25)
@@ -420,6 +427,12 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const auth = await requireAdminApiSession(request)
+
+    if (isApiAuthResponse(auth)) {
+      return auth
+    }
+
     const payload = await request.json().catch(() => null)
     const parsed = keycloakUserCreateSchema.safeParse(payload)
 
@@ -580,7 +593,7 @@ export async function POST(request: Request) {
           }
 
           appendAuditLog({
-            actorName: "Identity Admin",
+            actorName: auth.actorName,
             category: "action",
             action: "keycloak.user.group-assigned",
             resourceType: "keycloak-group",
@@ -602,7 +615,7 @@ export async function POST(request: Request) {
         }
 
         appendAuditLog({
-          actorName: "Identity Admin",
+          actorName: auth.actorName,
           category: "action",
           action: "keycloak.user.group-assignment-failed",
           resourceType: "keycloak-group",
@@ -629,7 +642,7 @@ export async function POST(request: Request) {
       })
 
       appendAuditLog({
-        actorName: "Identity Admin",
+        actorName: auth.actorName,
         category: "action",
         action: "keycloak.user.group-assignment-failed",
         resourceType: "keycloak-group",
@@ -659,7 +672,7 @@ export async function POST(request: Request) {
             })
 
             appendAuditLog({
-              actorName: "Identity Admin",
+              actorName: auth.actorName,
               category: "action",
               action: "keycloak.user.group-assigned",
               resourceType: "keycloak-group",
@@ -681,7 +694,7 @@ export async function POST(request: Request) {
             })
 
             appendAuditLog({
-              actorName: "Identity Admin",
+              actorName: auth.actorName,
               category: "action",
               action: "keycloak.user.group-assignment-failed",
               resourceType: "keycloak-group",
@@ -753,7 +766,7 @@ export async function POST(request: Request) {
           }
 
           appendAuditLog({
-            actorName: "Identity Admin",
+            actorName: auth.actorName,
             category: "action",
             action: "email.welcome.sent",
             resourceType: "email",
@@ -780,7 +793,7 @@ export async function POST(request: Request) {
           }
 
           appendAuditLog({
-            actorName: "Identity Admin",
+            actorName: auth.actorName,
             category: "action",
             action: "email.welcome.failed",
             resourceType: "email",
@@ -800,7 +813,7 @@ export async function POST(request: Request) {
     }
 
     appendAuditLog({
-      actorName: "Identity Admin",
+      actorName: auth.actorName,
       category: "edit",
       action: "keycloak.user.created",
       resourceType: "keycloak-user",

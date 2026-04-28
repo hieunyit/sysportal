@@ -86,7 +86,7 @@ export function buildSubjectPropSetPayload(
   subjectType: OpenVpnSubjectType,
   payload: Record<string, unknown>,
 ) {
-  return payload as OpenVpnUserSetPayload | OpenVpnGroupSetPayload
+  return payload as unknown as OpenVpnUserSetPayload | OpenVpnGroupSetPayload
 }
 
 export function getNextRulesetPosition(rulesets: OpenVpnAccessRuleset[]) {

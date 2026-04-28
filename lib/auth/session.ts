@@ -4,6 +4,7 @@ export const AUTH_SESSION_DURATION_SECONDS = 8 * 60 * 60
 export const AUTH_STATE_DURATION_SECONDS = 10 * 60
 
 const DEFAULT_AUTH_SECRET = "identityops-local-dev-secret-change-me"
+const MIN_AUTH_SECRET_LENGTH = 32
 
 export interface IdentityOpsSessionPayload {
   sub: string
@@ -27,12 +28,25 @@ interface AuthStatePayload {
 type JwtPayload = { iat: number; exp: number }
 
 function getAuthSecret() {
-  return (
+  const secret =
     process.env.IDENTITYOPS_AUTH_SECRET?.trim() ||
     process.env.AUTH_SECRET?.trim() ||
     process.env.NEXTAUTH_SECRET?.trim() ||
-    DEFAULT_AUTH_SECRET
-  )
+    ""
+
+  if (secret) {
+    if (process.env.NODE_ENV === "production" && secret.length < MIN_AUTH_SECRET_LENGTH) {
+      throw new Error("IDENTITYOPS_AUTH_SECRET must be at least 32 characters in production.")
+    }
+
+    return secret
+  }
+
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("IDENTITYOPS_AUTH_SECRET is required in production.")
+  }
+
+  return DEFAULT_AUTH_SECRET
 }
 
 function encodeBase64UrlFromBytes(value: Uint8Array) {
@@ -89,32 +103,36 @@ async function signJwt<TPayload extends JwtPayload>(payload: TPayload) {
 }
 
 async function verifyJwt<TPayload extends JwtPayload>(token: string) {
-  const parts = token.split(".")
+  try {
+    const parts = token.split(".")
 
-  if (parts.length !== 3) {
+    if (parts.length !== 3) {
+      return null
+    }
+
+    const [encodedHeader, encodedPayload, signature] = parts
+    const header = decodeJson<{ alg?: string; typ?: string }>(encodedHeader)
+
+    if (header.alg !== "HS256" || header.typ !== "JWT") {
+      return null
+    }
+
+    const verified = await verifyValue(`${encodedHeader}.${encodedPayload}`, signature)
+
+    if (!verified) {
+      return null
+    }
+
+    const payload = decodeJson<TPayload>(encodedPayload)
+
+    if (!payload.exp || payload.exp <= Math.floor(Date.now() / 1000)) {
+      return null
+    }
+
+    return payload
+  } catch {
     return null
   }
-
-  const [encodedHeader, encodedPayload, signature] = parts
-  const header = decodeJson<{ alg?: string; typ?: string }>(encodedHeader)
-
-  if (header.alg !== "HS256" || header.typ !== "JWT") {
-    return null
-  }
-
-  const verified = await verifyValue(`${encodedHeader}.${encodedPayload}`, signature)
-
-  if (!verified) {
-    return null
-  }
-
-  const payload = decodeJson<TPayload>(encodedPayload)
-
-  if (!payload.exp || payload.exp <= Math.floor(Date.now() / 1000)) {
-    return null
-  }
-
-  return payload
 }
 
 export function normalizeNextPath(value?: string | null, fallback = "/") {

@@ -1,10 +1,9 @@
-import { NextResponse } from "next/server"
 import { apiErrorResponse, apiSuccess } from "@/lib/api-response"
+import { isApiAuthResponse, requireAdminApiSession } from "@/lib/auth/api"
 import { getSystemConnection } from "@/lib/settings-store"
 import {
   createKeycloakAdminClient,
   epochToIso,
-  KeycloakApiError,
   type KeycloakEventRepresentation,
   type KeycloakUserRepresentation,
   type KeycloakUserSessionRepresentation,
@@ -244,138 +243,15 @@ async function listRecentLoginErrors(
   return items
 }
 
-async function listActiveRealmSessions(
-  client: Awaited<ReturnType<typeof createKeycloakAdminClient>>,
-) {
-  const [sessionStats, clients] = await Promise.all([
-    client.getClientSessionStats(),
-    client.listAllClients(),
-  ])
-
-  const clientUuidByClientId = new Map(
-    clients
-      .map((item) => {
-        const clientId = item.clientId?.trim()
-        const clientUuid = item.id?.trim()
-        return clientId && clientUuid ? [clientId, clientUuid] as const : null
-      })
-      .filter(Boolean) as Array<readonly [string, string]>,
-  )
-
-  const activeClients = Object.entries(sessionStats)
-    .map(([clientId, count]) => ({
-      clientId,
-      count: readNumberFromUnknown(count, 0) ?? 0,
-      clientUuid: clientUuidByClientId.get(clientId) ?? null,
-    }))
-    .filter((item) => item.count > 0 && item.clientUuid)
-
-  const sessionMap = new Map<string, KeycloakUserSessionRepresentation>()
-
-  const sessionGroups = await mapInBatches(activeClients, SESSION_BATCH_SIZE, async (item) => {
-    const sessions: KeycloakUserSessionRepresentation[] = []
-
-    for (let first = 0; ; first += CLIENT_SESSION_PAGE_SIZE) {
-      const page = await client.getClientUserSessions(item.clientUuid!, {
-        first,
-        max: CLIENT_SESSION_PAGE_SIZE,
-      })
-
-      sessions.push(...page)
-
-      if (page.length < CLIENT_SESSION_PAGE_SIZE || sessions.length >= item.count) {
-        break
-      }
-    }
-
-    return {
-      clientId: item.clientId,
-      sessions,
-    }
-  })
-
-  sessionGroups.forEach(({ clientId, sessions }) => {
-    sessions.forEach((session) => {
-      const sessionId = session.id?.trim()
-
-      if (!sessionId) {
-        return
-      }
-
-      const currentClients = {
-        ...(session.clients ?? {}),
-        [clientId]: clientId,
-      }
-      const existing = sessionMap.get(sessionId)
-
-      if (!existing) {
-        sessionMap.set(sessionId, {
-          ...session,
-          clients: currentClients,
-        })
-        return
-      }
-
-      const startCandidates = [existing.start, session.start].filter(
-        (value): value is number => typeof value === "number" && Number.isFinite(value),
-      )
-      const lastAccessCandidates = [existing.lastAccess, session.lastAccess].filter(
-        (value): value is number => typeof value === "number" && Number.isFinite(value),
-      )
-
-      sessionMap.set(sessionId, {
-        ...existing,
-        username: existing.username ?? session.username,
-        userId: existing.userId ?? session.userId,
-        ipAddress: existing.ipAddress ?? session.ipAddress,
-        start: startCandidates.length > 0 ? Math.min(...startCandidates) : undefined,
-        lastAccess: lastAccessCandidates.length > 0 ? Math.max(...lastAccessCandidates) : undefined,
-        rememberMe: existing.rememberMe ?? session.rememberMe,
-        transientUser: existing.transientUser ?? session.transientUser,
-        clients: {
-          ...(existing.clients ?? {}),
-          ...currentClients,
-        },
-      })
-    })
-  })
-
-  return [...sessionMap.values()]
-}
-
-async function loadUsersByIds(
-  client: Awaited<ReturnType<typeof createKeycloakAdminClient>>,
-  userIds: string[],
-) {
-  const uniqueIds = [...new Set(userIds.map((item) => item.trim()).filter(Boolean))]
-  const users = await mapInBatches(uniqueIds, SESSION_BATCH_SIZE, async (userId) => client.getUser(userId))
-  const usersById = new Map<string, KeycloakUserRepresentation>()
-  const usersByUsername = new Map<string, KeycloakUserRepresentation>()
-  const usersByEmail = new Map<string, KeycloakUserRepresentation>()
-
-  users.forEach((user) => {
-    if (user.id) {
-      usersById.set(user.id, user)
-    }
-
-    if (user.username?.trim()) {
-      usersByUsername.set(user.username.trim().toLowerCase(), user)
-    }
-
-    if (user.email?.trim()) {
-      usersByEmail.set(user.email.trim().toLowerCase(), user)
-    }
-  })
-
-  return {
-    usersById,
-    usersByUsername,
-    usersByEmail,
-  }
-}
 
 export async function GET(request: Request) {
   try {
+    const auth = await requireAdminApiSession(request)
+
+    if (isApiAuthResponse(auth)) {
+      return auth
+    }
+
     const { searchParams } = new URL(request.url)
     const search = searchParams.get("search")?.trim() ?? ""
     const page = parseInteger(searchParams.get("page"), 1, { min: 1 })

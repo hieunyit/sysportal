@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { extractErrorInfo, type ApiIssue, type ExtractedErrorInfo } from "@/lib/error-utils"
 
-type ApiSuccessPayload = Record<string, unknown>
+type ApiSuccessPayload = object
 type ApiSource = ExtractedErrorInfo["source"]
 
 interface ApiSuccessOptions {
@@ -39,7 +39,6 @@ export function apiProblemResponse(options: ApiProblemOptions) {
       status: options.status,
       ...(options.source ? { source: options.source } : {}),
       ...(options.issues?.length ? { issues: options.issues } : {}),
-      ...(options.upstream !== undefined ? { upstream: options.upstream } : {}),
       ...(options.extra ?? {}),
     },
     { status: options.status },

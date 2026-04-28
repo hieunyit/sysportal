@@ -1,10 +1,7 @@
-import { NextResponse } from "next/server"
 import { ZodError } from "zod"
+import { isApiAuthResponse, requireAdminApiSession } from "@/lib/auth/api"
 import { apiErrorResponse, apiSuccess, apiValidationError } from "@/lib/api-response"
-import {
-  createOpenVpnAdminClient,
-  OpenVpnApiError,
-} from "@/lib/openvpn-admin"
+import { createOpenVpnAdminClient } from "@/lib/openvpn-admin"
 import { appendAuditLog } from "@/lib/settings-store"
 import {
   formatOpenVpnZodError,
@@ -19,6 +16,12 @@ export const runtime = "nodejs"
 
 export async function GET(request: Request) {
   try {
+    const auth = await requireAdminApiSession(request)
+
+    if (isApiAuthResponse(auth)) {
+      return auth
+    }
+
     const { searchParams } = new URL(request.url)
     const page = Math.max(Number(searchParams.get("page") ?? "1"), 1)
     const pageSize = Math.min(Math.max(Number(searchParams.get("pageSize") ?? "12"), 1), 50)
@@ -68,6 +71,12 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const auth = await requireAdminApiSession(request)
+
+    if (isApiAuthResponse(auth)) {
+      return auth
+    }
+
     const body = await request.json()
     const payload = openVpnUserCreateSchema.parse(body)
     const client = await createOpenVpnAdminClient()
@@ -76,7 +85,7 @@ export async function POST(request: Request) {
     const created = await client.getUser(payload.name)
 
     appendAuditLog({
-      actorName: "Identity Admin",
+      actorName: auth.actorName,
       category: "edit",
       action: "openvpn.user.created",
       resourceType: "openvpn-user",

@@ -1,7 +1,7 @@
-import { NextResponse } from "next/server"
 import { ZodError } from "zod"
+import { isApiAuthResponse, requireAdminApiSession } from "@/lib/auth/api"
 import { apiErrorResponse, apiNotFound, apiSuccess, apiValidationError } from "@/lib/api-response"
-import { createOpenVpnAdminClient, OpenVpnApiError } from "@/lib/openvpn-admin"
+import { createOpenVpnAdminClient } from "@/lib/openvpn-admin"
 import { loadOpenVpnSubjectDetail } from "@/lib/openvpn-directory"
 import { appendAuditLog } from "@/lib/settings-store"
 import {
@@ -12,8 +12,14 @@ import {
 
 export const runtime = "nodejs"
 
-export async function GET(_: Request, { params }: { params: Promise<{ name: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ name: string }> }) {
   try {
+    const auth = await requireAdminApiSession(request)
+
+    if (isApiAuthResponse(auth)) {
+      return auth
+    }
+
     const { name } = await params
     const decodedName = decodeURIComponent(name)
     const client = await createOpenVpnAdminClient()
@@ -35,6 +41,12 @@ export async function GET(_: Request, { params }: { params: Promise<{ name: stri
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ name: string }> }) {
   try {
+    const auth = await requireAdminApiSession(request)
+
+    if (isApiAuthResponse(auth)) {
+      return auth
+    }
+
     const { name } = await params
     const decodedName = decodeURIComponent(name)
     const body = await request.json()
@@ -49,7 +61,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ na
     ])
 
     appendAuditLog({
-      actorName: "Identity Admin",
+      actorName: auth.actorName,
       category: "edit",
       action: "openvpn.user.updated",
       resourceType: "openvpn-user",

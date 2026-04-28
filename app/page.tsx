@@ -180,7 +180,7 @@ export default function DashboardPage() {
         }
       />
 
-      <div className="mt-6 space-y-6">
+      <div className="mt-6 space-y-6 px-6 pb-6">
         {/* Key Metrics */}
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {keyMetrics.map((metric) => (
@@ -192,7 +192,7 @@ export default function DashboardPage() {
                     <p className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-foreground">{metric.value}</p>
                     <div className="mt-3 flex items-center justify-between">
                       <p className="text-xs text-muted-foreground">{metric.detail}</p>
-                      <span className={cn("text-xs font-semibold", metric.trend.startsWith("+") ? "text-emerald-400" : "text-emerald-400")}>
+                      <span className={cn("text-xs font-semibold", metric.trend.startsWith("-") ? "text-red-500" : "text-emerald-600")}>
                         {metric.trend}
                       </span>
                     </div>

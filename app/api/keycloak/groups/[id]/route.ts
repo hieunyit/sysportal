@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server"
+import { isApiAuthResponse, requireAdminApiSession } from "@/lib/auth/api"
 import { apiErrorResponse, apiNotFound, apiSuccess, apiValidationError } from "@/lib/api-response"
 import { appendAuditLog, getSystemConnection } from "@/lib/settings-store"
 import {
@@ -39,8 +39,14 @@ async function safeSection<T>(action: () => Promise<T>, message: string) {
   }
 }
 
-export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const auth = await requireAdminApiSession(request)
+
+    if (isApiAuthResponse(auth)) {
+      return auth
+    }
+
     const { id } = await params
     const client = await createKeycloakAdminClient()
     const configuredRealm = (getSystemConnection("keycloak").config as { realm: string }).realm
@@ -130,6 +136,12 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const auth = await requireAdminApiSession(request)
+
+    if (isApiAuthResponse(auth)) {
+      return auth
+    }
+
     const { id } = await params
     const payload = (await request.json().catch(() => null)) as
       | { name?: unknown; description?: unknown }
@@ -161,7 +173,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const updated = await client.getGroup(id)
 
     appendAuditLog({
-      actorName: "Identity Admin",
+      actorName: auth.actorName,
       category: "edit",
       action: "keycloak.group.updated",
       resourceType: "keycloak-group",

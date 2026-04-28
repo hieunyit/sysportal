@@ -52,6 +52,9 @@ export interface EditableOpenVpnUserState {
   totp: boolean
   allow_password_change: boolean
   allow_generate_profiles: boolean
+  static_ipv4?: string
+  static_ipv6?: string
+  cc_commands?: string
 }
 
 export interface EditableOpenVpnGroupState {
@@ -625,9 +628,6 @@ export function OpenVpnUserEditorDialog({
         name: state.name.trim(),
         group: state.group.trim(),
         auth_method: normalizedAuthMethod,
-        autologin: false,
-        deny: false,
-        deny_web: false,
         totp: normalizedAuthMethod === "local" ? state.totp : false,
         allow_password_change: normalizedAuthMethod === "local" ? state.allow_password_change : false,
       })

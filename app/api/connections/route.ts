@@ -1,12 +1,18 @@
-import { NextResponse } from "next/server"
-import { getErrorDetail } from "@/lib/error-utils"
-import { getSystemSettings } from "@/lib/settings-store"
+import { isApiAuthResponse, requireAdminApiSession } from "@/lib/auth/api"
+import { apiErrorResponse, apiSuccess } from "@/lib/api-response"
+import { getSystemSettings, sanitizeSystemSettings } from "@/lib/settings-store"
 
 export const runtime = "nodejs"
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const system = getSystemSettings()
+    const auth = await requireAdminApiSession(request)
+
+    if (isApiAuthResponse(auth)) {
+      return auth
+    }
+
+    const system = sanitizeSystemSettings(getSystemSettings())
     const items = [
       {
         id: "keycloak",
@@ -30,18 +36,15 @@ export async function GET() {
       },
     ]
 
-    return NextResponse.json({
+    return apiSuccess({
       items,
       total: items.length,
       updatedAt: system.updatedAt,
     })
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: "Unable to load connections",
-        detail: getErrorDetail(error, "Connection storage is unavailable"),
-      },
-      { status: 500 },
-    )
+    return apiErrorResponse(error, {
+      error: "Unable to load connections",
+      detail: "Connection storage is unavailable",
+    })
   }
 }

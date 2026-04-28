@@ -12,14 +12,14 @@ export function MobileNav() {
         <Button
           variant="outline"
           size="icon"
-          className="lg:hidden border-border/70 bg-background/70 shadow-none backdrop-blur-sm"
+          className="lg:hidden border-gray-200 bg-white shadow-none"
         >
-          <Menu className="w-6 h-6" />
+          <Menu className="w-5 h-5" />
           <span className="sr-only">Open menu</span>
         </Button>
       </SheetTrigger>
-      <SheetContent side="left" className="w-80 border-r border-border/70 p-0">
-        <Sidebar mobile />
+      <SheetContent side="left" className="w-60 p-0 border-r-0">
+        <Sidebar />
       </SheetContent>
     </Sheet>
   )

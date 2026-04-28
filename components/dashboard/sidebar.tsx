@@ -6,8 +6,6 @@ import { usePathname } from "next/navigation"
 import {
   Activity,
   BarChart3,
-  ChevronLeft,
-  ChevronRight,
   FileCode2,
   KeyRound,
   LayoutDashboard,
@@ -18,9 +16,6 @@ import {
   UserRound,
   Users,
 } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
 
 const navigationSections = [
   {
@@ -56,24 +51,16 @@ const navigationSections = [
   },
 ] as const
 
-interface SidebarProps {
-  isCollapsed?: boolean
-  mobile?: boolean
-  onToggle?: () => void
-}
-
 interface ConnectorStatus {
   name: string
   ok: boolean
-  message: string
 }
 
 const CONNECTOR_STATUS_POLL_INTERVAL_MS = 5 * 60 * 1000
 
-export function Sidebar({ isCollapsed = false, mobile = false, onToggle }: SidebarProps = {}) {
+export function Sidebar() {
   const pathname = usePathname()
   const [connectorStatuses, setConnectorStatuses] = useState<ConnectorStatus[]>([])
-  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     const fetchConnectorStatuses = async () => {
@@ -82,152 +69,114 @@ export function Sidebar({ isCollapsed = false, mobile = false, onToggle }: Sideb
         const results = await Promise.all(
           connectors.map(async (connector) => {
             try {
-              const response = await fetch(`/api/connections/${connector}/checks`, {
-                method: "POST",
-              })
-              const data = (await response.json()) as { ok?: boolean; message?: string }
+              const response = await fetch(`/api/connections/${connector}/checks`, { method: "POST" })
+              const data = (await response.json()) as { ok?: boolean }
               return {
-                name: connector === "smtp-welcome" ? "SMTP Welcome" : connector.charAt(0).toUpperCase() + connector.slice(1),
+                name:
+                  connector === "smtp-welcome"
+                    ? "SMTP Welcome"
+                    : connector.charAt(0).toUpperCase() + connector.slice(1),
                 ok: data.ok ?? false,
-                message: data.message ?? "Unknown",
               }
             } catch {
               return {
-                name: connector === "smtp-welcome" ? "SMTP Welcome" : connector.charAt(0).toUpperCase() + connector.slice(1),
+                name:
+                  connector === "smtp-welcome"
+                    ? "SMTP Welcome"
+                    : connector.charAt(0).toUpperCase() + connector.slice(1),
                 ok: false,
-                message: "Unavailable",
               }
             }
           }),
         )
         setConnectorStatuses(results)
-      } catch {
-        console.error("[v0] Failed to fetch connector statuses")
-      } finally {
-        setIsLoading(false)
-      }
+      } catch {}
     }
 
-    fetchConnectorStatuses()
+    void fetchConnectorStatuses()
     const interval = setInterval(fetchConnectorStatuses, CONNECTOR_STATUS_POLL_INTERVAL_MS)
     return () => clearInterval(interval)
   }, [])
 
   return (
-    <aside
-      className={cn(
-        "flex flex-col overflow-y-auto border-r border-sidebar-border/80 bg-sidebar/95 backdrop-blur-xl",
-        mobile
-          ? "h-full w-full"
-          : "fixed left-0 top-0 z-30 h-screen transition-all duration-300 ease-in-out",
-        !mobile && (isCollapsed ? "w-[5.5rem]" : "w-80"),
-      )}
-    >
-      <div className={cn("flex h-full flex-col p-4", isCollapsed && "px-3")}>
-        <div className={cn("mb-5 flex items-start gap-3", isCollapsed ? "justify-center" : "justify-between")}>
-          {!isCollapsed && (
-            <Link href="/" className="group">
-              <div className="space-y-1.5">
-                <div className="flex items-center gap-2">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/14 text-primary ring-1 ring-primary/15">
-                    <ShieldCheck className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold tracking-[-0.03em] text-sidebar-foreground">IdentityOps</p>
-                    <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Operations Console</p>
-                  </div>
-                </div>
-              </div>
-            </Link>
-          )}
-
-          {onToggle && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onToggle}
-              className={cn(
-                "mt-1 h-8 w-8 rounded-xl border border-sidebar-border/80 bg-sidebar-accent/75",
-                isCollapsed && "mx-auto",
-              )}
-            >
-              {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-            </Button>
-          )}
-        </div>
-
-        {!isCollapsed && (
-          <div className="mb-4 flex items-center justify-between rounded-[1.1rem] border border-sidebar-border/80 bg-sidebar-accent/45 px-3 py-2.5">
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">Workspace</p>
-              <p className="mt-1 text-sm font-semibold text-sidebar-foreground">Identity operations</p>
-            </div>
-            <Badge className="border-emerald-500/20 bg-emerald-500/12 text-emerald-400">Live</Badge>
+    <aside className="w-60 shrink-0 bg-slate-900 flex flex-col">
+      {/* Logo */}
+      <div className="h-16 flex items-center px-4 border-b border-slate-700/50">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center shrink-0 shadow-lg shadow-indigo-900/50">
+            <ShieldCheck className="w-4 h-4 text-white" />
           </div>
-        )}
-
-        <div className="space-y-5">
-          {navigationSections.map((section) => (
-            <div key={section.label}>
-              {!isCollapsed && (
-                <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
-                  {section.label}
-                </p>
-              )}
-              <nav className="space-y-1.5">
-                {section.items.map((item) => {
-                  const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`)
-
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      title={isCollapsed ? item.label : undefined}
-                      className={cn(
-                        "group flex items-center gap-3 rounded-xl border px-3 py-3 text-sm transition-all",
-                        isActive
-                          ? "border-sidebar-border bg-sidebar-accent text-sidebar-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
-                          : "border-transparent text-muted-foreground hover:border-sidebar-border/80 hover:bg-sidebar-accent/65 hover:text-sidebar-foreground",
-                        isCollapsed && "justify-center px-2.5",
-                      )}
-                    >
-                      <item.icon className="h-4 w-4 shrink-0" />
-                      {!isCollapsed && (
-                        <>
-                          <span className="truncate">{item.label}</span>
-                          {isActive && <span className="ml-auto h-2 w-2 rounded-full bg-primary" />}
-                        </>
-                      )}
-                    </Link>
-                  )
-                })}
-              </nav>
-            </div>
-          ))}
+          <div>
+            <p className="font-semibold text-white text-sm leading-tight">IdentityOps</p>
+            <p className="text-slate-500 text-xs">Operations Console</p>
+          </div>
         </div>
+      </div>
 
-        {!isCollapsed && (
-          <div className="mt-auto rounded-[1.15rem] border border-sidebar-border/80 bg-sidebar-accent/40 p-3">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-sm font-semibold text-sidebar-foreground">Connector status</p>
-              <Badge className={cn("border-primary/20 bg-primary/12 text-primary", isLoading && "opacity-50")}>
-                {isLoading ? "Checking..." : "Live"}
-              </Badge>
+      {/* Nav sections */}
+      <nav className="flex-1 py-4 px-2 overflow-y-auto space-y-5">
+        {navigationSections.map((section) => (
+          <div key={section.label}>
+            <p className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+              {section.label}
+            </p>
+            <div className="space-y-0.5">
+              {section.items.map((item) => {
+                const isActive =
+                  pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href))
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`group flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 ${
+                      isActive
+                        ? "bg-indigo-600 text-white shadow-sm"
+                        : "text-slate-400 hover:bg-slate-800 hover:text-slate-100"
+                    }`}
+                  >
+                    <item.icon
+                      className={`w-4 h-4 shrink-0 transition-colors ${
+                        isActive
+                          ? "text-indigo-200"
+                          : "text-slate-500 group-hover:text-slate-300"
+                      }`}
+                    />
+                    <span className="truncate flex-1">{item.label}</span>
+                    {isActive && (
+                      <span className="ml-auto w-1.5 h-1.5 rounded-full bg-indigo-300 shrink-0" />
+                    )}
+                  </Link>
+                )
+              })}
             </div>
+          </div>
+        ))}
+      </nav>
 
-            <div className="mt-3 space-y-2">
-              {connectorStatuses.map((connector) => (
-                <div key={connector.name} className="flex items-center justify-between rounded-xl bg-sidebar px-3 py-2.5">
-                  <span className="text-sm text-sidebar-foreground">{connector.name}</span>
-                  <span className={cn("text-xs font-medium", connector.ok ? "text-emerald-400" : "text-red-400")}>
-                    {connector.ok ? "Healthy" : "Error"}
+      {/* Connector status */}
+      {connectorStatuses.length > 0 && (
+        <div className="p-2 border-t border-slate-700/50">
+          <div className="px-3 py-2.5 rounded-lg bg-slate-800/60">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 mb-2">
+              Connectors
+            </p>
+            <div className="space-y-1.5">
+              {connectorStatuses.map((c) => (
+                <div key={c.name} className="flex items-center justify-between">
+                  <span className="text-xs text-slate-400">{c.name}</span>
+                  <span
+                    className={`text-[10px] font-semibold ${
+                      c.ok ? "text-emerald-400" : "text-red-400"
+                    }`}
+                  >
+                    {c.ok ? "Healthy" : "Error"}
                   </span>
                 </div>
               ))}
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </aside>
   )
 }

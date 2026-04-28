@@ -121,31 +121,11 @@
   }
 
   html {
-    color-scheme: dark;
+    color-scheme: light dark;
   }
 
   body {
     @apply bg-background text-foreground;
-    position: relative;
-    min-height: 100vh;
-    background-image:
-      radial-gradient(circle at top left, rgba(45, 212, 191, 0.18), transparent 24rem),
-      radial-gradient(circle at top right, rgba(249, 115, 22, 0.14), transparent 22rem),
-      linear-gradient(180deg, rgba(148, 163, 184, 0.08) 0, transparent 12rem);
-    background-attachment: fixed;
-  }
-
-  body::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    background-image:
-      linear-gradient(rgba(148, 163, 184, 0.07) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(148, 163, 184, 0.07) 1px, transparent 1px);
-    background-size: 140px 140px;
-    mask-image: radial-gradient(circle at center, black, transparent 88%);
-    opacity: 0.4;
   }
 
   ::selection {

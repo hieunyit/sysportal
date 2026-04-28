@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server"
+import { isApiAuthResponse, requireAdminApiSession } from "@/lib/auth/api"
 import {
   apiErrorResponse,
   apiProblemResponse,
@@ -21,6 +21,7 @@ import {
 import {
   filterHiddenUserAttributes,
   filterHiddenUserProfileMetadata,
+  stripHiddenUserAttributesFromPatch,
 } from "@/lib/keycloak-user-attribute-visibility"
 import { formatZodError } from "@/lib/settings-validation"
 import {
@@ -101,8 +102,14 @@ async function safeSection<T>(action: () => Promise<T>, message: string) {
   }
 }
 
-export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const auth = await requireAdminApiSession(request)
+
+    if (isApiAuthResponse(auth)) {
+      return auth
+    }
+
     const { id } = await params
     const client = await createKeycloakAdminClient()
     const configuredRealm = (getSystemConnection("keycloak").config as { realm: string }).realm
@@ -192,7 +199,10 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
         access: user.access ?? {},
         userProfileMetadata: filterHiddenUserProfileMetadata(user.userProfileMetadata ?? null),
       },
-      updateModel: buildFullUserUpdateModel(user),
+      updateModel: buildFullUserUpdateModel({
+        ...user,
+        attributes: filterHiddenUserAttributes(user.attributes ?? {}),
+      }),
       security: {
         passwordCredentialId: passwordCredential?.id ?? null,
         passwordLastSetAt: epochToIso(passwordCredential?.createdDate) ?? null,
@@ -239,6 +249,12 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const auth = await requireAdminApiSession(request)
+
+    if (isApiAuthResponse(auth)) {
+      return auth
+    }
+
     const { id } = await params
     const payload = await request.json().catch(() => null)
     const parsed = keycloakUserPatchSchema.safeParse(payload)
@@ -254,7 +270,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const client = await createKeycloakAdminClient()
     const configuredRealm = (getSystemConnection("keycloak").config as { realm: string }).realm
     const currentUser = await client.getUser(id)
-    const nextPayload = mergeUserRepresentationPayload(currentUser, parsed.data)
+    const sanitizedPatch = stripHiddenUserAttributesFromPatch(parsed.data)
+    const nextPayload = mergeUserRepresentationPayload(currentUser, sanitizedPatch)
     const metadataIssues = validateKeycloakProfileInput(
       nextPayload as Record<string, unknown>,
       currentUser.userProfileMetadata ?? null,
@@ -273,7 +290,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const user = await client.getUser(id)
 
     appendAuditLog({
-      actorName: "Identity Admin",
+      actorName: auth.actorName,
       category: "edit",
       action: "keycloak.user.updated",
       resourceType: "keycloak-user",
@@ -282,7 +299,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       detail: `Updated Keycloak user ${toDisplayName(user)}`,
       metadata: {
         realm: configuredRealm,
-        fields: Object.keys(parsed.data),
+        fields: Object.keys(sanitizedPatch),
       },
     })
 

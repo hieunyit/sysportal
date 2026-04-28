@@ -170,6 +170,7 @@ export interface AuditLogFilterOptions {
 }
 
 export const connectionKeys = ["keycloak", "openvpn", "smtp", "smtp-welcome"] as const
+export const SECRET_PLACEHOLDER = "********"
 
 export type SystemConnectionKey = (typeof connectionKeys)[number]
 
@@ -182,6 +183,78 @@ const connectionPropertyMap = {
 
 type ConnectionPropertyKey = (typeof connectionPropertyMap)[SystemConnectionKey]
 type ConnectionRecord = SystemSettingsRecord[ConnectionPropertyKey]
+
+function maskSecret(value: string) {
+  return value.trim() ? SECRET_PLACEHOLDER : ""
+}
+
+export function sanitizeConnectionConfig<TConnector extends SystemConnectionKey>(
+  connector: TConnector,
+  input: SystemSettingsRecord[(typeof connectionPropertyMap)[TConnector]],
+) {
+  switch (connector) {
+    case "keycloak":
+      return {
+        ...(input as KeycloakConnectionRecord),
+        clientSecret: maskSecret((input as KeycloakConnectionRecord).clientSecret),
+      } as SystemSettingsRecord[(typeof connectionPropertyMap)[TConnector]]
+    case "openvpn":
+      return {
+        ...(input as OpenVpnConnectionRecord),
+        password: maskSecret((input as OpenVpnConnectionRecord).password),
+      } as SystemSettingsRecord[(typeof connectionPropertyMap)[TConnector]]
+    case "smtp":
+    case "smtp-welcome":
+      return {
+        ...(input as SmtpSettingsRecord),
+        password: maskSecret((input as SmtpSettingsRecord).password),
+      } as SystemSettingsRecord[(typeof connectionPropertyMap)[TConnector]]
+  }
+}
+
+export function sanitizeSystemSettings(system: SystemSettingsRecord) {
+  return {
+    ...system,
+    keycloak: sanitizeConnectionConfig("keycloak", system.keycloak),
+    openvpn: sanitizeConnectionConfig("openvpn", system.openvpn),
+    smtp: sanitizeConnectionConfig("smtp", system.smtp),
+    smtpWelcome: sanitizeConnectionConfig("smtp-welcome", system.smtpWelcome),
+  }
+}
+
+export function preserveMaskedConnectionSecrets(
+  connector: SystemConnectionKey,
+  input: ConnectionRecord,
+  current: ConnectionRecord,
+) {
+  switch (connector) {
+    case "keycloak": {
+      const next = input as KeycloakConnectionRecord
+      const existing = current as KeycloakConnectionRecord
+      return {
+        ...next,
+        clientSecret: next.clientSecret === SECRET_PLACEHOLDER ? existing.clientSecret : next.clientSecret,
+      } as ConnectionRecord
+    }
+    case "openvpn": {
+      const next = input as OpenVpnConnectionRecord
+      const existing = current as OpenVpnConnectionRecord
+      return {
+        ...next,
+        password: next.password === SECRET_PLACEHOLDER ? existing.password : next.password,
+      } as ConnectionRecord
+    }
+    case "smtp":
+    case "smtp-welcome": {
+      const next = input as SmtpSettingsRecord
+      const existing = current as SmtpSettingsRecord
+      return {
+        ...next,
+        password: next.password === SECRET_PLACEHOLDER ? existing.password : next.password,
+      } as ConnectionRecord
+    }
+  }
+}
 
 declare global {
   var __identityOpsSettingsDb__: SqliteDatabase | undefined

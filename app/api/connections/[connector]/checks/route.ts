@@ -1,10 +1,11 @@
-import { NextResponse } from "next/server"
 import { ZodError } from "zod"
+import { isApiAuthResponse, requireAdminApiSession } from "@/lib/auth/api"
+import { apiErrorResponse, apiNotFound, apiSuccess, apiValidationError } from "@/lib/api-response"
 import { testConnectorConnection } from "@/lib/connection-tests"
-import { getErrorDetail } from "@/lib/error-utils"
 import {
   connectionKeys,
   getSystemConnection,
+  preserveMaskedConnectionSecrets,
   type SystemConnectionKey,
 } from "@/lib/settings-store"
 import { formatZodError, getConnectionSchema } from "@/lib/settings-validation"
@@ -21,35 +22,38 @@ function hasProvidedCheckPayload(value: unknown) {
 
 export async function POST(request: Request, { params }: { params: Promise<{ connector: string }> }) {
   try {
+    const auth = await requireAdminApiSession(request)
+
+    if (isApiAuthResponse(auth)) {
+      return auth
+    }
+
     const { connector } = await params
 
     if (!isSystemConnectionKey(connector)) {
-      return NextResponse.json({ error: "Connection not found" }, { status: 404 })
+      return apiNotFound("Connection not found", `Connector "${connector}" is not configured.`)
     }
 
     const rawBody = await request.text()
     const parsedBody = rawBody.trim() ? (JSON.parse(rawBody) as unknown) : null
-    const payloadSource = hasProvidedCheckPayload(parsedBody)
-      ? parsedBody
-      : getSystemConnection(connector).config
-    const payload = getConnectionSchema(connector).parse(payloadSource)
+    const currentConfig = getSystemConnection(connector).config
+    const payloadSource = hasProvidedCheckPayload(parsedBody) ? parsedBody : currentConfig
+    const parsedPayload = getConnectionSchema(connector).parse(payloadSource)
+    const payload = preserveMaskedConnectionSecrets(connector, parsedPayload, currentConfig)
     const result = await testConnectorConnection(connector, payload)
 
-    return NextResponse.json(result)
+    return apiSuccess(result)
   } catch (error) {
     if (error instanceof ZodError) {
-      return NextResponse.json(
-        { error: "Invalid connection check payload", details: formatZodError(error) },
-        { status: 400 },
-      )
+      return apiValidationError({
+        error: "Invalid connection check payload",
+        issues: formatZodError(error),
+      })
     }
 
-    return NextResponse.json(
-      {
-        error: "Unable to run connection check",
-        detail: getErrorDetail(error, "Connection check failed"),
-      },
-      { status: 500 },
-    )
+    return apiErrorResponse(error, {
+      error: "Unable to run connection check",
+      detail: "Connection check failed",
+    })
   }
 }

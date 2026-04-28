@@ -1,10 +1,12 @@
-import { NextResponse } from "next/server"
 import { ZodError } from "zod"
-import { getErrorDetail } from "@/lib/error-utils"
+import { isApiAuthResponse, requireAdminApiSession } from "@/lib/auth/api"
+import { apiErrorResponse, apiNotFound, apiSuccess, apiValidationError } from "@/lib/api-response"
 import {
   appendAuditLog,
   connectionKeys,
   getSystemConnection,
+  preserveMaskedConnectionSecrets,
+  sanitizeConnectionConfig,
   type SystemConnectionKey,
   updateSystemConnection,
 } from "@/lib/settings-store"
@@ -16,47 +18,58 @@ function isSystemConnectionKey(value: string): value is SystemConnectionKey {
   return connectionKeys.includes(value as SystemConnectionKey)
 }
 
-export async function GET(_: Request, { params }: { params: Promise<{ connector: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ connector: string }> }) {
   try {
+    const auth = await requireAdminApiSession(request)
+
+    if (isApiAuthResponse(auth)) {
+      return auth
+    }
+
     const { connector } = await params
 
     if (!isSystemConnectionKey(connector)) {
-      return NextResponse.json({ error: "Connection not found" }, { status: 404 })
+      return apiNotFound("Connection not found", `Connector "${connector}" is not configured.`)
     }
 
     const resource = getSystemConnection(connector)
 
-    return NextResponse.json({
+    return apiSuccess({
       id: connector,
-      config: resource.config,
+      config: sanitizeConnectionConfig(connector, resource.config),
       updatedAt: resource.updatedAt,
     })
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: "Unable to load connection",
-        detail: getErrorDetail(error, "Connection storage is unavailable"),
-      },
-      { status: 500 },
-    )
+    return apiErrorResponse(error, {
+      error: "Unable to load connection",
+      detail: "Connection storage is unavailable",
+    })
   }
 }
 
 export async function PUT(request: Request, { params }: { params: Promise<{ connector: string }> }) {
   try {
+    const auth = await requireAdminApiSession(request)
+
+    if (isApiAuthResponse(auth)) {
+      return auth
+    }
+
     const { connector } = await params
 
     if (!isSystemConnectionKey(connector)) {
-      return NextResponse.json({ error: "Connection not found" }, { status: 404 })
+      return apiNotFound("Connection not found", `Connector "${connector}" is not configured.`)
     }
 
     const body = await request.json()
     const payload = getConnectionSchema(connector).parse(body)
-    const updated = updateSystemConnection(connector, payload)
+    const currentResource = getSystemConnection(connector)
+    const nextPayload = preserveMaskedConnectionSecrets(connector, payload, currentResource.config)
+    const updated = updateSystemConnection(connector, nextPayload)
     const resource = getSystemConnection(connector)
 
     appendAuditLog({
-      actorName: "Identity Admin",
+      actorName: auth.actorName,
       category: "edit",
       action: "connection.updated",
       resourceType: "connection",
@@ -65,25 +78,22 @@ export async function PUT(request: Request, { params }: { params: Promise<{ conn
       detail: `Updated ${connector} connection settings`,
     })
 
-    return NextResponse.json({
+    return apiSuccess({
       id: connector,
-      config: resource.config,
+      config: sanitizeConnectionConfig(connector, resource.config),
       updatedAt: updated.updatedAt,
     })
   } catch (error) {
     if (error instanceof ZodError) {
-      return NextResponse.json(
-        { error: "Invalid connection payload", details: formatZodError(error) },
-        { status: 400 },
-      )
+      return apiValidationError({
+        error: "Invalid connection payload",
+        issues: formatZodError(error),
+      })
     }
 
-    return NextResponse.json(
-      {
-        error: "Unable to update connection",
-        detail: getErrorDetail(error, "Connection update failed"),
-      },
-      { status: 500 },
-    )
+    return apiErrorResponse(error, {
+      error: "Unable to update connection",
+      detail: "Connection update failed",
+    })
   }
 }
