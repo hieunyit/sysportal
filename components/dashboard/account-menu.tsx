@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { LogOut, PencilLine } from "lucide-react"
 import { toast } from "sonner"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -207,16 +206,14 @@ export function AccountMenu() {
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            className="ml-1 flex items-center gap-3 rounded-xl border border-border/70 bg-background/70 px-2.5 py-2 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-sm transition-colors hover:border-primary/25"
+            className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-gray-50 transition-colors group"
           >
-            <Avatar className="h-9 w-9 border border-primary/20">
-              <AvatarImage src="/profile.jpg" alt={profile.fullName} />
-              <AvatarFallback className="bg-primary/15 text-primary">{initials}</AvatarFallback>
-            </Avatar>
-            <div className="hidden text-xs md:block">
-              <p className="font-semibold text-foreground">{profile.fullName}</p>
-              <p className="text-muted-foreground">{profile.email}</p>
+            <div className="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-semibold text-indigo-700 shrink-0">
+              {initials}
             </div>
+            <span className="hidden md:block text-sm font-medium text-gray-700 group-hover:text-gray-900 max-w-[140px] truncate">
+              {profile.fullName}
+            </span>
           </button>
         </DropdownMenuTrigger>
 
