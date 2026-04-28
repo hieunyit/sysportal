@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server"
 import { ZodError } from "zod"
-import { getErrorDetail } from "@/lib/error-utils"
+import { isApiAuthResponse, requireAdminApiSession } from "@/lib/auth/api"
+import { apiErrorResponse, apiNotFound, apiSuccess, apiValidationError } from "@/lib/api-response"
 import {
   appendAuditLog,
   deleteEmailTemplate,
@@ -11,40 +11,49 @@ import { emailTemplateSchema, formatZodError } from "@/lib/settings-validation"
 
 export const runtime = "nodejs"
 
-export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const auth = await requireAdminApiSession(request)
+
+    if (isApiAuthResponse(auth)) {
+      return auth
+    }
+
     const { id } = await params
     const template = getEmailTemplate(id)
 
     if (!template) {
-      return NextResponse.json({ error: "Email template not found" }, { status: 404 })
+      return apiNotFound("Email template not found")
     }
 
-    return NextResponse.json(template)
+    return apiSuccess(template)
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: "Unable to load email template",
-        detail: getErrorDetail(error, "Email template storage is unavailable"),
-      },
-      { status: 500 },
-    )
+    return apiErrorResponse(error, {
+      error: "Unable to load email template",
+      detail: "Email template storage is unavailable",
+    })
   }
 }
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const auth = await requireAdminApiSession(request)
+
+    if (isApiAuthResponse(auth)) {
+      return auth
+    }
+
     const { id } = await params
     const body = await request.json()
     const payload = emailTemplateSchema.parse(body)
     const updated = updateEmailTemplate(id, payload)
 
     if (!updated) {
-      return NextResponse.json({ error: "Email template not found" }, { status: 404 })
+      return apiNotFound("Email template not found")
     }
 
     appendAuditLog({
-      actorName: "Identity Admin",
+      actorName: auth.actorName,
       category: "edit",
       action: "email-template.updated",
       resourceType: "email-template",
@@ -54,37 +63,40 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       metadata: { category: updated.category },
     })
 
-    return NextResponse.json(updated)
+    return apiSuccess(updated)
   } catch (error) {
     if (error instanceof ZodError) {
-      return NextResponse.json(
-        { error: "Invalid email template payload", details: formatZodError(error) },
-        { status: 400 },
-      )
+      return apiValidationError({
+        error: "Invalid email template payload",
+        issues: formatZodError(error),
+      })
     }
 
-    return NextResponse.json(
-      {
-        error: "Unable to update email template",
-        detail: getErrorDetail(error, "Template update failed"),
-      },
-      { status: 500 },
-    )
+    return apiErrorResponse(error, {
+      error: "Unable to update email template",
+      detail: "Template update failed",
+    })
   }
 }
 
-export async function DELETE(_: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const auth = await requireAdminApiSession(request)
+
+    if (isApiAuthResponse(auth)) {
+      return auth
+    }
+
     const { id } = await params
     const deleted = deleteEmailTemplate(id)
 
     if (!deleted) {
-      return NextResponse.json({ error: "Email template not found" }, { status: 404 })
+      return apiNotFound("Email template not found")
     }
 
     appendAuditLog({
-      actorName: "Identity Admin",
-      category: "action",
+      actorName: auth.actorName,
+      category: "edit",
       action: "email-template.deleted",
       resourceType: "email-template",
       resourceId: deleted.id,
@@ -93,14 +105,11 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
       metadata: { category: deleted.category },
     })
 
-    return NextResponse.json({ deleted: true, id: deleted.id, name: deleted.name })
+    return apiSuccess({ deleted: true, id: deleted.id, name: deleted.name })
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: "Unable to delete email template",
-        detail: getErrorDetail(error, "Template deletion failed"),
-      },
-      { status: 500 },
-    )
+    return apiErrorResponse(error, {
+      error: "Unable to delete email template",
+      detail: "Template deletion failed",
+    })
   }
 }

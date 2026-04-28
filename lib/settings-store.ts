@@ -142,7 +142,7 @@ export interface EmailTemplateRecord {
 export interface AuditLogRecord {
   id: string
   actorName: string
-  category: "access" | "edit" | "action"
+  category: "edit"
   action: string
   resourceType: string
   resourceId: string
@@ -154,9 +154,7 @@ export interface AuditLogRecord {
 
 export interface AuditLogSummaryRecord {
   total: number
-  accessCount: number
   editCount: number
-  actionCount: number
   latestAt: string | null
 }
 
@@ -1510,7 +1508,7 @@ function toEmailTemplateRecord(row: {
 function toAuditLogRecord(row: {
   id: string
   actorName: string
-  category: "access" | "edit" | "action"
+  category: "edit"
   action: string
   resourceType: string
   resourceId: string
@@ -1798,7 +1796,7 @@ export function listAuditLogs(options?: AuditLogFilterOptions) {
     .all(...params, limit) as Array<{
       id: string
       actorName: string
-      category: "access" | "edit" | "action"
+      category: "edit"
       action: string
       resourceType: string
       resourceId: string
@@ -1819,26 +1817,20 @@ export function getAuditLogSummary(options?: Omit<AuditLogFilterOptions, "limit"
     .prepare(`
       SELECT
         COUNT(*) AS total,
-        SUM(CASE WHEN category = 'access' THEN 1 ELSE 0 END) AS accessCount,
         SUM(CASE WHEN category = 'edit' THEN 1 ELSE 0 END) AS editCount,
-        SUM(CASE WHEN category = 'action' THEN 1 ELSE 0 END) AS actionCount,
         MAX(created_at) AS latestAt
       FROM audit_logs
       ${whereClause}
     `)
     .get(...params) as {
       total: number
-      accessCount: number | null
       editCount: number | null
-      actionCount: number | null
       latestAt: string | null
     }
 
   return {
     total: row.total ?? 0,
-    accessCount: row.accessCount ?? 0,
     editCount: row.editCount ?? 0,
-    actionCount: row.actionCount ?? 0,
     latestAt: row.latestAt ?? null,
   }
 }

@@ -591,21 +591,6 @@ export async function POST(request: Request) {
             assigned: true,
             error: null,
           }
-
-          appendAuditLog({
-            actorName: auth.actorName,
-            category: "action",
-            action: "keycloak.user.group-assigned",
-            resourceType: "keycloak-group",
-            resourceId: defaultGroup.id,
-            resourceName: defaultGroup.path ?? defaultGroup.name ?? DEFAULT_EMPLOYEE_GROUP_NAME,
-            detail: `Assigned ${toDisplayName(user)} to default employee group`,
-            metadata: {
-              realm: configuredRealm,
-              userId: created.userId,
-              userType,
-            },
-          })
         }
       } catch (groupAssignmentError) {
         defaultGroupAssignment = {
@@ -613,22 +598,6 @@ export async function POST(request: Request) {
           assigned: false,
           error: getErrorDetail(groupAssignmentError, "Unable to assign default employee group"),
         }
-
-        appendAuditLog({
-          actorName: auth.actorName,
-          category: "action",
-          action: "keycloak.user.group-assignment-failed",
-          resourceType: "keycloak-group",
-          resourceId: DEFAULT_EMPLOYEE_GROUP_NAME,
-          resourceName: DEFAULT_EMPLOYEE_GROUP_NAME,
-          detail: `Default employee group assignment failed for ${toDisplayName(user)}`,
-          metadata: {
-            realm: configuredRealm,
-            userId: created.userId,
-            userType,
-            error: defaultGroupAssignment.error,
-          },
-        })
       }
     }
 
@@ -639,22 +608,6 @@ export async function POST(request: Request) {
         groupName: unresolvedGroup.identifier,
         assigned: false,
         error: unresolvedGroup.error,
-      })
-
-      appendAuditLog({
-        actorName: auth.actorName,
-        category: "action",
-        action: "keycloak.user.group-assignment-failed",
-        resourceType: "keycloak-group",
-        resourceId: unresolvedGroup.identifier,
-        resourceName: unresolvedGroup.identifier,
-        detail: `Group assignment failed for ${toDisplayName(user)}`,
-        metadata: {
-          realm: configuredRealm,
-          userId: created.userId,
-          userType,
-          error: unresolvedGroup.error,
-        },
       })
     })
 
@@ -670,43 +623,12 @@ export async function POST(request: Request) {
               assigned: true,
               error: null,
             })
-
-            appendAuditLog({
-              actorName: auth.actorName,
-              category: "action",
-              action: "keycloak.user.group-assigned",
-              resourceType: "keycloak-group",
-              resourceId: resolvedGroup.groupId,
-              resourceName: resolvedGroup.groupName,
-              detail: `Assigned ${toDisplayName(user)} to group ${resolvedGroup.groupName}`,
-              metadata: {
-                realm: configuredRealm,
-                userId: created.userId,
-                userType,
-              },
-            })
           } catch (singleGroupError) {
             customGroupAssignments.push({
               groupId: resolvedGroup.groupId,
               groupName: resolvedGroup.groupName,
               assigned: false,
               error: getErrorDetail(singleGroupError, "Unable to assign group"),
-            })
-
-            appendAuditLog({
-              actorName: auth.actorName,
-              category: "action",
-              action: "keycloak.user.group-assignment-failed",
-              resourceType: "keycloak-group",
-              resourceId: resolvedGroup.groupId,
-              resourceName: resolvedGroup.groupName,
-              detail: `Group assignment failed for ${toDisplayName(user)}`,
-              metadata: {
-                realm: configuredRealm,
-                userId: created.userId,
-                userType,
-                error: getErrorDetail(singleGroupError, "Unable to assign group"),
-              },
             })
           }
         }
@@ -764,50 +686,12 @@ export async function POST(request: Request) {
             recipient: welcomeRecipientEmail,
             error: null,
           }
-
-          appendAuditLog({
-            actorName: auth.actorName,
-            category: "action",
-            action: "email.welcome.sent",
-            resourceType: "email",
-            resourceId: created.userId,
-            resourceName: welcomeRecipientEmail,
-            detail: `Sent welcome email to ${welcomeRecipientEmail}`,
-            metadata: {
-              realm: configuredRealm,
-              templateId: welcomeTemplate.id,
-              userId: created.userId,
-              userType,
-            },
-          })
         } catch (welcomeEmailError) {
-          const deliveryError = getErrorDetail(
-            welcomeEmailError,
-            "Welcome email delivery failed",
-          )
-
           welcomeEmail = {
             sent: false,
             recipient: welcomeRecipientEmail,
-            error: deliveryError,
+            error: getErrorDetail(welcomeEmailError, "Welcome email delivery failed"),
           }
-
-          appendAuditLog({
-            actorName: auth.actorName,
-            category: "action",
-            action: "email.welcome.failed",
-            resourceType: "email",
-            resourceId: created.userId,
-            resourceName: welcomeRecipientEmail,
-            detail: `Welcome email delivery failed for ${welcomeRecipientEmail}`,
-            metadata: {
-              realm: configuredRealm,
-              templateId: welcomeTemplate.id,
-              userId: created.userId,
-              userType,
-              error: deliveryError,
-            },
-          })
         }
       }
     }

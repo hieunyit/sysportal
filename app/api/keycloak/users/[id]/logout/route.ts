@@ -1,5 +1,4 @@
 import { apiErrorResponse, apiSuccess } from "@/lib/api-response"
-import { appendAuditLog, getSystemConnection } from "@/lib/settings-store"
 import { createKeycloakAdminClient } from "@/lib/keycloak-admin"
 
 export const runtime = "nodejs"

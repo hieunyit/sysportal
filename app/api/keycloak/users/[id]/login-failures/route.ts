@@ -15,7 +15,7 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
 
     appendAuditLog({
       actorName: "Identity Admin",
-      category: "action",
+      category: "edit",
       action: "keycloak.user.login-failures-cleared",
       resourceType: "keycloak-user",
       resourceId: user.id ?? id,

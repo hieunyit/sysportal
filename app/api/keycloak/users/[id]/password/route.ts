@@ -29,7 +29,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
     appendAuditLog({
       actorName: "Identity Admin",
-      category: "action",
+      category: "edit",
       action: "keycloak.user.password-reset",
       resourceType: "keycloak-user",
       resourceId: user.id ?? id,

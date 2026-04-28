@@ -1,299 +1,211 @@
 import Link from "next/link"
 import {
   Activity,
-  AlertTriangle,
   ArrowRight,
-  CheckCircle2,
-  Clock,
   FileCode2,
   KeyRound,
   Network,
-  Pause,
+  PencilLine,
   ServerCog,
-  TrendingUp,
+  Clock,
+  User,
 } from "lucide-react"
 import { AppShell } from "@/components/dashboard/app-shell"
 import { Header } from "@/components/dashboard/header"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { cn } from "@/lib/utils"
+import { formatTimestamp } from "@/lib/email-template-utils"
+import { getAuditLogSummary, listAuditLogs } from "@/lib/settings-store"
 
-const keyMetrics = [
-  {
-    title: "System Health",
-    value: "98.7%",
-    detail: "Uptime across all services",
-    icon: CheckCircle2,
-    trend: "+2.1%",
-  },
-  {
-    title: "Active Incidents",
-    value: "3",
-    detail: "Requiring attention",
-    icon: AlertTriangle,
-    trend: "-1",
-  },
-  {
-    title: "Mean Response Time",
-    value: "4.2m",
-    detail: "Average incident response",
-    icon: Clock,
-    trend: "-12%",
-  },
-  {
-    title: "Resolved Today",
-    value: "12",
-    detail: "Total incidents resolved",
-    icon: TrendingUp,
-    trend: "+3",
-  },
-]
+function getResourceTypeLabel(value: string) {
+  return value
+    .split("-")
+    .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
+    .join(" ")
+}
 
-const recentIncidents = [
-  {
-    id: 1,
-    title: "Database connection timeout",
-    severity: "Critical",
-    status: "In Progress",
-    time: "5 minutes ago",
-  },
-  {
-    id: 2,
-    title: "High memory usage detected",
-    severity: "Warning",
-    status: "Monitoring",
-    time: "14 minutes ago",
-  },
-  {
-    id: 3,
-    title: "SSL certificate expiration",
-    severity: "High",
-    status: "Acknowledged",
-    time: "22 minutes ago",
-  },
-]
+function getActionVerb(action: string) {
+  if (action.includes(".created")) return "Created"
+  if (action.includes(".updated") || action.includes(".edited")) return "Updated"
+  if (action.includes(".deleted") || action.includes(".removed")) return "Deleted"
+  if (action.includes(".reset")) return "Reset"
+  if (action.includes(".enabled")) return "Enabled"
+  if (action.includes(".disabled")) return "Disabled"
+  const last = action.split(".").at(-1) ?? action
+  return last.charAt(0).toUpperCase() + last.slice(1)
+}
 
-const deploymentStatus = [
+const navSurfaces = [
   {
-    name: "Keycloak",
-    version: "v24.0.1",
-    status: "Healthy",
-    detail: "All services operational",
-  },
-  {
-    name: "OpenVPN",
-    version: "v2.6.8",
-    status: "Healthy",
-    detail: "Under normal load",
-  },
-  {
-    name: "API Gateway",
-    version: "v3.2.4",
-    status: "Monitoring",
-    detail: "Elevated response times",
-  },
-]
-
-const operatingSurfaces = [
-  {
-    title: "Keycloak Management",
-    description: "Users, groups, sessions, and authentication control.",
+    title: "Keycloak Users",
+    description: "Manage user accounts, attributes, credentials, and group memberships.",
     href: "/users",
     icon: KeyRound,
-    badge: "Identity",
   },
   {
-    title: "Network Access",
-    description: "VPN users, groups, routing, and policy rules.",
+    title: "Keycloak Groups",
+    description: "Organize users into groups and manage role assignments.",
+    href: "/groups",
+    icon: User,
+  },
+  {
+    title: "OpenVPN",
+    description: "VPN users, groups, certificates, and access policies.",
     href: "/openvpn/users",
     icon: Network,
-    badge: "Network",
   },
   {
-    title: "System Status",
-    description: "Connector health, configuration, and verification.",
+    title: "Connections",
+    description: "Connector health, configuration, and verification checks.",
     href: "/connections",
     icon: ServerCog,
-    badge: "Health",
   },
   {
-    title: "Audit Logs",
-    description: "Access history, configuration changes, and events.",
+    title: "Audit Log",
+    description: "Full history of create, update, and delete operations.",
     href: "/analytics",
     icon: Activity,
-    badge: "Audit",
   },
   {
-    title: "Templates",
-    description: "Email templates and notification management.",
+    title: "Email Templates",
+    description: "Welcome emails and notification template management.",
     href: "/content-generator",
     icon: FileCode2,
-    badge: "Templates",
   },
 ]
 
-function getSeverityClass(severity: string) {
-  switch (severity) {
-    case "Critical":
-      return "border-red-500/20 bg-red-500/10 text-red-300"
-    case "High":
-      return "border-orange-500/20 bg-orange-500/10 text-orange-300"
-    case "Warning":
-      return "border-amber-500/20 bg-amber-500/10 text-amber-300"
-    default:
-      return "border-green-500/20 bg-green-500/10 text-green-300"
-  }
-}
-
-function getStatusClass(status: string) {
-  switch (status) {
-    case "Healthy":
-      return "border-emerald-500/20 bg-emerald-500/10 text-emerald-300"
-    case "Monitoring":
-      return "border-amber-500/20 bg-amber-500/10 text-amber-300"
-    case "In Progress":
-      return "border-blue-500/20 bg-blue-500/10 text-blue-300"
-    default:
-      return "border-rose-500/20 bg-rose-500/10 text-rose-300"
-  }
-}
-
 export default function DashboardPage() {
+  let summary = { total: 0, editCount: 0, latestAt: null as string | null }
+  let recentChanges: ReturnType<typeof listAuditLogs> = []
+
+  try {
+    summary = getAuditLogSummary()
+    recentChanges = listAuditLogs({ limit: 10 })
+  } catch {
+    // DB unavailable — show empty state
+  }
+
   return (
     <AppShell>
       <Header
-        title="Engineering Metrics & Incident Response"
-        description="Monitor system health, track incidents, manage deployments, and analyze engineering performance in real-time."
-        actions={
-          <>
-            <Button asChild>
-              <Link href="/analytics">
-                View Incidents
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-            </Button>
-            <Button asChild variant="outline">
-              <Link href="/connections">System Status</Link>
-            </Button>
-          </>
-        }
+        title="Overview"
+        description="Identity and access operations — Keycloak, OpenVPN, and system health."
       />
 
       <div className="p-6 space-y-6">
-        {/* Key Metrics */}
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {keyMetrics.map((metric) => (
-            <Card key={metric.title}>
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="text-sm text-muted-foreground">{metric.title}</p>
-                    <p className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-foreground">{metric.value}</p>
-                    <div className="mt-3 flex items-center justify-between">
-                      <p className="text-xs text-muted-foreground">{metric.detail}</p>
-                      <span className={cn("text-xs font-semibold", metric.trend.startsWith("-") ? "text-red-500" : "text-emerald-600")}>
-                        {metric.trend}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex h-12 w-12 items-center justify-center rounded-[1.25rem] border border-primary/20 bg-primary/10 text-primary">
-                    <metric.icon className="h-5 w-5" />
-                  </div>
+        {/* Stats */}
+        <div className="grid gap-4 sm:grid-cols-3">
+          <Card className="bg-white border-gray-200 shadow-none">
+            <CardContent className="p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm text-gray-500">Total changes</p>
+                  <p className="mt-2 text-3xl font-semibold text-gray-900">{summary.total}</p>
                 </div>
-              </CardContent>
-            </Card>
-          ))}
-        </section>
-
-        {/* Main Content Grid */}
-        <section className="grid gap-4 xl:grid-cols-[1fr,1.1fr]">
-          {/* Recent Incidents */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Recent Incidents</CardTitle>
-              <CardDescription>Active and recent incidents requiring attention.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {recentIncidents.map((incident) => (
-                <div key={incident.id} className="rounded-[1.2rem] border border-border/70 bg-background/60 p-4">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="flex-1">
-                      <p className="text-sm font-semibold text-foreground">{incident.title}</p>
-                      <p className="mt-1.5 text-xs text-muted-foreground">{incident.time}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className={cn("shrink-0 text-xs", getSeverityClass(incident.severity))}>
-                        {incident.severity}
-                      </Badge>
-                      <Badge variant="outline" className={cn("shrink-0 text-xs", getStatusClass(incident.status))}>
-                        {incident.status}
-                      </Badge>
-                    </div>
-                  </div>
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+                  <Activity className="h-5 w-5" />
                 </div>
-              ))}
+              </div>
             </CardContent>
           </Card>
 
-          {/* Deployment Status */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Deployment Status</CardTitle>
-              <CardDescription>Current version and health of key services.</CardDescription>
+          <Card className="bg-white border-gray-200 shadow-none">
+            <CardContent className="p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm text-gray-500">Create / Edit / Delete</p>
+                  <p className="mt-2 text-3xl font-semibold text-gray-900">{summary.editCount}</p>
+                </div>
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+                  <PencilLine className="h-5 w-5" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white border-gray-200 shadow-none">
+            <CardContent className="p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm text-gray-500">Last change</p>
+                  <p className="mt-2 text-sm font-medium text-gray-900 leading-6">
+                    {summary.latestAt ? formatTimestamp(summary.latestAt) : "No activity yet"}
+                  </p>
+                </div>
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                  <Clock className="h-5 w-5" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr),340px]">
+          {/* Recent changes */}
+          <Card className="bg-white border-gray-200 shadow-none">
+            <CardHeader className="border-b border-gray-100 pb-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-base font-semibold text-gray-900">Recent changes</CardTitle>
+                  <CardDescription className="text-gray-500">Latest create, update, and delete operations.</CardDescription>
+                </div>
+                <Link
+                  href="/analytics"
+                  className="text-sm font-medium text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
+                >
+                  View all
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              </div>
             </CardHeader>
-            <CardContent className="space-y-3">
-              {deploymentStatus.map((service) => (
-                <div key={service.name} className="rounded-[1.2rem] border border-border/70 bg-background/60 p-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="text-base font-semibold tracking-[-0.02em] text-foreground">{service.name}</p>
-                        <Badge variant="outline" className="text-xs">{service.version}</Badge>
+            <CardContent className="p-0">
+              {recentChanges.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 text-center px-6">
+                  <Activity className="h-8 w-8 text-gray-300 mb-3" />
+                  <p className="text-sm font-medium text-gray-700">No changes recorded yet</p>
+                  <p className="text-sm text-gray-500 mt-1">Create, update, or delete operations will appear here.</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-100">
+                  {recentChanges.map((item) => (
+                    <div key={item.id} className="flex items-start gap-4 px-5 py-3.5">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-600 mt-0.5">
+                        <PencilLine className="h-3.5 w-3.5" />
                       </div>
-                      <p className="mt-1.5 text-xs text-muted-foreground">{service.detail}</p>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-gray-900 truncate">{item.detail}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          {getResourceTypeLabel(item.resourceType)} · {getActionVerb(item.action)} · {item.actorName}
+                        </p>
+                      </div>
+                      <p className="text-xs text-gray-400 shrink-0 mt-0.5">{formatTimestamp(item.createdAt)}</p>
                     </div>
-                    <Badge variant="outline" className={cn("shrink-0", getStatusClass(service.status))}>
-                      {service.status}
-                    </Badge>
-                  </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </CardContent>
           </Card>
-        </section>
 
-        {/* Operating Surfaces */}
-        <section className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
-          {operatingSurfaces.map((surface) => (
-            <Link
-              key={surface.href}
-              href={surface.href}
-              className="group rounded-[1.4rem] border border-border/70 bg-card/92 p-5 shadow-[0_28px_70px_-48px_rgba(15,23,42,0.9)] transition-all hover:border-primary/30 hover:-translate-y-0.5"
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div className="space-y-3">
-                  <Badge variant="outline">{surface.badge}</Badge>
-                  <div>
-                    <h2 className="text-lg font-semibold tracking-[-0.03em] text-foreground">{surface.title}</h2>
-                    <p className="mt-2 text-sm leading-5 text-muted-foreground">{surface.description}</p>
-                  </div>
+          {/* Navigation */}
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 px-1 mb-3">Quick access</p>
+            {navSurfaces.map((surface) => (
+              <Link
+                key={surface.href}
+                href={surface.href}
+                className="flex items-center gap-4 rounded-xl border border-gray-200 bg-white px-4 py-3.5 hover:bg-gray-50 hover:border-gray-300 transition-colors group"
+              >
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+                  <surface.icon className="h-4 w-4" />
                 </div>
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[1.25rem] border border-primary/20 bg-primary/10 text-primary">
-                  <surface.icon className="h-5 w-5" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-gray-900">{surface.title}</p>
+                  <p className="text-xs text-gray-500 truncate">{surface.description}</p>
                 </div>
-              </div>
-
-              <div className="mt-5 flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Access</span>
-                <span className="inline-flex items-center gap-2 font-semibold text-foreground">
-                  Open
-                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-                </span>
-              </div>
-            </Link>
-          ))}
-        </section>
+                <ArrowRight className="h-4 w-4 text-gray-400 group-hover:text-gray-600 shrink-0 transition-colors" />
+              </Link>
+            ))}
+          </div>
+        </div>
       </div>
     </AppShell>
   )

@@ -1,9 +1,8 @@
 "use client"
 
 import { useDeferredValue, useEffect, useState } from "react"
-import { Activity, Clock3, Filter, LoaderCircle, PencilLine, Search, ShieldCheck, Wrench } from "lucide-react"
+import { Activity, Clock3, Filter, LoaderCircle, PencilLine, Search, Wrench } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import {
@@ -22,46 +21,23 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { formatTimestamp } from "@/lib/email-template-utils"
-import { cn } from "@/lib/utils"
 
 interface AuditSummary {
   total: number
-  accessCount: number
   editCount: number
-  actionCount: number
   latestAt: string | null
 }
 
 interface AuditItem {
   id: string
   actorName: string
-  category: "access" | "edit" | "action"
+  category: "edit"
   action: string
   resourceType: string
   resourceId: string
   resourceName: string
   detail: string
   createdAt: string
-}
-
-type CategoryFilter = "all" | AuditItem["category"]
-
-const categoryOptions: Array<{ value: CategoryFilter; label: string }> = [
-  { value: "all", label: "All categories" },
-  { value: "access", label: "Access" },
-  { value: "edit", label: "Edit" },
-  { value: "action", label: "Action" },
-]
-
-function getAuditCategoryClass(category: AuditItem["category"]) {
-  switch (category) {
-    case "access":
-      return "border-sky-500/20 bg-sky-500/10 text-sky-600 dark:text-sky-300"
-    case "edit":
-      return "border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300"
-    case "action":
-      return "border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-300"
-  }
 }
 
 function getResourceTypeLabel(value: string) {
@@ -93,7 +69,6 @@ export function AnalyticsContent() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState("")
-  const [category, setCategory] = useState<CategoryFilter>("all")
   const [resourceType, setResourceType] = useState("all")
   const deferredSearch = useDeferredValue(search)
 
@@ -107,10 +82,6 @@ export function AnalyticsContent() {
 
         if (resourceType !== "all") {
           searchParams.set("resourceType", resourceType)
-        }
-
-        if (category !== "all") {
-          searchParams.set("category", category)
         }
 
         if (deferredSearch.trim()) {
@@ -128,9 +99,9 @@ export function AnalyticsContent() {
           return
         }
 
-        const audit = payload as { summary: AuditSummary; items: AuditItem[] }
+        const audit = payload as { ok: boolean; summary: AuditSummary; items: AuditItem[] }
         setSummary(audit.summary)
-        setItems(audit.items)
+        setItems(audit.items ?? [])
         setError(null)
       } catch (loadError) {
         if (!isActive) {
@@ -150,7 +121,7 @@ export function AnalyticsContent() {
     return () => {
       isActive = false
     }
-  }, [category, deferredSearch, resourceType])
+  }, [deferredSearch, resourceType])
 
   const resourceTypeOptions = Array.from(new Set(items.map((item) => item.resourceType))).sort()
 
@@ -183,12 +154,12 @@ export function AnalyticsContent() {
         </Alert>
       ) : null}
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-3">
         <Card className="border-border bg-card shadow-sm">
           <CardContent className="p-5">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-sm text-muted-foreground">Total events</p>
+                <p className="text-sm text-muted-foreground">Total changes</p>
                 <p className="mt-3 text-3xl font-semibold tracking-tight text-foreground">{summary?.total ?? 0}</p>
               </div>
               <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-border bg-background text-foreground">
@@ -202,21 +173,7 @@ export function AnalyticsContent() {
           <CardContent className="p-5">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-sm text-muted-foreground">Access events</p>
-                <p className="mt-3 text-3xl font-semibold tracking-tight text-foreground">{summary?.accessCount ?? 0}</p>
-              </div>
-              <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-border bg-background text-foreground">
-                <ShieldCheck className="h-5 w-5" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border bg-card shadow-sm">
-          <CardContent className="p-5">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-sm text-muted-foreground">Configuration edits</p>
+                <p className="text-sm text-muted-foreground">Create / Edit / Delete</p>
                 <p className="mt-3 text-3xl font-semibold tracking-tight text-foreground">{summary?.editCount ?? 0}</p>
               </div>
               <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-border bg-background text-foreground">
@@ -241,19 +198,18 @@ export function AnalyticsContent() {
         </Card>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr),320px]">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr),300px]">
         <Card className="border-border bg-card shadow-sm">
           <CardHeader className="border-b border-border pb-4">
             <div className="flex flex-col gap-4">
               <div>
-                <CardTitle className="text-lg">Platform-wide audit log</CardTitle>
+                <CardTitle className="text-lg">Change log</CardTitle>
                 <CardDescription>
-                  Review access, configuration, and operational events across connections, templates, and control
-                  plane settings.
+                  Create, update, and delete operations across Keycloak users, groups, connections, and templates.
                 </CardDescription>
               </div>
 
-              <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr),220px,220px]">
+              <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr),220px]">
                 <div className="relative">
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
@@ -277,19 +233,6 @@ export function AnalyticsContent() {
                     ))}
                   </SelectContent>
                 </Select>
-
-                <Select value={category} onValueChange={(value) => setCategory(value as CategoryFilter)}>
-                  <SelectTrigger className="h-11 rounded-full bg-background">
-                    <SelectValue placeholder="Category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categoryOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </div>
             </div>
           </CardHeader>
@@ -298,15 +241,15 @@ export function AnalyticsContent() {
             {isLoading ? (
               <div className="flex min-h-[320px] items-center justify-center text-sm text-muted-foreground">
                 <LoaderCircle className="mr-3 h-4 w-4 animate-spin" />
-                Loading audit events...
+                Loading change log...
               </div>
             ) : items.length === 0 ? (
               <div className="flex min-h-[320px] flex-col items-center justify-center gap-3 px-6 text-center">
                 <Filter className="h-8 w-8 text-muted-foreground" />
                 <div>
-                  <p className="text-base font-medium text-foreground">No audit events match this filter</p>
+                  <p className="text-base font-medium text-foreground">No changes recorded yet</p>
                   <p className="mt-2 text-sm text-muted-foreground">
-                    Try broadening the current search or category filter.
+                    Changes to users, groups, templates, and connections will appear here.
                   </p>
                 </div>
               </div>
@@ -314,9 +257,8 @@ export function AnalyticsContent() {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/35">
-                    <TableHead className="px-5">Event</TableHead>
+                    <TableHead className="px-5">Change</TableHead>
                     <TableHead className="px-5">Resource</TableHead>
-                    <TableHead className="px-5">Category</TableHead>
                     <TableHead className="px-5">Actor</TableHead>
                     <TableHead className="px-5">Time</TableHead>
                   </TableRow>
@@ -338,11 +280,6 @@ export function AnalyticsContent() {
                           <p className="text-sm text-muted-foreground">{getResourceTypeLabel(item.resourceType)}</p>
                         </div>
                       </TableCell>
-                      <TableCell className="px-5 py-4 align-top">
-                        <Badge variant="outline" className={cn("capitalize", getAuditCategoryClass(item.category))}>
-                          {item.category}
-                        </Badge>
-                      </TableCell>
                       <TableCell className="px-5 py-4 align-top whitespace-normal text-sm text-muted-foreground">
                         {item.actorName}
                       </TableCell>
@@ -360,33 +297,6 @@ export function AnalyticsContent() {
         <div className="space-y-6">
           <Card className="border-border bg-card shadow-sm">
             <CardHeader>
-              <CardTitle className="text-lg">Event mix</CardTitle>
-              <CardDescription>Current distribution for the active filter.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="rounded-[1.25rem] border border-border bg-background p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-sm text-muted-foreground">Access</span>
-                  <span className="font-semibold text-foreground">{summary?.accessCount ?? 0}</span>
-                </div>
-              </div>
-              <div className="rounded-[1.25rem] border border-border bg-background p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-sm text-muted-foreground">Edit</span>
-                  <span className="font-semibold text-foreground">{summary?.editCount ?? 0}</span>
-                </div>
-              </div>
-              <div className="rounded-[1.25rem] border border-border bg-background p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-sm text-muted-foreground">Action</span>
-                  <span className="font-semibold text-foreground">{summary?.actionCount ?? 0}</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-border bg-card shadow-sm">
-            <CardHeader>
               <CardTitle className="text-lg">Active resources</CardTitle>
               <CardDescription>Top resource groups in the current audit window.</CardDescription>
             </CardHeader>
@@ -396,7 +306,7 @@ export function AnalyticsContent() {
                   No resource activity in the current filter.
                 </div>
               ) : (
-                resourceActivity.slice(0, 6).map((item) => (
+                resourceActivity.slice(0, 8).map((item) => (
                   <div key={item.resourceType} className="rounded-[1.25rem] border border-border bg-background p-4">
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-3">

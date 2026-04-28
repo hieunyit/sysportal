@@ -1,6 +1,6 @@
 import { apiErrorResponse, apiSuccess } from "@/lib/api-response"
 import { createKeycloakAdminClient, type KeycloakUserRepresentation } from "@/lib/keycloak-admin"
-import { appendAuditLog, getSystemConnection } from "@/lib/settings-store"
+import { getSystemConnection } from "@/lib/settings-store"
 
 export const runtime = "nodejs"
 
@@ -73,22 +73,6 @@ export async function GET(request: Request) {
         }
       })
       .filter((item): item is NonNullable<typeof item> => Boolean(item))
-
-    appendAuditLog({
-      actorName: "Identity Admin",
-      category: "access",
-      action: "keycloak.user.lookup",
-      resourceType: "keycloak-user",
-      resourceId: query,
-      resourceName: configuredRealm,
-      detail: `Searched Keycloak users for manager lookup with query ${query}`,
-      metadata: {
-        realm: configuredRealm,
-        query,
-        purpose,
-        total: items.length,
-      },
-    })
 
     return apiSuccess({
       items,
