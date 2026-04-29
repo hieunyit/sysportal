@@ -1191,7 +1191,7 @@ export function UserEditorDialog({
                           type="email"
                           value={welcomeRecipientEmail}
                           onChange={(event) => setWelcomeRecipientEmail(event.target.value)}
-                          placeholder="manager@company.local"
+                          placeholder="manager@company.vn"
                           disabled={isSubmitting}
                         />
                         <p className="text-xs text-muted-foreground">
