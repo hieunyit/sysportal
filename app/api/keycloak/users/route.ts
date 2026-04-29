@@ -1,5 +1,4 @@
 import { randomInt } from "node:crypto"
-import { NextResponse } from "next/server"
 import { isApiAuthResponse, requireAdminApiSession } from "@/lib/auth/api"
 import {
   apiErrorResponse,
@@ -34,6 +33,7 @@ import {
   type KeycloakGroupRepresentation,
   type KeycloakUserRepresentation,
 } from "@/lib/keycloak-admin"
+import { createOpenVpnAdminClient } from "@/lib/openvpn-admin"
 import type { SmtpSettingsRecord } from "@/lib/settings-store"
 
 export const runtime = "nodejs"
@@ -731,6 +731,43 @@ export async function POST(request: Request) {
       upsertSettingOption("workAddress", workAddress)
     }
 
+    let vpnUser: {
+      created: boolean
+      name: string
+      group: string | null
+      error: string | null
+    } | null = null
+
+    if (parsed.data.createOpenVpnUser) {
+      const vpnUsername = user.username ?? parsed.data.username.trim()
+      const vpnGroup = parsed.data.openVpnGroup.trim() || null
+
+      try {
+        const vpnClient = await createOpenVpnAdminClient()
+        await vpnClient.createUser({ name: vpnUsername, group: vpnGroup })
+
+        appendAuditLog({
+          actorName: auth.actorName,
+          category: "edit",
+          action: "openvpn.user.created",
+          resourceType: "openvpn-user",
+          resourceId: vpnUsername,
+          resourceName: vpnUsername,
+          detail: `Created OpenVPN user ${vpnUsername} (via Keycloak user creation)`,
+          metadata: { group: vpnGroup },
+        })
+
+        vpnUser = { created: true, name: vpnUsername, group: vpnGroup, error: null }
+      } catch (vpnError) {
+        vpnUser = {
+          created: false,
+          name: vpnUsername,
+          group: vpnGroup,
+          error: getErrorDetail(vpnError, "OpenVPN user creation failed"),
+        }
+      }
+    }
+
     return apiSuccess(
       {
         id: created.userId,
@@ -744,6 +781,7 @@ export async function POST(request: Request) {
         defaultGroupAssignment,
         customGroupAssignments: customGroupAssignments.length > 0 ? customGroupAssignments : null,
         welcomeEmail,
+        vpnUser,
         userType,
         user: {
           id: user.id ?? created.userId,

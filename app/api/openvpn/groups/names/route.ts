@@ -1,0 +1,30 @@
+import { isApiAuthResponse, requireAdminApiSession } from "@/lib/auth/api"
+import { apiErrorResponse, apiSuccess } from "@/lib/api-response"
+import { createOpenVpnAdminClient } from "@/lib/openvpn-admin"
+
+export const runtime = "nodejs"
+
+export async function GET(request: Request) {
+  try {
+    const auth = await requireAdminApiSession(request)
+
+    if (isApiAuthResponse(auth)) {
+      return auth
+    }
+
+    const client = await createOpenVpnAdminClient()
+    const profiles = await client.listAllGroups({ enumerateMembers: false })
+    const names = profiles
+      .map((p) => p.name)
+      .filter((name): name is string => Boolean(name))
+      .sort((a, b) => a.localeCompare(b))
+
+    return apiSuccess({ names, total: names.length })
+  } catch (error) {
+    return apiErrorResponse(error, {
+      error: "Unable to load OpenVPN groups",
+      detail: "OpenVPN group list is unavailable",
+      source: "openvpn",
+    })
+  }
+}

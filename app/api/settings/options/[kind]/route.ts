@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server"
 import { ZodError } from "zod"
-import { getErrorDetail } from "@/lib/error-utils"
+import { isApiAuthResponse, requireAdminApiSession } from "@/lib/auth/api"
+import { apiErrorResponse, apiNotFound, apiSuccess, apiValidationError } from "@/lib/api-response"
 import { getSettingsOptionLists, replaceSettingsOptionList, type SettingsOptionKind } from "@/lib/settings-store"
 import { formatZodError, settingsOptionKindSchema, settingsOptionListSchema } from "@/lib/settings-validation"
 
@@ -11,60 +11,59 @@ function resolveKind(value: string): SettingsOptionKind | null {
   return parsed.success ? parsed.data : null
 }
 
-export async function GET(_request: Request, { params }: { params: Promise<{ kind: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ kind: string }> }) {
   try {
+    const auth = await requireAdminApiSession(request)
+
+    if (isApiAuthResponse(auth)) {
+      return auth
+    }
+
     const { kind } = await params
     const resolvedKind = resolveKind(kind)
 
     if (!resolvedKind) {
-      return NextResponse.json({ error: "Option list not found" }, { status: 404 })
+      return apiNotFound("Option list not found")
     }
 
-    return NextResponse.json({
-      kind: resolvedKind,
-      items: getSettingsOptionLists()[resolvedKind],
-    })
+    return apiSuccess({ kind: resolvedKind, items: getSettingsOptionLists()[resolvedKind] })
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: "Unable to load option list",
-        detail: getErrorDetail(error, "Settings option storage is unavailable"),
-      },
-      { status: 500 },
-    )
+    return apiErrorResponse(error, {
+      error: "Unable to load option list",
+      detail: "Settings option storage is unavailable",
+    })
   }
 }
 
 export async function PUT(request: Request, { params }: { params: Promise<{ kind: string }> }) {
   try {
+    const auth = await requireAdminApiSession(request)
+
+    if (isApiAuthResponse(auth)) {
+      return auth
+    }
+
     const { kind } = await params
     const resolvedKind = resolveKind(kind)
 
     if (!resolvedKind) {
-      return NextResponse.json({ error: "Option list not found" }, { status: 404 })
+      return apiNotFound("Option list not found")
     }
 
     const body = await request.json()
     const payload = settingsOptionListSchema.parse(body)
-
-    return NextResponse.json(replaceSettingsOptionList(resolvedKind, payload.items))
+    return apiSuccess(replaceSettingsOptionList(resolvedKind, payload.items))
   } catch (error) {
     if (error instanceof ZodError) {
-      return NextResponse.json(
-        {
-          error: "Invalid option list payload",
-          details: formatZodError(error),
-        },
-        { status: 400 },
-      )
+      return apiValidationError({
+        error: "Invalid option list payload",
+        issues: formatZodError(error),
+      })
     }
 
-    return NextResponse.json(
-      {
-        error: "Unable to update option list",
-        detail: getErrorDetail(error, "Settings option list update failed"),
-      },
-      { status: 500 },
-    )
+    return apiErrorResponse(error, {
+      error: "Unable to update option list",
+      detail: "Settings option list update failed",
+    })
   }
 }

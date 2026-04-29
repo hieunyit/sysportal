@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server"
-import { getErrorDetail } from "@/lib/error-utils"
+import { isApiAuthResponse, requireAdminApiSession } from "@/lib/auth/api"
+import { apiErrorResponse, apiSuccess } from "@/lib/api-response"
 import { createKeycloakAdminClient } from "@/lib/keycloak-admin"
 import { createOpenVpnAdminClient } from "@/lib/openvpn-admin"
 import { listEmailTemplates } from "@/lib/settings-store"
@@ -39,14 +39,17 @@ function matchesTemplateSearch(
 
 export async function GET(request: Request) {
   try {
+    const auth = await requireAdminApiSession(request)
+
+    if (isApiAuthResponse(auth)) {
+      return auth
+    }
+
     const requestUrl = new URL(request.url)
     const query = requestUrl.searchParams.get("query")?.trim() ?? ""
 
     if (query.length < 2) {
-      return NextResponse.json({
-        query,
-        sections: [],
-      })
+      return apiSuccess({ query, sections: [] })
     }
 
     const normalizedQuery = query.toLowerCase()
@@ -146,17 +149,11 @@ export async function GET(request: Request) {
       },
     ].filter((section) => section.items.length > 0)
 
-    return NextResponse.json({
-      query,
-      sections,
-    })
+    return apiSuccess({ query, sections })
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: "Unable to execute global search",
-        detail: getErrorDetail(error, "Search is temporarily unavailable"),
-      },
-      { status: 500 },
-    )
+    return apiErrorResponse(error, {
+      error: "Unable to execute global search",
+      detail: "Search is temporarily unavailable",
+    })
   }
 }

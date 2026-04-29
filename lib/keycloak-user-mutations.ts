@@ -30,6 +30,8 @@ export const keycloakUserCreateSchema = baseUserSchema
     workStartDate: z.string().trim().max(255).default(""),
     groupIds: z.array(z.string().trim().min(1)).default([]),
     groups: z.array(z.string().trim().min(1)).default([]),
+    createOpenVpnUser: z.boolean().default(false),
+    openVpnGroup: z.string().trim().max(160).default(""),
   })
 
 export const keycloakUserPatchSchema = baseUserSchema

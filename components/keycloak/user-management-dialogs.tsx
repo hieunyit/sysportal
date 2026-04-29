@@ -801,6 +801,10 @@ export function UserEditorDialog({
   const [directoryOptionLists, setDirectoryOptionLists] = useState<DirectoryOptionLists>(emptyDirectoryOptionLists)
   const [groupsLoading, setGroupsLoading] = useState(false)
   const [groupSearchQuery, setGroupSearchQuery] = useState("")
+  const [createOpenVpnUser, setCreateOpenVpnUser] = useState(false)
+  const [openVpnGroup, setOpenVpnGroup] = useState("")
+  const [availableVpnGroups, setAvailableVpnGroups] = useState<string[]>([])
+  const [vpnGroupsLoading, setVpnGroupsLoading] = useState(false)
   const [requiredActionsInput, setRequiredActionsInput] = useState("")
   const [attributeEntries, setAttributeEntries] = useState<AttributeEntry[]>([])
   const [formError, setFormError] = useState<string | null>(null)
@@ -830,6 +834,10 @@ export function UserEditorDialog({
     setWorkStartDate("")
     setSelectedGroupIds([])
     setGroupSearchQuery("")
+    setCreateOpenVpnUser(false)
+    setOpenVpnGroup("")
+    setAvailableVpnGroups([])
+    setVpnGroupsLoading(false)
     setDirectoryOptionLists(emptyDirectoryOptionLists)
     setFormError(null)
 
@@ -949,6 +957,20 @@ export function UserEditorDialog({
       lastNameEditable: lastNameMetadata ? isEditableForAdmin(lastNameMetadata) : true,
     }
   }, [profileMetadata])
+
+  async function loadVpnGroups() {
+    if (vpnGroupsLoading) return
+    try {
+      setVpnGroupsLoading(true)
+      const response = await fetch("/api/openvpn/groups/names", { cache: "no-store" })
+      const data = (await response.json().catch(() => null)) as { names?: string[] } | null
+      setAvailableVpnGroups(response.ok && data?.names ? data.names : [])
+    } catch {
+      setAvailableVpnGroups([])
+    } finally {
+      setVpnGroupsLoading(false)
+    }
+  }
 
   function updateAttributeEntry(entryId: string, updater: (entry: AttributeEntry) => AttributeEntry) {
     setAttributeEntries((current) =>
@@ -1075,6 +1097,8 @@ export function UserEditorDialog({
                 selectedUserType === "employee"
                   ? welcomeRecipientEmail.trim()
                   : formState.email.trim(),
+              createOpenVpnUser,
+              openVpnGroup: createOpenVpnUser ? openVpnGroup : "",
             }
           : {}),
       })
@@ -1273,6 +1297,79 @@ export function UserEditorDialog({
                   Select groups to assign this user to. Users will be added to all selected groups upon creation.
                 </p>
               </div>
+
+              {mode === "create" ? (
+                <div className="rounded-[1rem] border border-border bg-background p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium text-foreground">Create OpenVPN account</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Create an OpenVPN user with the same username simultaneously.
+                      </p>
+                    </div>
+                    <Switch
+                      checked={createOpenVpnUser}
+                      onCheckedChange={(checked) => {
+                        setCreateOpenVpnUser(checked)
+                        if (checked && availableVpnGroups.length === 0 && !vpnGroupsLoading) {
+                          void loadVpnGroups()
+                        }
+                      }}
+                      disabled={isSubmitting}
+                    />
+                  </div>
+
+                  {createOpenVpnUser ? (
+                    <div className="mt-4 space-y-2">
+                      <Label>OpenVPN group</Label>
+                      {vpnGroupsLoading ? (
+                        <p className="text-xs text-muted-foreground">Loading OpenVPN groups...</p>
+                      ) : (
+                        <div className="max-h-[200px] space-y-2 overflow-y-auto rounded-[0.85rem] border border-border bg-card p-3">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="radio"
+                              id="vpn-group-none"
+                              name="vpn-group"
+                              value=""
+                              checked={openVpnGroup === ""}
+                              onChange={() => setOpenVpnGroup("")}
+                              disabled={isSubmitting}
+                              className="h-4 w-4"
+                            />
+                            <Label htmlFor="vpn-group-none" className="cursor-pointer text-sm font-normal text-muted-foreground">
+                              No group
+                            </Label>
+                          </div>
+                          {availableVpnGroups.map((groupName) => (
+                            <div key={groupName} className="flex items-center gap-2">
+                              <input
+                                type="radio"
+                                id={`vpn-group-${groupName}`}
+                                name="vpn-group"
+                                value={groupName}
+                                checked={openVpnGroup === groupName}
+                                onChange={() => setOpenVpnGroup(groupName)}
+                                disabled={isSubmitting}
+                                className="h-4 w-4"
+                              />
+                              <Label htmlFor={`vpn-group-${groupName}`} className="cursor-pointer text-sm font-normal">
+                                {groupName}
+                              </Label>
+                            </div>
+                          ))}
+                          {availableVpnGroups.length === 0 ? (
+                            <p className="text-xs text-muted-foreground">No OpenVPN groups found.</p>
+                          ) : null}
+                        </div>
+                      )}
+                      <p className="text-xs text-muted-foreground">
+                        OpenVPN users belong to one group. Leave on &ldquo;No group&rdquo; to create without a group.
+                      </p>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
 
               <div className="grid gap-5 md:grid-cols-2">
                 <div className="space-y-2">

@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server"
 import { ZodError } from "zod"
-import { getErrorDetail } from "@/lib/error-utils"
+import { isApiAuthResponse, requireAdminApiSession } from "@/lib/auth/api"
+import { apiErrorResponse, apiSuccess, apiValidationError } from "@/lib/api-response"
 import {
   appendAuditLog,
   createEmailTemplate,
@@ -10,33 +10,38 @@ import { emailTemplateSchema, formatZodError } from "@/lib/settings-validation"
 
 export const runtime = "nodejs"
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const items = listEmailTemplates()
+    const auth = await requireAdminApiSession(request)
 
-    return NextResponse.json({
-      items,
-      total: items.length,
-    })
+    if (isApiAuthResponse(auth)) {
+      return auth
+    }
+
+    const items = listEmailTemplates()
+    return apiSuccess({ items, total: items.length })
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: "Unable to load email templates",
-        detail: getErrorDetail(error, "Email template storage is unavailable"),
-      },
-      { status: 500 },
-    )
+    return apiErrorResponse(error, {
+      error: "Unable to load email templates",
+      detail: "Email template storage is unavailable",
+    })
   }
 }
 
 export async function POST(request: Request) {
   try {
+    const auth = await requireAdminApiSession(request)
+
+    if (isApiAuthResponse(auth)) {
+      return auth
+    }
+
     const body = await request.json()
     const payload = emailTemplateSchema.parse(body)
     const created = createEmailTemplate(payload)
 
     appendAuditLog({
-      actorName: "Identity Admin",
+      actorName: auth.actorName,
       category: "edit",
       action: "email-template.created",
       resourceType: "email-template",
@@ -46,21 +51,18 @@ export async function POST(request: Request) {
       metadata: { category: created.category },
     })
 
-    return NextResponse.json(created, { status: 201 })
+    return apiSuccess(created, { status: 201 })
   } catch (error) {
     if (error instanceof ZodError) {
-      return NextResponse.json(
-        { error: "Invalid email template payload", details: formatZodError(error) },
-        { status: 400 },
-      )
+      return apiValidationError({
+        error: "Invalid email template payload",
+        issues: formatZodError(error),
+      })
     }
 
-    return NextResponse.json(
-      {
-        error: "Unable to create email template",
-        detail: getErrorDetail(error, "Template creation failed"),
-      },
-      { status: 500 },
-    )
+    return apiErrorResponse(error, {
+      error: "Unable to create email template",
+      detail: "Template creation failed",
+    })
   }
 }

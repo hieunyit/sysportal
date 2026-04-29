@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server"
 import { ZodError } from "zod"
-import { getErrorDetail } from "@/lib/error-utils"
+import { isApiAuthResponse, requireAdminApiSession } from "@/lib/auth/api"
+import { apiErrorResponse, apiNotFound, apiSuccess, apiValidationError } from "@/lib/api-response"
 import { getProfileOptionLists, replaceProfileOptionList, type ProfileOptionKind } from "@/lib/settings-store"
 import { formatZodError, profileOptionKindSchema, settingsOptionListSchema } from "@/lib/settings-validation"
 
@@ -11,60 +11,59 @@ function resolveKind(value: string): ProfileOptionKind | null {
   return parsed.success ? parsed.data : null
 }
 
-export async function GET(_request: Request, { params }: { params: Promise<{ kind: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ kind: string }> }) {
   try {
+    const auth = await requireAdminApiSession(request)
+
+    if (isApiAuthResponse(auth)) {
+      return auth
+    }
+
     const { kind } = await params
     const resolvedKind = resolveKind(kind)
 
     if (!resolvedKind) {
-      return NextResponse.json({ error: "Profile option list not found" }, { status: 404 })
+      return apiNotFound("Profile option list not found")
     }
 
-    return NextResponse.json({
-      kind: resolvedKind,
-      items: getProfileOptionLists()[resolvedKind],
-    })
+    return apiSuccess({ kind: resolvedKind, items: getProfileOptionLists()[resolvedKind] })
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: "Unable to load profile option list",
-        detail: getErrorDetail(error, "Profile option storage is unavailable"),
-      },
-      { status: 500 },
-    )
+    return apiErrorResponse(error, {
+      error: "Unable to load profile option list",
+      detail: "Profile option storage is unavailable",
+    })
   }
 }
 
 export async function PUT(request: Request, { params }: { params: Promise<{ kind: string }> }) {
   try {
+    const auth = await requireAdminApiSession(request)
+
+    if (isApiAuthResponse(auth)) {
+      return auth
+    }
+
     const { kind } = await params
     const resolvedKind = resolveKind(kind)
 
     if (!resolvedKind) {
-      return NextResponse.json({ error: "Profile option list not found" }, { status: 404 })
+      return apiNotFound("Profile option list not found")
     }
 
     const body = await request.json()
     const payload = settingsOptionListSchema.parse(body)
-
-    return NextResponse.json(replaceProfileOptionList(resolvedKind, payload.items))
+    return apiSuccess(replaceProfileOptionList(resolvedKind, payload.items))
   } catch (error) {
     if (error instanceof ZodError) {
-      return NextResponse.json(
-        {
-          error: "Invalid profile option payload",
-          details: formatZodError(error),
-        },
-        { status: 400 },
-      )
+      return apiValidationError({
+        error: "Invalid profile option payload",
+        issues: formatZodError(error),
+      })
     }
 
-    return NextResponse.json(
-      {
-        error: "Unable to update profile option list",
-        detail: getErrorDetail(error, "Profile option update failed"),
-      },
-      { status: 500 },
-    )
+    return apiErrorResponse(error, {
+      error: "Unable to update profile option list",
+      detail: "Profile option update failed",
+    })
   }
 }

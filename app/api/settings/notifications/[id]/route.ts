@@ -1,58 +1,64 @@
-import { NextResponse } from "next/server"
 import { ZodError } from "zod"
-import { getErrorDetail } from "@/lib/error-utils"
+import { isApiAuthResponse, requireAdminApiSession } from "@/lib/auth/api"
+import { apiErrorResponse, apiNotFound, apiSuccess, apiValidationError } from "@/lib/api-response"
 import { getNotificationSetting, updateNotificationSetting } from "@/lib/settings-store"
 import { formatZodError, notificationSettingPatchSchema } from "@/lib/settings-validation"
 
 export const runtime = "nodejs"
 
-export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const auth = await requireAdminApiSession(request)
+
+    if (isApiAuthResponse(auth)) {
+      return auth
+    }
+
     const { id } = await params
     const item = getNotificationSetting(id)
 
     if (!item) {
-      return NextResponse.json({ error: "Notification setting not found" }, { status: 404 })
+      return apiNotFound("Notification setting not found")
     }
 
-    return NextResponse.json(item)
+    return apiSuccess(item)
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: "Unable to load notification setting",
-        detail: getErrorDetail(error, "Notification settings storage is unavailable"),
-      },
-      { status: 500 },
-    )
+    return apiErrorResponse(error, {
+      error: "Unable to load notification setting",
+      detail: "Notification settings storage is unavailable",
+    })
   }
 }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const auth = await requireAdminApiSession(request)
+
+    if (isApiAuthResponse(auth)) {
+      return auth
+    }
+
     const { id } = await params
     const body = await request.json()
     const payload = notificationSettingPatchSchema.parse(body)
     const item = updateNotificationSetting(id, payload)
 
     if (!item) {
-      return NextResponse.json({ error: "Notification setting not found" }, { status: 404 })
+      return apiNotFound("Notification setting not found")
     }
 
-    return NextResponse.json(item)
+    return apiSuccess(item)
   } catch (error) {
     if (error instanceof ZodError) {
-      return NextResponse.json(
-        { error: "Invalid notification patch payload", details: formatZodError(error) },
-        { status: 400 },
-      )
+      return apiValidationError({
+        error: "Invalid notification patch payload",
+        issues: formatZodError(error),
+      })
     }
 
-    return NextResponse.json(
-      {
-        error: "Unable to update notification setting",
-        detail: getErrorDetail(error, "Notification setting update failed"),
-      },
-      { status: 500 },
-    )
+    return apiErrorResponse(error, {
+      error: "Unable to update notification setting",
+      detail: "Notification setting update failed",
+    })
   }
 }

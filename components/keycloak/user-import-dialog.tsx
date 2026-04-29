@@ -48,6 +48,7 @@ interface ImportResult {
   generatedPassword: string | null
   welcomeEmailStatus: string | null
   groupStatus: string | null
+  vpnStatus: string | null
 }
 
 const requiredCsvHeaders = [
@@ -81,6 +82,8 @@ const csvHeaders = [
   "workStartDate",
   "groups",
   "enabled",
+  "createOpenVpnUser",
+  "openVpnGroup",
 ] as const
 
 const csvTemplateRows = [
@@ -105,6 +108,8 @@ const csvTemplateRows = [
     "manager@mobifonesolutions.vn",
     "38 Phan Dinh Phung, Ba Dinh, Ha Noi",
     "true",
+    "true",
+    "Employees",
   ],
   [
     "partner.demo1",
@@ -128,6 +133,8 @@ const csvTemplateRows = [
     "",
     "",
     "true",
+    "false",
+    "",
   ],
 ]
 
@@ -155,6 +162,8 @@ const normalizedCsvTemplateRows = [
     "2026-04-22T08:30",
     "/jira-servicedesk-users|/Organization",
     "true",
+    "true",
+    "Employees",
   ],
   [
     "partner.demo1",
@@ -179,6 +188,8 @@ const normalizedCsvTemplateRows = [
     "",
     "/Partner Information",
     "true",
+    "false",
+    "",
   ],
 ] as const
 
@@ -412,6 +423,8 @@ function buildPayloadFromRow(row: ImportedCsvRow) {
     workAddress: isEmployee ? row.values.workAddress?.trim() ?? "" : "",
     workStartDate: isEmployee ? row.values.workStartDate?.trim() ?? "" : "",
     groups: parsePipeList(row.values.groups ?? ""),
+    createOpenVpnUser: parseBoolean(row.values.createOpenVpnUser ?? "", false),
+    openVpnGroup: row.values.openVpnGroup?.trim() ?? "",
     attributes: {
       fullName,
       phone: isEmployee ? row.values.phone?.trim() ?? "" : "",
@@ -536,6 +549,13 @@ export function UserImportDialog({
                 ? responsePayload.generatedPassword
                 : null,
             groupStatus: buildGroupStatus(responsePayload),
+            vpnStatus: (() => {
+              const vpn = (responsePayload as { vpnUser?: { created?: boolean; group?: string | null; error?: string | null } | null })?.vpnUser
+              if (!vpn) return null
+              return vpn.created
+                ? `Created${vpn.group ? ` · ${vpn.group}` : ""}`
+                : `Failed: ${vpn.error ?? "Unknown error"}`
+            })(),
             welcomeEmailStatus:
               responsePayload?.welcomeEmail?.sent === true
                 ? `Sent to ${String(responsePayload.welcomeEmail.recipient ?? "")}`
@@ -551,6 +571,7 @@ export function UserImportDialog({
             detail: rowError instanceof Error ? rowError.message : "Import failed",
             generatedPassword: null,
             groupStatus: null,
+            vpnStatus: null,
             welcomeEmailStatus: null,
           })
         }
@@ -609,6 +630,9 @@ export function UserImportDialog({
                 </p>
                 <p className="text-xs text-muted-foreground">
                   `manager` can be provided as `username`, `email`, or `LDAP_ENTRY_DN`. `groups` accepts Keycloak group IDs, names, or full paths like `/Organization`.
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Set `createOpenVpnUser` to `true` to also create an OpenVPN account with the same username. Use `openVpnGroup` to assign the OpenVPN group name.
                 </p>
                 <p className="text-xs text-muted-foreground">
                   Imported users always start with `emailVerified = true` and required actions `UPDATE_PASSWORD | CONFIGURE_TOTP`.
@@ -709,6 +733,7 @@ export function UserImportDialog({
                     <TableHead className="px-5">Username</TableHead>
                     <TableHead className="px-5">Status</TableHead>
                     <TableHead className="px-5">Group</TableHead>
+                    <TableHead className="px-5">OpenVPN</TableHead>
                     <TableHead className="px-5">Welcome email</TableHead>
                     <TableHead className="px-5">Password</TableHead>
                     <TableHead className="px-5">Detail</TableHead>
@@ -733,6 +758,9 @@ export function UserImportDialog({
                       </TableCell>
                       <TableCell className="px-5 py-4 text-sm text-muted-foreground">
                         {result.groupStatus ?? "No group assignment"}
+                      </TableCell>
+                      <TableCell className="px-5 py-4 text-sm text-muted-foreground">
+                        {result.vpnStatus ?? "-"}
                       </TableCell>
                       <TableCell className="px-5 py-4 text-sm text-muted-foreground">
                         {result.welcomeEmailStatus ?? "Not sent"}
