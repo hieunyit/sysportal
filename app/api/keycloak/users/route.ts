@@ -39,7 +39,11 @@ import type { SmtpSettingsRecord } from "@/lib/settings-store"
 export const runtime = "nodejs"
 const DEFAULT_CREATE_REQUIRED_ACTIONS = ["UPDATE_PASSWORD", "CONFIGURE_TOTP"] as const
 const DEFAULT_EMPLOYEE_GROUP_NAME = "jira-servicedesk-users"
-const OPENVPN_PROVISIONING_ALLOWED_USER_TYPES = new Set(["partner", "outsource"])
+
+function supportsOpenVpnProvisioningUserType(userType: string) {
+  const normalized = userType.trim().toLowerCase()
+  return normalized.includes("partner") || normalized.includes("outsource")
+}
 
 function toDisplayName(user: KeycloakUserRepresentation) {
   const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ").trim()
@@ -499,7 +503,7 @@ export async function POST(request: Request) {
 
     const userType = getFirstAttributeValue(createPayload.attributes?.userType)
     const normalizedUserType = userType.trim().toLowerCase()
-    const openVpnProvisioningAllowed = OPENVPN_PROVISIONING_ALLOWED_USER_TYPES.has(normalizedUserType)
+    const openVpnProvisioningAllowed = supportsOpenVpnProvisioningUserType(normalizedUserType)
 
     if (parsed.data.createOpenVpnUser && !openVpnProvisioningAllowed) {
       return apiValidationError({

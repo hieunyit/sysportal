@@ -125,7 +125,6 @@ const organizationGroupName = "Organization"
 const partnerInformationGroupName = "Partner Information"
 const userTypeFieldName = "userType"
 const openVpnAttributeNames = new Set(["userExpiryVPN", "uuidVPN"])
-const openVpnProvisioningUserTypes = new Set(["partner", "outsource"])
 const defaultCreateRequiredActions = ["UPDATE_PASSWORD", "CONFIGURE_TOTP"]
 const defaultEmployeeGroupName = "jira-servicedesk-users"
 const emptyDirectoryOptionLists: DirectoryOptionLists = {
@@ -266,7 +265,8 @@ function isOpenVpnEntry(entry: AttributeEntry) {
 }
 
 function supportsOpenVpnProvisioning(userType: string) {
-  return openVpnProvisioningUserTypes.has(userType.trim().toLowerCase())
+  const normalized = userType.trim().toLowerCase()
+  return normalized.includes("partner") || normalized.includes("outsource")
 }
 
 function shouldHideEntryForCreate(entry: AttributeEntry, selectedUserType: string) {
