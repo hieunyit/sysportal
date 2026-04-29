@@ -1,6 +1,6 @@
 "use client"
 
-import { type ChangeEvent, useMemo, useState } from "react"
+import { type ChangeEvent, useEffect, useMemo, useState } from "react"
 import {
   AlertCircle,
   Download,
@@ -20,6 +20,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
 import {
   Table,
   TableBody,
@@ -49,6 +58,11 @@ interface ImportResult {
   welcomeEmailStatus: string | null
   groupStatus: string | null
   vpnStatus: string | null
+}
+
+interface OpenVpnImportDefaults {
+  createOpenVpnUser: boolean
+  openVpnGroup: string
 }
 
 const requiredCsvHeaders = [
@@ -375,7 +389,10 @@ function buildRowsFromCsv(text: string): ImportedCsvRow[] {
   })
 }
 
-function buildPayloadFromRow(row: ImportedCsvRow) {
+function buildPayloadFromRow(
+  row: ImportedCsvRow,
+  defaults?: OpenVpnImportDefaults,
+) {
   const userType = row.values.userType?.trim() ?? ""
   const username = row.values.username?.trim() ?? ""
   const email = row.values.email?.trim() ?? ""
@@ -409,6 +426,8 @@ function buildPayloadFromRow(row: ImportedCsvRow) {
     throw new Error("welcomeRecipientEmail is required for employee accounts")
   }
 
+  const openVpnSettings = resolveOpenVpnCreateSettings(row, defaults)
+
   return {
     username,
     firstName,
@@ -423,8 +442,8 @@ function buildPayloadFromRow(row: ImportedCsvRow) {
     workAddress: isEmployee ? row.values.workAddress?.trim() ?? "" : "",
     workStartDate: isEmployee ? row.values.workStartDate?.trim() ?? "" : "",
     groups: parsePipeList(row.values.groups ?? ""),
-    createOpenVpnUser: parseBoolean(row.values.createOpenVpnUser ?? "", false),
-    openVpnGroup: row.values.openVpnGroup?.trim() ?? "",
+    createOpenVpnUser: openVpnSettings.createOpenVpnUser,
+    openVpnGroup: openVpnSettings.openVpnGroup,
     attributes: {
       fullName,
       phone: isEmployee ? row.values.phone?.trim() ?? "" : "",
@@ -439,6 +458,40 @@ function buildPayloadFromRow(row: ImportedCsvRow) {
       uuidVPN: parsePipeList(row.values.uuidVPN ?? ""),
     },
   }
+}
+
+function resolveOpenVpnCreateSettings(
+  row: ImportedCsvRow,
+  defaults?: OpenVpnImportDefaults,
+) {
+  const rawCreateOpenVpnValue = row.values.createOpenVpnUser?.trim() ?? ""
+  const createOpenVpnUser =
+    rawCreateOpenVpnValue.length > 0
+      ? parseBoolean(rawCreateOpenVpnValue, false)
+      : Boolean(defaults?.createOpenVpnUser)
+  const rowOpenVpnGroup = row.values.openVpnGroup?.trim() ?? ""
+  const defaultOpenVpnGroup = defaults?.openVpnGroup?.trim() ?? ""
+  const openVpnGroup = createOpenVpnUser ? rowOpenVpnGroup || defaultOpenVpnGroup : ""
+
+  return {
+    createOpenVpnUser,
+    openVpnGroup,
+  }
+}
+
+function getOpenVpnPreviewValue(
+  row: ImportedCsvRow,
+  defaults?: OpenVpnImportDefaults,
+) {
+  const openVpnSettings = resolveOpenVpnCreateSettings(row, defaults)
+
+  if (!openVpnSettings.createOpenVpnUser) {
+    return "Disabled"
+  }
+
+  return openVpnSettings.openVpnGroup
+    ? `Enabled · ${openVpnSettings.openVpnGroup}`
+    : "Enabled · No group"
 }
 
 function buildCsvTemplate() {
@@ -468,10 +521,40 @@ export function UserImportDialog({
   const [results, setResults] = useState<ImportResult[]>([])
   const [error, setError] = useState<string | null>(null)
   const [isImporting, setIsImporting] = useState(false)
+  const [defaultCreateOpenVpnUser, setDefaultCreateOpenVpnUser] = useState(false)
+  const [defaultOpenVpnGroup, setDefaultOpenVpnGroup] = useState("")
+  const [availableVpnGroups, setAvailableVpnGroups] = useState<string[]>([])
+  const [vpnGroupsLoading, setVpnGroupsLoading] = useState(false)
 
   const previewRows = useMemo(() => rows.slice(0, 6), [rows])
   const successCount = results.filter((item) => item.status === "success").length
   const failureCount = results.filter((item) => item.status === "error").length
+
+  useEffect(() => {
+    if (open) {
+      return
+    }
+
+    setDefaultCreateOpenVpnUser(false)
+    setDefaultOpenVpnGroup("")
+    setAvailableVpnGroups([])
+    setVpnGroupsLoading(false)
+  }, [open])
+
+  async function loadVpnGroups() {
+    if (vpnGroupsLoading) return
+
+    try {
+      setVpnGroupsLoading(true)
+      const response = await fetch("/api/openvpn/groups/names", { cache: "no-store" })
+      const payload = (await response.json().catch(() => null)) as { names?: string[] } | null
+      setAvailableVpnGroups(response.ok && payload?.names ? payload.names : [])
+    } catch {
+      setAvailableVpnGroups([])
+    } finally {
+      setVpnGroupsLoading(false)
+    }
+  }
 
   async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
@@ -521,7 +604,10 @@ export function UserImportDialog({
 
       for (const row of rows) {
         try {
-          const payload = buildPayloadFromRow(row)
+          const payload = buildPayloadFromRow(row, {
+            createOpenVpnUser: defaultCreateOpenVpnUser,
+            openVpnGroup: defaultOpenVpnGroup,
+          })
           const response = await fetch("/api/keycloak/users", {
             method: "POST",
             headers: {
@@ -625,6 +711,57 @@ export function UserImportDialog({
 
               <div className="mt-5 space-y-3">
                 <Input type="file" accept=".csv,text/csv" onChange={handleFileChange} disabled={isImporting} />
+                <div className="rounded-[1rem] border border-border bg-card px-4 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium text-foreground">Default OpenVPN provisioning</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Apply OpenVPN creation by default for rows that leave `createOpenVpnUser` blank.
+                      </p>
+                    </div>
+                    <Switch
+                      checked={defaultCreateOpenVpnUser}
+                      onCheckedChange={(checked) => {
+                        setDefaultCreateOpenVpnUser(checked)
+                        if (!checked) {
+                          setDefaultOpenVpnGroup("")
+                          return
+                        }
+
+                        if (availableVpnGroups.length === 0 && !vpnGroupsLoading) {
+                          void loadVpnGroups()
+                        }
+                      }}
+                      disabled={isImporting}
+                    />
+                  </div>
+
+                  {defaultCreateOpenVpnUser ? (
+                    <div className="mt-3 space-y-2">
+                      <Label htmlFor="import-default-openvpn-group">Default OpenVPN group</Label>
+                      <Select
+                        value={defaultOpenVpnGroup || "__none__"}
+                        onValueChange={(value) => setDefaultOpenVpnGroup(value === "__none__" ? "" : value)}
+                        disabled={isImporting || vpnGroupsLoading}
+                      >
+                        <SelectTrigger id="import-default-openvpn-group" className="w-full rounded-[0.85rem] bg-background">
+                          <SelectValue placeholder={vpnGroupsLoading ? "Loading OpenVPN groups..." : "No group"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">No group</SelectItem>
+                          {availableVpnGroups.map((group) => (
+                            <SelectItem key={group} value={group}>
+                              {group}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        Row-specific values from CSV still take priority over this default group.
+                      </p>
+                    </div>
+                  ) : null}
+                </div>
                 <p className="text-xs text-muted-foreground">
                   Required columns: `{requiredCsvHeaders.join(", ")}`. The downloaded template includes optional create-user fields such as `groups`, `workAddress`, and `workStartDate`.
                 </p>
@@ -693,6 +830,7 @@ export function UserImportDialog({
                       <TableHead className="px-5">User type</TableHead>
                       <TableHead className="px-5">Work start</TableHead>
                       <TableHead className="px-5">Groups</TableHead>
+                      <TableHead className="px-5">OpenVPN</TableHead>
                       <TableHead className="px-5">Welcome recipient</TableHead>
                     </TableRow>
                 </TableHeader>
@@ -705,6 +843,12 @@ export function UserImportDialog({
                         <TableCell className="px-5 py-4">{row.values.userType || "Missing"}</TableCell>
                         <TableCell className="px-5 py-4">{row.values.workStartDate || "-"}</TableCell>
                         <TableCell className="px-5 py-4">{row.values.groups || "-"}</TableCell>
+                        <TableCell className="px-5 py-4">
+                          {getOpenVpnPreviewValue(row, {
+                            createOpenVpnUser: defaultCreateOpenVpnUser,
+                            openVpnGroup: defaultOpenVpnGroup,
+                          })}
+                        </TableCell>
                         <TableCell className="px-5 py-4">
                           {row.values.userType?.trim() === "employee"
                             ? row.values.welcomeRecipientEmail || "Missing"

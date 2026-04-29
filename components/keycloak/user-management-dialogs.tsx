@@ -275,6 +275,10 @@ function shouldHideEntryForCreate(entry: AttributeEntry, selectedUserType: strin
   return groupName === organizationGroupName
 }
 
+function isLocalUserType(value: string) {
+  return value.trim().toLowerCase() === "local"
+}
+
 function buildAttributeEntries(
   attributes: Record<string, string[]>,
   profileMetadata?: Record<string, unknown> | null,
@@ -900,6 +904,17 @@ export function UserEditorDialog({
     [userTypeEntry],
   )
 
+  useEffect(() => {
+    if (mode !== "create") {
+      return
+    }
+
+    if (!isLocalUserType(selectedUserType) && createOpenVpnUser) {
+      setCreateOpenVpnUser(false)
+      setOpenVpnGroup("")
+    }
+  }, [createOpenVpnUser, mode, selectedUserType])
+
   const visibleAttributeEntries = useMemo(() => {
     if (mode !== "create") {
       return attributeEntries
@@ -1500,7 +1515,7 @@ export function UserEditorDialog({
                           </h4>
                         </div>
 
-                        {mode === "create" && groupName.toLowerCase() === "openvpn" ? (
+                        {mode === "create" && groupName.trim().toLowerCase() === "openvpn" ? (
                           <div className="rounded-[1rem] border border-border bg-background p-4">
                             <div className="flex items-center justify-between gap-3">
                               <div>
@@ -1517,9 +1532,15 @@ export function UserEditorDialog({
                                     void loadVpnGroups()
                                   }
                                 }}
-                                disabled={isSubmitting}
+                                disabled={isSubmitting || !isLocalUserType(selectedUserType)}
                               />
                             </div>
+
+                            {!isLocalUserType(selectedUserType) ? (
+                              <p className="mt-3 text-xs text-muted-foreground">
+                                OpenVPN provisioning is available only when user type is set to <span className="font-medium text-foreground">local</span>.
+                              </p>
+                            ) : null}
 
                             {createOpenVpnUser ? (
                               <div className="mt-4 space-y-2">
