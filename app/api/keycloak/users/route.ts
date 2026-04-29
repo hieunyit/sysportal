@@ -39,6 +39,7 @@ import type { SmtpSettingsRecord } from "@/lib/settings-store"
 export const runtime = "nodejs"
 const DEFAULT_CREATE_REQUIRED_ACTIONS = ["UPDATE_PASSWORD", "CONFIGURE_TOTP"] as const
 const DEFAULT_EMPLOYEE_GROUP_NAME = "jira-servicedesk-users"
+const OPENVPN_PROVISIONING_ALLOWED_USER_TYPES = new Set(["partner", "outsource"])
 
 function toDisplayName(user: KeycloakUserRepresentation) {
   const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ").trim()
@@ -497,6 +498,22 @@ export async function POST(request: Request) {
     }
 
     const userType = getFirstAttributeValue(createPayload.attributes?.userType)
+    const normalizedUserType = userType.trim().toLowerCase()
+    const openVpnProvisioningAllowed = OPENVPN_PROVISIONING_ALLOWED_USER_TYPES.has(normalizedUserType)
+
+    if (parsed.data.createOpenVpnUser && !openVpnProvisioningAllowed) {
+      return apiValidationError({
+        error: "Invalid Keycloak user payload",
+        issues: [
+          {
+            path: "createOpenVpnUser",
+            message: "OpenVPN provisioning is supported only for partner and outsource user types.",
+          },
+        ],
+        source: "keycloak",
+        status: 400,
+      })
+    }
     const department = userType === "employee" ? getFirstAttributeValue(createPayload.attributes?.department) : ""
     const workAddress = userType === "employee" ? parsed.data.workAddress.trim() : ""
     const workStartDate = userType === "employee" ? parsed.data.workStartDate.trim() : ""
@@ -720,6 +737,8 @@ export async function POST(request: Request) {
         customGroupAssignments: customGroupAssignments.length > 0 ? customGroupAssignments : null,
         welcomeEmailSent: welcomeEmail?.sent ?? false,
         welcomeEmailError: welcomeEmail?.error ?? null,
+        openVpnCreateRequested: parsed.data.createOpenVpnUser,
+        openVpnProvisioningAllowed,
       },
     })
 
@@ -738,7 +757,10 @@ export async function POST(request: Request) {
       error: string | null
     } | null = null
 
-    if (parsed.data.createOpenVpnUser) {
+    const shouldCreateOpenVpnUser =
+      parsed.data.createOpenVpnUser && openVpnProvisioningAllowed
+
+    if (shouldCreateOpenVpnUser) {
       const vpnUsername = user.username ?? parsed.data.username.trim()
       const vpnGroup = parsed.data.openVpnGroup.trim() || null
 
