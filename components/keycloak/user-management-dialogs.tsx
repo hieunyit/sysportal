@@ -1097,7 +1097,9 @@ export function UserEditorDialog({
                 selectedUserType === "employee"
                   ? welcomeRecipientEmail.trim()
                   : formState.email.trim(),
-              createOpenVpnUser,
+              createOpenVpnUser:
+                (selectedUserType === "partner" || selectedUserType === "outsource") &&
+                createOpenVpnUser,
               openVpnGroup: createOpenVpnUser ? openVpnGroup : "",
             }
           : {}),
@@ -1298,7 +1300,7 @@ export function UserEditorDialog({
                 </p>
               </div>
 
-              {mode === "create" ? (
+              {mode === "create" && (selectedUserType === "partner" || selectedUserType === "outsource") ? (
                 <div className="rounded-[1rem] border border-border bg-background p-4">
                   <div className="flex items-center justify-between gap-3">
                     <div>
