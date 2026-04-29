@@ -1208,77 +1208,6 @@ export function UserEditorDialog({
                     )}
                   </div>
 
-                  <div className="rounded-[1rem] border border-border bg-background p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-medium text-foreground">Create OpenVPN account</p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          Create an OpenVPN user with the same username.
-                        </p>
-                      </div>
-                      <Switch
-                        checked={createOpenVpnUser}
-                        onCheckedChange={(checked) => {
-                          setCreateOpenVpnUser(checked)
-                          if (checked && availableVpnGroups.length === 0 && !vpnGroupsLoading) {
-                            void loadVpnGroups()
-                          }
-                        }}
-                        disabled={isSubmitting}
-                      />
-                    </div>
-
-                    {createOpenVpnUser ? (
-                      <div className="mt-4 space-y-2">
-                        <Label>OpenVPN group</Label>
-                        {vpnGroupsLoading ? (
-                          <p className="text-xs text-muted-foreground">Loading OpenVPN groups...</p>
-                        ) : (
-                          <div className="max-h-[200px] space-y-2 overflow-y-auto rounded-[0.85rem] border border-border bg-card p-3">
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="radio"
-                                id="vpn-group-none"
-                                name="vpn-group"
-                                value=""
-                                checked={openVpnGroup === ""}
-                                onChange={() => setOpenVpnGroup("")}
-                                disabled={isSubmitting}
-                                className="h-4 w-4"
-                              />
-                              <Label htmlFor="vpn-group-none" className="cursor-pointer text-sm font-normal text-muted-foreground">
-                                No group
-                              </Label>
-                            </div>
-                            {availableVpnGroups.map((vpnGroup) => (
-                              <div key={vpnGroup} className="flex items-center gap-2">
-                                <input
-                                  type="radio"
-                                  id={`vpn-group-${vpnGroup}`}
-                                  name="vpn-group"
-                                  value={vpnGroup}
-                                  checked={openVpnGroup === vpnGroup}
-                                  onChange={() => setOpenVpnGroup(vpnGroup)}
-                                  disabled={isSubmitting}
-                                  className="h-4 w-4"
-                                />
-                                <Label htmlFor={`vpn-group-${vpnGroup}`} className="cursor-pointer text-sm font-normal">
-                                  {vpnGroup}
-                                </Label>
-                              </div>
-                            ))}
-                            {availableVpnGroups.length === 0 ? (
-                              <p className="text-xs text-muted-foreground">No OpenVPN groups found.</p>
-                            ) : null}
-                          </div>
-                        )}
-                        <p className="text-xs text-muted-foreground">
-                          OpenVPN users belong to one group. Leave on &ldquo;No group&rdquo; to create without a group.
-                        </p>
-                      </div>
-                    ) : null}
-                  </div>
-
                   {selectedUserType === "employee" ? (
                     <div className="grid gap-5 md:grid-cols-2">
                       <div className="space-y-2">
@@ -1321,6 +1250,79 @@ export function UserEditorDialog({
                     </div>
                   ) : null}
 
+                </div>
+              ) : null}
+
+              {mode === "create" ? (
+                <div className="rounded-[1rem] border border-border bg-background p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium text-foreground">Create OpenVPN account</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Create an OpenVPN user with the same username.
+                      </p>
+                    </div>
+                    <Switch
+                      checked={createOpenVpnUser}
+                      onCheckedChange={(checked) => {
+                        setCreateOpenVpnUser(checked)
+                        if (checked && availableVpnGroups.length === 0 && !vpnGroupsLoading) {
+                          void loadVpnGroups()
+                        }
+                      }}
+                      disabled={isSubmitting}
+                    />
+                  </div>
+
+                  {createOpenVpnUser ? (
+                    <div className="mt-4 space-y-2">
+                      <Label>OpenVPN group</Label>
+                      {vpnGroupsLoading ? (
+                        <p className="text-xs text-muted-foreground">Loading OpenVPN groups...</p>
+                      ) : (
+                        <div className="max-h-[200px] space-y-2 overflow-y-auto rounded-[0.85rem] border border-border bg-card p-3">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="radio"
+                              id="vpn-group-none"
+                              name="vpn-group"
+                              value=""
+                              checked={openVpnGroup === ""}
+                              onChange={() => setOpenVpnGroup("")}
+                              disabled={isSubmitting}
+                              className="h-4 w-4"
+                            />
+                            <Label htmlFor="vpn-group-none" className="cursor-pointer text-sm font-normal text-muted-foreground">
+                              No group
+                            </Label>
+                          </div>
+                          {availableVpnGroups.map((vpnGroup) => (
+                            <div key={vpnGroup} className="flex items-center gap-2">
+                              <input
+                                type="radio"
+                                id={`vpn-group-${vpnGroup}`}
+                                name="vpn-group"
+                                value={vpnGroup}
+                                checked={openVpnGroup === vpnGroup}
+                                onChange={() => setOpenVpnGroup(vpnGroup)}
+                                disabled={isSubmitting}
+                                className="h-4 w-4"
+                              />
+                              <Label htmlFor={`vpn-group-${vpnGroup}`} className="cursor-pointer text-sm font-normal">
+                                {vpnGroup}
+                              </Label>
+                            </div>
+                          ))}
+                          {availableVpnGroups.length === 0 ? (
+                            <p className="text-xs text-muted-foreground">No OpenVPN groups found.</p>
+                          ) : null}
+                        </div>
+                      )}
+                      <p className="text-xs text-muted-foreground">
+                        OpenVPN users belong to one group. Leave on &ldquo;No group&rdquo; to create without a group.
+                      </p>
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
 
