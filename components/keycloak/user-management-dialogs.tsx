@@ -124,6 +124,7 @@ const coreFieldNames = new Set(["username", "firstName", "lastName", "email"])
 const organizationGroupName = "Organization"
 const partnerInformationGroupName = "Partner Information"
 const userTypeFieldName = "userType"
+const openVpnAttributeNames = new Set(["userExpiryVPN", "uuidVPN"])
 const defaultCreateRequiredActions = ["UPDATE_PASSWORD", "CONFIGURE_TOTP"]
 const defaultEmployeeGroupName = "jira-servicedesk-users"
 const emptyDirectoryOptionLists: DirectoryOptionLists = {
@@ -253,8 +254,22 @@ function getEntryFirstValue(entry?: AttributeEntry | null) {
   return entry?.values.find((value) => value.trim())?.trim() ?? ""
 }
 
+function isOpenVpnEntry(entry: AttributeEntry) {
+  const normalizedGroupName = entry.groupName?.trim().toLowerCase() ?? ""
+
+  if (normalizedGroupName.includes("openvpn")) {
+    return true
+  }
+
+  return openVpnAttributeNames.has(entry.name)
+}
+
 function shouldHideEntryForCreate(entry: AttributeEntry, selectedUserType: string) {
   if (entry.name === userTypeFieldName) {
+    return false
+  }
+
+  if (isOpenVpnEntry(entry)) {
     return false
   }
 
@@ -274,11 +289,6 @@ function shouldHideEntryForCreate(entry: AttributeEntry, selectedUserType: strin
 
   return groupName === organizationGroupName
 }
-
-function isLocalUserType(value: string) {
-  return value.trim().toLowerCase() === "local"
-}
-
 function buildAttributeEntries(
   attributes: Record<string, string[]>,
   profileMetadata?: Record<string, unknown> | null,
@@ -904,17 +914,6 @@ export function UserEditorDialog({
     [userTypeEntry],
   )
 
-  useEffect(() => {
-    if (mode !== "create") {
-      return
-    }
-
-    if (!isLocalUserType(selectedUserType) && createOpenVpnUser) {
-      setCreateOpenVpnUser(false)
-      setOpenVpnGroup("")
-    }
-  }, [createOpenVpnUser, mode, selectedUserType])
-
   const visibleAttributeEntries = useMemo(() => {
     if (mode !== "create") {
       return attributeEntries
@@ -1515,7 +1514,7 @@ export function UserEditorDialog({
                           </h4>
                         </div>
 
-                        {mode === "create" && groupName.trim().toLowerCase() === "openvpn" ? (
+                        {mode === "create" && entries.some((entry) => isOpenVpnEntry(entry)) ? (
                           <div className="rounded-[1rem] border border-border bg-background p-4">
                             <div className="flex items-center justify-between gap-3">
                               <div>
@@ -1532,15 +1531,9 @@ export function UserEditorDialog({
                                     void loadVpnGroups()
                                   }
                                 }}
-                                disabled={isSubmitting || !isLocalUserType(selectedUserType)}
+                                disabled={isSubmitting}
                               />
                             </div>
-
-                            {!isLocalUserType(selectedUserType) ? (
-                              <p className="mt-3 text-xs text-muted-foreground">
-                                OpenVPN provisioning is available only when user type is set to <span className="font-medium text-foreground">local</span>.
-                              </p>
-                            ) : null}
 
                             {createOpenVpnUser ? (
                               <div className="mt-4 space-y-2">
