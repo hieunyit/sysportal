@@ -13,36 +13,48 @@ export default async function LoginPage({
   const errorMessage = resolvedSearchParams.error?.trim() || ""
 
   return (
-    <main className="min-h-screen bg-[#f5f5f4] px-4 py-10 text-slate-950">
-      <div className="mx-auto flex min-h-[calc(100vh-5rem)] max-w-3xl items-center justify-center">
-        <div className="w-full max-w-md border border-slate-200 bg-white px-10 py-14 text-center shadow-[0_24px_80px_-48px_rgba(15,23,42,0.35)]">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-slate-200">
-            <ShieldCheck className="h-7 w-7" />
+    <main className="flex min-h-screen items-center justify-center bg-background px-4">
+      <div className="w-full max-w-sm">
+        {/* Logo */}
+        <div className="mb-8 flex flex-col items-center gap-3 text-center">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-border bg-card shadow-sm">
+            <ShieldCheck className="h-7 w-7 text-primary" />
           </div>
-
-          <div className="mt-8 space-y-3">
-            <h1 className="text-4xl font-semibold tracking-[-0.05em] text-slate-950">Login with Keycloak</h1>
-            <p className="text-base text-slate-600">
-              Sign in before accessing IdentityOps.
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+              Operations Console
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Sign in with your Keycloak account to continue.
             </p>
           </div>
+        </div>
 
-          {errorMessage ? (
-            <div className="mt-6 border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        {/* Card */}
+        <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+          {errorMessage && (
+            <div className="border-b border-destructive/20 bg-destructive/10 px-5 py-3 text-sm text-destructive">
               {errorMessage}
             </div>
-          ) : null}
+          )}
 
-          <Link href={`/api/auth/login?next=${encodeURIComponent(nextPath)}`} className="mt-10 block">
-            <Button className="h-12 w-full rounded-none bg-black text-sm font-semibold text-white hover:bg-black/90">
-              Login with Keycloak
-            </Button>
-          </Link>
+          <div className="px-6 py-8 space-y-6">
+            <div className="rounded-xl border border-border/60 bg-muted/30 px-4 py-3 text-xs text-muted-foreground space-y-1">
+              <p className="font-medium text-foreground/70">Protected systems</p>
+              <p>Keycloak · OpenVPN · Email templates · Audit log · Admin APIs</p>
+            </div>
 
-          <div className="mt-10 border-t border-slate-200 pt-5 text-sm text-slate-500">
-            Protected access for Keycloak, OpenVPN, templates, and admin APIs.
+            <Link href={`/api/auth/login?next=${encodeURIComponent(nextPath)}`} className="block">
+              <Button className="h-11 w-full rounded-xl text-sm font-semibold">
+                Login with Keycloak
+              </Button>
+            </Link>
           </div>
         </div>
+
+        <p className="mt-5 text-center text-xs text-muted-foreground/60">
+          Access is restricted to authorized operators.
+        </p>
       </div>
     </main>
   )

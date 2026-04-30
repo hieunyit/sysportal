@@ -651,7 +651,7 @@ export async function POST(request: Request) {
       const assignmentResults = await Promise.all(
         resolvedCustomGroups.map(async (resolvedGroup) => {
           try {
-            await client.addUserToGroup(created.userId, resolvedGroup.groupId)
+            await client.addUserToGroup(created.userId!, resolvedGroup.groupId)
 
             return {
               groupId: resolvedGroup.groupId,
