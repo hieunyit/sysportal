@@ -4,9 +4,9 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
-  Activity,
   BarChart3,
   Building2,
+  Clock,
   FileCode2,
   KeyRound,
   LayoutDashboard,
@@ -31,7 +31,7 @@ const navigationSections = [
     items: [
       { icon: KeyRound, label: "Users", href: "/users" },
       { icon: Users, label: "Groups", href: "/groups" },
-      { icon: Activity, label: "Sessions", href: "/sessions" },
+      { icon: Clock, label: "Stale Accounts", href: "/stale-users" },
       { icon: Building2, label: "Catalogs", href: "/users/catalogs" },
     ],
   },

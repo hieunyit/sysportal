@@ -471,6 +471,7 @@ export function UserImportDialog({
   const [fileName, setFileName] = useState("")
   const [rows, setRows] = useState<ImportedCsvRow[]>([])
   const [results, setResults] = useState<ImportResult[]>([])
+  const [isValidationMode, setIsValidationMode] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isImporting, setIsImporting] = useState(false)
   const [defaultCreateOpenVpnUser, setDefaultCreateOpenVpnUser] = useState(false)
@@ -546,9 +547,48 @@ export function UserImportDialog({
     URL.revokeObjectURL(url)
   }
 
+  function handleValidate() {
+    setIsValidationMode(true)
+    setResults([])
+    setError(null)
+
+    const nextResults: ImportResult[] = rows.map((row) => {
+      try {
+        const payload = buildPayloadFromRow(row, {
+          createOpenVpnUser: defaultCreateOpenVpnUser,
+          openVpnGroup: defaultOpenVpnGroup,
+        })
+        return {
+          rowNumber: row.rowNumber,
+          username: payload.username,
+          status: "success",
+          detail: "All required fields are valid",
+          generatedPassword: null,
+          groupStatus: payload.groups.length > 0 ? `Groups: ${payload.groups.join(", ")}` : null,
+          vpnStatus: payload.createOpenVpnUser ? `OpenVPN: ${payload.openVpnGroup || "No group"}` : null,
+          welcomeEmailStatus: null,
+        }
+      } catch (rowError) {
+        return {
+          rowNumber: row.rowNumber,
+          username: row.values.username?.trim() || `Row ${row.rowNumber}`,
+          status: "error",
+          detail: rowError instanceof Error ? rowError.message : "Validation failed",
+          generatedPassword: null,
+          groupStatus: null,
+          vpnStatus: null,
+          welcomeEmailStatus: null,
+        }
+      }
+    })
+
+    setResults(nextResults)
+  }
+
   async function handleImport() {
     try {
       setIsImporting(true)
+      setIsValidationMode(false)
       setError(null)
       setResults([])
 
@@ -816,9 +856,13 @@ export function UserImportDialog({
           {results.length > 0 ? (
             <div className="rounded-[1.2rem] border border-border bg-background">
               <div className="border-b border-border px-5 py-4">
-                <p className="text-sm font-semibold text-foreground">Import results</p>
+                <p className="text-sm font-semibold text-foreground">
+                  {isValidationMode ? "Validation results" : "Import results"}
+                </p>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Each row is processed independently so one bad entry does not stop the entire batch.
+                  {isValidationMode
+                    ? "Client-side validation only — no accounts have been created."
+                    : "Each row is processed independently so one bad entry does not stop the entire batch."}
                 </p>
               </div>
 
@@ -849,7 +893,9 @@ export function UserImportDialog({
                               : "border-rose-500/20 bg-rose-500/10 text-rose-600 dark:text-rose-300"
                           }
                         >
-                          {result.status === "success" ? "Created" : "Failed"}
+                          {isValidationMode
+                            ? result.status === "success" ? "Valid" : "Invalid"
+                            : result.status === "success" ? "Created" : "Failed"}
                         </Badge>
                       </TableCell>
                       <TableCell className="px-5 py-4 text-sm text-muted-foreground">
@@ -887,7 +933,10 @@ export function UserImportDialog({
                 <Download className="h-4 w-4" />
                 Download template
               </Button>
-              <Button type="button" className="rounded-full px-5" onClick={handleImport} disabled={isImporting || rows.length === 0}>
+              <Button type="button" variant="outline" className="rounded-full bg-transparent" onClick={handleValidate} disabled={isImporting || rows.length === 0}>
+                Validate rows
+              </Button>
+              <Button type="button" className="rounded-full px-5" onClick={() => void handleImport()} disabled={isImporting || rows.length === 0}>
                 {isImporting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                 Start import
               </Button>

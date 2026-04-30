@@ -54,10 +54,10 @@ export async function POST(request: Request) {
       : []
     const groupId = typeof body?.groupId === "string" ? body.groupId.trim() : ""
 
-    if (!["enable", "disable", "assignGroup"].includes(action)) {
+    if (!["enable", "disable", "assignGroup", "clearRequiredActions"].includes(action)) {
       return apiValidationError({
         error: "Invalid bulk action",
-        issues: [{ path: "action", message: "Must be enable, disable, or assignGroup" }],
+        issues: [{ path: "action", message: "Must be enable, disable, assignGroup, or clearRequiredActions" }],
       })
     }
 
@@ -169,6 +169,37 @@ export async function POST(request: Request) {
               username: userId,
               success: false,
               error: err instanceof Error ? err.message : "Failed to assign group",
+            })
+          }
+        }),
+      )
+    }
+
+    if (action === "clearRequiredActions") {
+      await Promise.all(
+        userIds.map(async (userId) => {
+          try {
+            const user = await client.getUser(userId)
+            await client.updateUser(userId, { requiredActions: [] })
+
+            appendAuditLog({
+              actorName: auth.actorName,
+              category: "edit",
+              action: "keycloak.user.required-actions-cleared",
+              resourceType: "keycloak-user",
+              resourceId: userId,
+              resourceName: user.username ?? user.email ?? userId,
+              detail: `Cleared required actions for ${user.username ?? userId}`,
+              metadata: { realm: configuredRealm },
+            })
+
+            results.push({ userId, username: user.username ?? userId, success: true, error: null })
+          } catch (err) {
+            results.push({
+              userId,
+              username: userId,
+              success: false,
+              error: err instanceof Error ? err.message : "Failed to clear required actions",
             })
           }
         }),

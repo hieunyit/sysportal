@@ -12,6 +12,7 @@ import {
 } from "lucide-react"
 import { AppShell } from "@/components/dashboard/app-shell"
 import { Header } from "@/components/dashboard/header"
+import { DashboardLiveStats } from "@/components/dashboard/live-stats"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatTimestamp } from "@/lib/email-template-utils"
 import { getAuditLogSummary, listAuditLogs } from "@/lib/settings-store"
@@ -92,7 +93,10 @@ export default function DashboardPage() {
       />
 
       <div className="p-6 space-y-6">
-        {/* Stats */}
+        {/* Live system metrics */}
+        <DashboardLiveStats />
+
+        {/* Audit stats */}
         <div className="grid gap-4 sm:grid-cols-3">
           <Card className="bg-white border-gray-200 shadow-none">
             <CardContent className="p-5">

@@ -287,7 +287,7 @@ export function ProfileOptionListsContent() {
   )
 }
 
-export function DirectoryOptionListsContent() {
+export function DirectoryOptionListsContent({ className }: { className?: string }) {
   const [lists, setLists] = useState<DirectoryOptionLists>(emptyDirectoryOptionLists)
   const [isLoading, setIsLoading] = useState(true)
   const [isSavingKind, setIsSavingKind] = useState<DirectoryOptionKind | null>(null)
@@ -375,7 +375,7 @@ export function DirectoryOptionListsContent() {
   }
 
   return (
-    <Card className="border-border/80 bg-card/80">
+    <Card className={cn("border-border/80 bg-card/80", className)}>
       <CardHeader>
         <CardTitle className="text-lg">Keycloak directory catalogs</CardTitle>
         <CardDescription>

@@ -11,6 +11,8 @@ import {
   Plus,
   ShieldAlert,
   Trash2,
+  UserRound,
+  Users,
 } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
@@ -902,7 +904,7 @@ export function OpenVpnSubjectDetailContent({
     <div className="space-y-6">
       <div className="flex flex-col gap-6 md:flex-row md:items-start md:gap-0">
         <div className="min-w-0 flex-1 space-y-6 md:pr-6">
-          <div className="space-y-4 px-1">
+          <div className="space-y-4">
             <Button asChild variant="ghost" className="h-8 rounded-xl px-3 text-muted-foreground">
               <Link href={routeBase}>
                 <ArrowLeft className="h-4 w-4" />
@@ -910,62 +912,66 @@ export function OpenVpnSubjectDetailContent({
               </Link>
             </Button>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-[2rem] font-semibold tracking-[-0.04em] text-foreground">{data.name}</h2>
-              <Badge
-                variant="outline"
-                className={
-                  isDenied
-                    ? "border-rose-500/20 bg-rose-500/10 text-rose-600 dark:text-rose-300"
-                    : "border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300"
-                }
-              >
-                {isDenied ? "Denied" : "Allowed"}
-              </Badge>
-              {isAdmin ? (
-                <Badge variant="outline" className="border-border bg-background text-muted-foreground">
-                  Admin UI
-                </Badge>
-              ) : null}
-              {isAutologin ? (
-                <Badge variant="outline" className="border-border bg-background text-muted-foreground">
-                  Autologin
-                </Badge>
-              ) : null}
-            </div>
-
-            <div className="grid gap-3 xl:grid-cols-3">
-              <div className="rounded-md border border-border/70 bg-card/92 p-4">
-                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Authentication</p>
-                <p className="mt-2 text-sm font-medium text-foreground">{authMethod}</p>
-              </div>
-              <div className="rounded-md border border-border/70 bg-card/92 p-4">
-                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">
-                  {subjectType === "user" ? "Primary group" : "Members"}
-                </p>
-                <p className="mt-2 text-sm font-medium text-foreground">
-                  {subjectType === "user"
-                    ? primaryGroup
-                    : `${(profile as OpenVpnGroupProfile).member_count ?? 0}`}
-                </p>
-              </div>
-              <div className="rounded-md border border-border/70 bg-card/92 p-4">
-                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Web access</p>
-                <p className="mt-2 text-sm font-medium text-foreground">
-                  {getBooleanPropValue(profile.deny_web) ? "Denied" : "Allowed"}
-                </p>
-              </div>
-              <div className="rounded-md border border-border/70 bg-card/92 p-4">
-                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Rulesets</p>
-                <p className="mt-2 text-sm font-medium text-foreground">{data.rulesets.length}</p>
-              </div>
-              <div className="rounded-md border border-border/70 bg-card/92 p-4">
-                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Access entries</p>
-                <p className="mt-2 text-sm font-medium text-foreground">{totalAccessEntries}</p>
-              </div>
-              <div className="rounded-md border border-border/70 bg-card/92 p-4">
-                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Sessions</p>
-                <p className="mt-2 text-sm font-medium text-foreground">{data.sessions.length}</p>
+            <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+                <div className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-border bg-muted text-muted-foreground">
+                  {subjectType === "user" ? <UserRound className="h-7 w-7" /> : <Users className="h-7 w-7" />}
+                </div>
+                <div className="min-w-0 flex-1 space-y-3">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="text-2xl font-semibold tracking-tight text-foreground">{data.name}</h2>
+                      <Badge
+                        variant="outline"
+                        className={
+                          isDenied
+                            ? "border-rose-500/20 bg-rose-500/10 text-rose-600 dark:text-rose-300"
+                            : "border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300"
+                        }
+                      >
+                        {isDenied ? "Denied" : "Allowed"}
+                      </Badge>
+                      {isAdmin ? (
+                        <Badge variant="outline" className="border-border bg-background text-muted-foreground">
+                          Admin UI
+                        </Badge>
+                      ) : null}
+                      {isAutologin ? (
+                        <Badge variant="outline" className="border-border bg-background text-muted-foreground">
+                          Autologin
+                        </Badge>
+                      ) : null}
+                    </div>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {authMethod}
+                      {subjectType === "user" && primaryGroup ? ` · Group: ${primaryGroup}` : ""}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-x-6 gap-y-2 border-t border-border pt-3">
+                    <div className="space-y-0.5">
+                      <p className="text-xs text-muted-foreground">Sessions</p>
+                      <p className="text-sm font-semibold text-foreground">{data.sessions.length}</p>
+                    </div>
+                    <div className="space-y-0.5">
+                      <p className="text-xs text-muted-foreground">Rulesets</p>
+                      <p className="text-sm font-semibold text-foreground">{data.rulesets.length}</p>
+                    </div>
+                    <div className="space-y-0.5">
+                      <p className="text-xs text-muted-foreground">Access entries</p>
+                      <p className="text-sm font-semibold text-foreground">{totalAccessEntries}</p>
+                    </div>
+                    <div className="space-y-0.5">
+                      <p className="text-xs text-muted-foreground">
+                        {subjectType === "user" ? "Web access" : "Members"}
+                      </p>
+                      <p className="text-sm font-semibold text-foreground">
+                        {subjectType === "user"
+                          ? getBooleanPropValue(profile.deny_web) ? "Denied" : "Allowed"
+                          : (profile as OpenVpnGroupProfile).member_count ?? 0}
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -985,16 +991,10 @@ export function OpenVpnSubjectDetailContent({
           ) : null}
 
           <Tabs defaultValue="overview" className="space-y-5">
-            <TabsList className="grid h-auto w-full grid-cols-3 rounded-md border border-border/70 bg-card/92 p-1">
-            <TabsTrigger value="overview" className="h-11 rounded-sm">
-              Overview
-            </TabsTrigger>
-            <TabsTrigger value="access" className="h-11 rounded-sm">
-              Access
-            </TabsTrigger>
-            <TabsTrigger value="activity" className="h-11 rounded-sm">
-              Activity
-            </TabsTrigger>
+            <TabsList className="inline-flex h-auto items-center rounded-full border border-border/70 bg-muted/40 p-1">
+              <TabsTrigger value="overview" className="h-9 rounded-full px-6 text-sm">Overview</TabsTrigger>
+              <TabsTrigger value="access" className="h-9 rounded-full px-6 text-sm">Access</TabsTrigger>
+              <TabsTrigger value="activity" className="h-9 rounded-full px-6 text-sm">Activity</TabsTrigger>
             </TabsList>
 
             <TabsContent value="overview" className="space-y-6">
@@ -1084,8 +1084,7 @@ export function OpenVpnSubjectDetailContent({
                   </dl>
                 ) : (
                   <>
-                    <dl className="grid gap-3 md:grid-cols-3">
-                      <ProfileField label="Members" value={(profile as OpenVpnGroupProfile).member_count ?? 0} />
+                    <dl className="grid gap-3 sm:grid-cols-2">
                       <ProfileField label="Assigned subnets" value={(profile as OpenVpnGroupProfile).subnets?.length ?? 0} />
                       <ProfileField
                         label="Dynamic ranges"
@@ -1093,26 +1092,41 @@ export function OpenVpnSubjectDetailContent({
                       />
                     </dl>
 
-                    <div className="rounded-[1rem] border border-border bg-background/50 p-4">
-                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Members</p>
-                      <ScrollArea className="mt-3 max-h-72 pr-4">
+                    <div className="overflow-hidden rounded-[1rem] border border-border bg-background/50">
+                      <div className="flex items-center justify-between border-b border-border px-4 py-3">
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Members</p>
                         {(profile as OpenVpnGroupProfile).members?.length ? (
-                          <div className="grid gap-2 sm:grid-cols-2">
-                            {(profile as OpenVpnGroupProfile).members?.map((member) => (
-                              <div
-                                key={member}
-                                className="rounded-lg border border-border bg-muted/20 px-3 py-2 text-sm text-foreground"
-                              >
-                                {member}
+                          <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                            {(profile as OpenVpnGroupProfile).members!.length}
+                          </span>
+                        ) : null}
+                      </div>
+                      {(profile as OpenVpnGroupProfile).members?.length ? (
+                        <ScrollArea className="h-72">
+                          <div className="divide-y divide-border/60">
+                            {(profile as OpenVpnGroupProfile).members!.map((member) => (
+                              <div key={member} className="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-muted/30">
+                                <div className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">
+                                  {member[0]?.toUpperCase() ?? "?"}
+                                </div>
+                                <span className="min-w-0 flex-1 truncate text-sm text-foreground">{member}</span>
+                                <Button
+                                  asChild
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 shrink-0 rounded-lg px-3 text-xs text-muted-foreground hover:text-foreground"
+                                >
+                                  <Link href={`/openvpn/users/${encodeURIComponent(member)}`}>
+                                    View
+                                  </Link>
+                                </Button>
                               </div>
                             ))}
                           </div>
-                        ) : (
-                          <div className="rounded-lg border border-dashed border-border bg-muted/10 px-4 py-10 text-sm text-muted-foreground">
-                            No members were returned for this group.
-                          </div>
-                        )}
-                      </ScrollArea>
+                        </ScrollArea>
+                      ) : (
+                        <p className="px-4 py-6 text-sm text-muted-foreground">No members were returned for this group.</p>
+                      )}
                     </div>
                   </>
                 )}
@@ -1137,77 +1151,65 @@ export function OpenVpnSubjectDetailContent({
                 </Alert>
               ) : null}
 
-              <div className="grid gap-3 xl:grid-cols-[minmax(0,1.4fr),minmax(10rem,0.42fr),minmax(9rem,0.34fr),minmax(10rem,0.4fr),auto]">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">A single IP address, CIDR block or domain name</label>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="min-w-0 flex-1">
                   <Input
                     value={quickDraft.address}
                     disabled={pendingAction !== null}
                     onChange={(event) => setQuickDraft((current) => ({ ...current, address: event.target.value }))}
-                    placeholder="Address (IP, CIDR or Domain)"
-                    className="h-11 rounded-lg"
+                    placeholder="IP, CIDR or domain"
+                    className="h-10 rounded-lg"
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">Protocol</label>
-                  <Select
-                    value={quickDraft.protocol}
-                    onValueChange={(value: QuickRuleProtocol) => setQuickDraft((current) => ({ ...current, protocol: value }))}
-                    disabled={pendingAction !== null || isQuickDomainDraft}
-                  >
-                    <SelectTrigger className="h-11 rounded-lg">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All</SelectItem>
-                      <SelectItem value="tcp">TCP</SelectItem>
-                      <SelectItem value="udp">UDP</SelectItem>
-                      <SelectItem value="icmp">ICMP</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                <Select
+                  value={quickDraft.protocol}
+                  onValueChange={(value: QuickRuleProtocol) => setQuickDraft((current) => ({ ...current, protocol: value }))}
+                  disabled={pendingAction !== null || isQuickDomainDraft}
+                >
+                  <SelectTrigger className="h-10 w-28 rounded-lg">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    <SelectItem value="tcp">TCP</SelectItem>
+                    <SelectItem value="udp">UDP</SelectItem>
+                    <SelectItem value="icmp">ICMP</SelectItem>
+                  </SelectContent>
+                </Select>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">Port</label>
-                  <Input
-                    value={isPortDisabled ? "" : quickDraft.port}
-                    disabled={pendingAction !== null || isPortDisabled}
-                    onChange={(event) => setQuickDraft((current) => ({ ...current, port: event.target.value }))}
-                    placeholder="All"
-                    className="h-11 rounded-lg"
-                  />
-                </div>
+                <Input
+                  value={isPortDisabled ? "" : quickDraft.port}
+                  disabled={pendingAction !== null || isPortDisabled}
+                  onChange={(event) => setQuickDraft((current) => ({ ...current, port: event.target.value }))}
+                  placeholder="Port"
+                  className="h-10 w-24 rounded-lg"
+                />
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">Reachable via</label>
-                  <Select
-                    value={quickDraft.reachableVia}
-                    onValueChange={(value: "nat" | "route") =>
-                      setQuickDraft((current) => ({ ...current, reachableVia: value }))
-                    }
-                    disabled={pendingAction !== null}
-                  >
-                    <SelectTrigger className="h-11 rounded-lg">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="nat">NAT</SelectItem>
-                      <SelectItem value="route">Route</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                <Select
+                  value={quickDraft.reachableVia}
+                  onValueChange={(value: "nat" | "route") =>
+                    setQuickDraft((current) => ({ ...current, reachableVia: value }))
+                  }
+                  disabled={pendingAction !== null}
+                >
+                  <SelectTrigger className="h-10 w-28 rounded-lg">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="nat">NAT</SelectItem>
+                    <SelectItem value="route">Route</SelectItem>
+                  </SelectContent>
+                </Select>
 
-                <div className="flex items-end gap-2">
-                  <Button className="h-11 rounded-lg px-5" disabled={pendingAction !== null} onClick={() => void handleQuickRuleSave()}>
-                    {editingQuickRule ? "Update rule" : "Save rule"}
+                <Button className="h-10 shrink-0 rounded-lg px-5" disabled={pendingAction !== null} onClick={() => void handleQuickRuleSave()}>
+                  {editingQuickRule ? "Update" : "Save rule"}
+                </Button>
+                {editingQuickRule ? (
+                  <Button type="button" variant="outline" className="h-10 rounded-lg px-4" onClick={resetQuickEditor}>
+                    Cancel
                   </Button>
-                  {editingQuickRule ? (
-                    <Button type="button" variant="outline" className="h-11 rounded-lg px-5" onClick={resetQuickEditor}>
-                      Cancel
-                    </Button>
-                  ) : null}
-                </div>
+                ) : null}
               </div>
 
               <div className="overflow-hidden rounded-xl border border-border/80">
@@ -1287,80 +1289,92 @@ export function OpenVpnSubjectDetailContent({
             </div>
           </OpenVpnPanel>
 
+          {subjectType === "user" ? (
+          <>
           <OpenVpnPanel
             title="IP access lists"
             description="Edit explicit IPv4 and IPv6 access lists."
           >
-            <div className="grid gap-4 xl:grid-cols-2">
-              {(
-                [
-                  "access_to_ipv4",
-                  "access_from_ipv4",
-                  "access_to_ipv6",
-                  "access_from_ipv6",
-                ] as const
-              ).map((listType) => (
-                <section key={listType} className="overflow-hidden rounded-xl border border-border/80">
-                  <div className="flex flex-col gap-3 border-b border-border bg-muted/10 px-4 py-3 sm:flex-row sm:items-start sm:justify-between">
-                    <div>
-                      <h3 className="text-sm font-semibold text-foreground">{formatAccessListLabel(listType)}</h3>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {data.accessLists[listType].length} explicit route entr{data.accessLists[listType].length === 1 ? "y" : "ies"}
-                      </p>
+            {(() => {
+              const listTypes = ["access_to_ipv4", "access_from_ipv4", "access_to_ipv6", "access_from_ipv6"] as const
+              const populated = listTypes.filter((lt) => data.accessLists[lt].length > 0)
+              const empty = listTypes.filter((lt) => data.accessLists[lt].length === 0)
+              return (
+                <div className="space-y-3">
+                  {populated.length > 0 ? (
+                    <div className="grid gap-4 xl:grid-cols-2">
+                      {populated.map((listType) => (
+                        <section key={listType} className="overflow-hidden rounded-xl border border-border/80">
+                          <div className="flex items-start justify-between border-b border-border bg-muted/10 px-4 py-3">
+                            <div>
+                              <h3 className="text-sm font-semibold text-foreground">{formatAccessListLabel(listType)}</h3>
+                              <p className="mt-0.5 text-xs text-muted-foreground">
+                                {data.accessLists[listType].length} {data.accessLists[listType].length === 1 ? "entry" : "entries"}
+                              </p>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="rounded-lg bg-transparent"
+                              onClick={() => setEditingAccessList(listType)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                              Edit
+                            </Button>
+                          </div>
+                          <Table className="[&_td]:py-2.5">
+                            <TableHeader className="bg-slate-50/80 dark:bg-slate-900/30">
+                              <TableRow className="hover:bg-transparent">
+                                <TableHead className="px-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Type</TableHead>
+                                <TableHead className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Decision</TableHead>
+                                <TableHead className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Target</TableHead>
+                                <TableHead className="pr-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Service</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {data.accessLists[listType].map((route, index) => (
+                                <TableRow key={`${listType}-${index}`}>
+                                  <TableCell className="px-4 capitalize">{route.type.replaceAll("_", " ")}</TableCell>
+                                  <TableCell>
+                                    <Badge variant={route.accept === false ? "destructive" : "outline"} className="rounded-sm">
+                                      {route.accept === false ? "Deny" : "Allow"}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell>{describeAccessRoute(route)}</TableCell>
+                                  <TableCell className="pr-4">{describeAccessRouteServices(route)}</TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </section>
+                      ))}
                     </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="rounded-lg bg-transparent"
-                      onClick={() => setEditingAccessList(listType)}
-                    >
-                      <Pencil className="h-4 w-4" />
-                      Edit list
-                    </Button>
-                  </div>
-
-                  {data.accessLists[listType].length ? (
-                    <Table className="[&_td]:py-2.5">
-                      <TableHeader className="bg-slate-50/80 dark:bg-slate-900/30">
-                        <TableRow className="hover:bg-transparent">
-                          <TableHead className="px-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                            Type
-                          </TableHead>
-                          <TableHead className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                            Decision
-                          </TableHead>
-                          <TableHead className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                            Target
-                          </TableHead>
-                          <TableHead className="pr-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                            Service
-                          </TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {data.accessLists[listType].map((route, index) => (
-                          <TableRow key={`${listType}-${index}`}>
-                            <TableCell className="px-4 capitalize">{route.type.replaceAll("_", " ")}</TableCell>
-                            <TableCell>
-                              <Badge variant={route.accept === false ? "destructive" : "outline"} className="rounded-sm">
-                                {route.accept === false ? "Deny" : "Allow"}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>{describeAccessRoute(route)}</TableCell>
-                            <TableCell className="pr-4">{describeAccessRouteServices(route)}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  ) : (
-                    <div className="px-4 py-10 text-sm text-muted-foreground">
-                      No explicit entries. This list currently inherits broader OpenVPN policy.
+                  ) : null}
+                  {empty.length > 0 ? (
+                    <div className="overflow-hidden rounded-xl border border-border/40">
+                      {empty.map((listType, i) => (
+                        <div key={listType} className={cn("flex items-center justify-between px-4 py-3", i > 0 ? "border-t border-border/40" : "")}>
+                          <div>
+                            <p className="text-sm font-medium text-foreground">{formatAccessListLabel(listType)}</p>
+                            <p className="text-xs text-muted-foreground">No explicit entries</p>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 rounded-lg p-0"
+                            onClick={() => setEditingAccessList(listType)}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      ))}
                     </div>
-                  )}
-                </section>
-              ))}
-            </div>
+                  ) : null}
+                </div>
+              )
+            })()}
           </OpenVpnPanel>
 
           <OpenVpnPanel
@@ -1488,6 +1502,8 @@ export function OpenVpnSubjectDetailContent({
               </div>
             )}
           </OpenVpnPanel>
+          </>
+          ) : null}
         </TabsContent>
 
             <TabsContent value="activity">
@@ -1585,21 +1601,18 @@ export function OpenVpnSubjectDetailContent({
           </Tabs>
         </div>
 
-        <aside className="md:w-80 md:shrink-0 md:self-stretch md:border-l md:border-border/70 md:bg-card/30">
-          <div className="rounded-sm border border-border/70 bg-card/92 p-4 md:sticky md:top-6 md:rounded-none md:border-0 md:bg-transparent md:p-6">
-            <div className="space-y-1 pb-4">
-              <h3 className="text-lg font-semibold text-foreground">Actions</h3>
-              <p className="text-sm text-muted-foreground">Direct profile and policy controls.</p>
-            </div>
-            <div className="grid gap-2">
-              <Button type="button" className="h-10 justify-start rounded-sm px-4" onClick={() => setIsEditOpen(true)} disabled={Boolean(pendingAction)}>
+        <aside className="md:w-72 md:shrink-0 md:self-stretch md:border-l md:border-border/70 md:bg-card/30">
+          <div className="rounded-2xl border border-border/70 bg-card p-5 shadow-sm md:sticky md:top-6 md:rounded-none md:border-0 md:bg-transparent md:p-6 md:shadow-none">
+            <p className="mb-4 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Actions</p>
+            <div className="space-y-1.5">
+              <Button type="button" className="h-10 w-full justify-start rounded-xl px-4" onClick={() => setIsEditOpen(true)} disabled={Boolean(pendingAction)}>
                 <Pencil className="h-4 w-4" />
                 Edit profile
               </Button>
               <Button
                 type="button"
                 variant="outline"
-                className="h-10 justify-start rounded-sm bg-transparent px-4"
+                className="h-10 w-full justify-start rounded-xl bg-transparent px-4"
                 onClick={() => setIsCreateRulesetOpen(true)}
                 disabled={Boolean(pendingAction)}
               >
@@ -1610,7 +1623,7 @@ export function OpenVpnSubjectDetailContent({
                 <Button
                   type="button"
                   variant="outline"
-                  className="h-10 justify-start rounded-sm bg-transparent px-4"
+                  className="h-10 w-full justify-start rounded-xl bg-transparent px-4 text-rose-600 hover:text-rose-600 dark:text-rose-400"
                   onClick={() => {
                     void handleDisconnectSessions().catch(() => undefined)
                   }}
@@ -1619,6 +1632,12 @@ export function OpenVpnSubjectDetailContent({
                   <LogOut className="h-4 w-4" />
                   Disconnect sessions
                 </Button>
+              ) : null}
+              {pendingAction ? (
+                <div className="mt-2 flex items-center gap-2 rounded-xl border border-border bg-muted/30 px-4 py-2.5 text-xs text-muted-foreground">
+                  <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+                  {pendingAction}...
+                </div>
               ) : null}
             </div>
           </div>

@@ -10,7 +10,7 @@ const PAGE_LABELS: Record<string, string> = {
   "/analytics": "Audit Log",
   "/users": "Keycloak Users",
   "/groups": "Keycloak Groups",
-  "/sessions": "Sessions",
+  "/stale-users": "Stale Accounts",
   "/openvpn/users": "OpenVPN Users",
   "/openvpn/groups": "OpenVPN Groups",
   "/connections": "Connections",

@@ -4,6 +4,7 @@ import Link from "next/link"
 import { useEffect, useState } from "react"
 import {
   ArrowLeft,
+  ChevronDown,
   FolderTree,
   KeyRound,
   LockOpen,
@@ -17,8 +18,19 @@ import {
   Trash2,
   UserPen,
   UserRound,
+  UserX,
   Workflow,
 } from "lucide-react"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -209,6 +221,12 @@ export function UserDetailContent({ userId }: { userId: string }) {
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [isPasswordOpen, setIsPasswordOpen] = useState(false)
   const [isAddGroupOpen, setIsAddGroupOpen] = useState(false)
+  const [isOffboardOpen, setIsOffboardOpen] = useState(false)
+  const [isOffboarding, setIsOffboarding] = useState(false)
+  const [offboardResult, setOffboardResult] = useState<{
+    groupsRemoved: string[]
+    vpnRevoked: boolean
+  } | null>(null)
   const [pendingAction, setPendingAction] = useState<string | null>(null)
   const [feedback, setFeedback] = useState<{
     tone: "success" | "error"
@@ -365,6 +383,30 @@ export function UserDetailContent({ userId }: { userId: string }) {
     })
   }
 
+  async function handleOffboard() {
+    setIsOffboarding(true)
+    try {
+      const response = await fetch(`/api/keycloak/users/${userId}/offboard`, { method: "POST" })
+      const payload = (await response.json().catch(() => null)) as {
+        ok?: boolean
+        data?: { groupsRemoved: string[]; vpnRevoked: boolean }
+        message?: string
+        error?: string
+      } | null
+      if (!response.ok) {
+        throw new Error(payload?.error ?? "Offboarding failed")
+      }
+      setOffboardResult(payload?.data ?? { groupsRemoved: [], vpnRevoked: false })
+      setFeedback({ tone: "success", message: payload?.message ?? "User offboarded" })
+      setRefreshKey((k) => k + 1)
+    } catch (err) {
+      setFeedback({ tone: "error", message: err instanceof Error ? err.message : "Offboarding failed" })
+    } finally {
+      setIsOffboarding(false)
+      setIsOffboardOpen(false)
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="flex min-h-[360px] items-center justify-center rounded-[1.5rem] border border-dashed border-border bg-card">
@@ -402,7 +444,7 @@ export function UserDetailContent({ userId }: { userId: string }) {
     <div className="space-y-6">
       <div className="flex flex-col gap-6 md:flex-row md:items-start md:gap-0">
         <div className="min-w-0 flex-1 space-y-6 md:pr-6">
-          <div className="space-y-4 px-1">
+          <div className="space-y-4">
             <Button asChild variant="ghost" className="h-8 rounded-xl px-3 text-muted-foreground">
               <Link href="/users">
                 <ArrowLeft className="h-4 w-4" />
@@ -410,51 +452,56 @@ export function UserDetailContent({ userId }: { userId: string }) {
               </Link>
             </Button>
 
-            <div className="flex flex-wrap items-center gap-3">
-              <h2 className="text-[2rem] font-semibold tracking-[-0.04em] text-foreground">
-                {data.user.displayName || data.user.username}
-              </h2>
-              <Badge
-                variant="outline"
-                className={
-                  data.user.enabled
-                    ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300"
-                    : "border-rose-500/20 bg-rose-500/10 text-rose-600 dark:text-rose-300"
-                }
-              >
-                {data.user.enabled ? "Enabled" : "Disabled"}
-              </Badge>
-              {!data.user.emailVerified ? (
-                <Badge variant="outline" className="border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-300">
-                  Email unverified
-                </Badge>
-              ) : null}
-            </div>
-
-            <div className="grid gap-3 xl:grid-cols-3">
-              <div className="rounded-md border border-border/70 bg-card/92 p-4">
-                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Username</p>
-                <p className="mt-2 text-sm font-medium text-foreground">{data.user.username}</p>
-              </div>
-              <div className="rounded-md border border-border/70 bg-card/92 p-4">
-                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Email</p>
-                <p className="mt-2 text-sm font-medium text-foreground">{data.user.email || "No email address"}</p>
-              </div>
-              <div className="rounded-md border border-border/70 bg-card/92 p-4">
-                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Realm</p>
-                <p className="mt-2 text-sm font-medium text-foreground">{data.summary.realm}</p>
-              </div>
-              <div className="rounded-md border border-border/70 bg-card/92 p-4">
-                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Federation</p>
-                <p className="mt-2 text-sm font-medium text-foreground">{data.user.federationLink ?? "Local user"}</p>
-              </div>
-              <div className="rounded-md border border-border/70 bg-card/92 p-4">
-                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Sessions</p>
-                <p className="mt-2 text-sm font-medium text-foreground">{data.sessions.length}</p>
-              </div>
-              <div className="rounded-md border border-border/70 bg-card/92 p-4">
-                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Last login</p>
-                <p className="mt-2 text-sm font-medium text-foreground">{formatTimestamp(data.summary.latestSuccessfulLoginAt)}</p>
+            <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+                <div className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-border bg-muted text-muted-foreground">
+                  <UserRound className="h-7 w-7" />
+                </div>
+                <div className="min-w-0 flex-1 space-y-3">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="text-2xl font-semibold tracking-tight text-foreground">
+                        {data.user.displayName || data.user.username}
+                      </h2>
+                      <Badge
+                        variant="outline"
+                        className={
+                          data.user.enabled
+                            ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300"
+                            : "border-rose-500/20 bg-rose-500/10 text-rose-600 dark:text-rose-300"
+                        }
+                      >
+                        {data.user.enabled ? "Enabled" : "Disabled"}
+                      </Badge>
+                      {!data.user.emailVerified ? (
+                        <Badge variant="outline" className="border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-300">
+                          Email unverified
+                        </Badge>
+                      ) : null}
+                    </div>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {[data.user.username, data.user.email || null, data.summary.realm].filter(Boolean).join(" · ")}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-x-6 gap-y-2 border-t border-border pt-3">
+                    <div className="space-y-0.5">
+                      <p className="text-xs text-muted-foreground">Sessions</p>
+                      <p className="text-sm font-semibold text-foreground">{data.sessions.length}</p>
+                    </div>
+                    <div className="space-y-0.5">
+                      <p className="text-xs text-muted-foreground">Last login</p>
+                      <p className="text-sm font-semibold text-foreground">{formatTimestamp(data.summary.latestSuccessfulLoginAt)}</p>
+                    </div>
+                    <div className="space-y-0.5">
+                      <p className="text-xs text-muted-foreground">Federation</p>
+                      <p className="text-sm font-semibold text-foreground">{data.user.federationLink ?? "Local user"}</p>
+                    </div>
+                    <div className="space-y-0.5">
+                      <p className="text-xs text-muted-foreground">Realm</p>
+                      <p className="text-sm font-semibold text-foreground">{data.summary.realm}</p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -476,16 +523,10 @@ export function UserDetailContent({ userId }: { userId: string }) {
           ) : null}
 
           <Tabs defaultValue="overview" className="space-y-5">
-            <TabsList className="grid h-auto w-full grid-cols-3 rounded-md border border-border/70 bg-card/92 p-1">
-            <TabsTrigger value="overview" className="h-11 rounded-sm">
-              Overview
-            </TabsTrigger>
-            <TabsTrigger value="access" className="h-11 rounded-sm">
-              Access
-            </TabsTrigger>
-            <TabsTrigger value="activity" className="h-11 rounded-sm">
-              Activity
-            </TabsTrigger>
+            <TabsList className="inline-flex h-auto items-center rounded-full border border-border/70 bg-muted/40 p-1">
+              <TabsTrigger value="overview" className="h-9 rounded-full px-6 text-sm">Overview</TabsTrigger>
+              <TabsTrigger value="access" className="h-9 rounded-full px-6 text-sm">Access</TabsTrigger>
+              <TabsTrigger value="activity" className="h-9 rounded-full px-6 text-sm">Activity</TabsTrigger>
             </TabsList>
 
             <TabsContent value="overview" className="space-y-6">
@@ -813,21 +854,30 @@ export function UserDetailContent({ userId }: { userId: string }) {
                 </div>
               </CardHeader>
               <CardContent>
-                <ScrollArea className="h-[720px] pr-4">
-                  <div className="space-y-4">
-                    {data.activity.length === 0 ? (
-                      <div className="rounded-[1.25rem] border border-dashed border-border bg-background p-6 text-sm text-muted-foreground">
-                        No realm or admin events were returned for this user.
-                      </div>
-                    ) : (
-                      data.activity.map((event) => (
-                        <div key={`${event.source}-${event.id}`} className="rounded-[1.25rem] border border-border bg-background p-4">
-                          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                            <div className="space-y-2">
+                <div className="space-y-1.5">
+                  {data.activity.length === 0 ? (
+                    <div className="rounded-[1.25rem] border border-dashed border-border bg-background p-6 text-sm text-muted-foreground">
+                      No realm or admin events were returned for this user.
+                    </div>
+                  ) : (
+                    data.activity.map((event) => {
+                      const meta = [
+                        event.clientId ? `Client ${event.clientId}` : null,
+                        event.ipAddress ? `IP ${event.ipAddress}` : null,
+                        "resourcePath" in event && event.resourcePath ? event.resourcePath : null,
+                        "actorUsername" in event && event.actorUsername ? `Actor ${event.actorUsername}` : null,
+                      ].filter(Boolean) as string[]
+                      const hasDetails = Object.keys(event.details).length > 0
+                      const expandable = meta.length > 0 || hasDetails
+
+                      return expandable ? (
+                        <details key={`${event.source}-${event.id}`} className="group rounded-[1.25rem] border border-border bg-background">
+                          <summary className="flex cursor-pointer list-none items-start justify-between gap-3 px-4 py-3.5">
+                            <div className="space-y-1">
                               <div className="flex flex-wrap items-center gap-2">
-                                <p className="font-medium text-foreground">{formatLabel(event.label)}</p>
+                                <p className="text-sm font-medium text-foreground">{formatLabel(event.label)}</p>
                                 <Badge variant="outline" className="border-border bg-card text-muted-foreground">
-                                  {event.source === "realm-event" ? "Realm event" : "Admin event"}
+                                  {event.source === "realm-event" ? "Realm" : "Admin"}
                                 </Badge>
                                 {event.error ? (
                                   <Badge variant="outline" className="border-rose-500/20 bg-rose-500/10 text-rose-600 dark:text-rose-300">
@@ -835,53 +885,65 @@ export function UserDetailContent({ userId }: { userId: string }) {
                                   </Badge>
                                 ) : null}
                               </div>
-
-                              <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-                                <span>{formatTimestamp(event.occurredAt)}</span>
-                                {event.clientId ? <span>Client {event.clientId}</span> : null}
-                                {event.ipAddress ? <span>IP {event.ipAddress}</span> : null}
-                                {"resourcePath" in event && event.resourcePath ? <span>{event.resourcePath}</span> : null}
-                                {"actorUsername" in event && event.actorUsername ? <span>Actor {event.actorUsername}</span> : null}
+                              <p className="text-xs text-muted-foreground">{formatTimestamp(event.occurredAt)}</p>
+                            </div>
+                            <ChevronDown className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180" />
+                          </summary>
+                          <div className="space-y-3 border-t border-border px-4 pb-4 pt-3">
+                            {meta.length > 0 ? (
+                              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                                {meta.map((item, i) => <span key={i}>{item}</span>)}
                               </div>
-                            </div>
+                            ) : null}
+                            {hasDetails ? (
+                              <div className="grid gap-2 md:grid-cols-2">
+                                {Object.entries(event.details).map(([key, value]) => (
+                                  <div key={key} className="rounded-[0.75rem] border border-border bg-card p-2.5">
+                                    <p className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">{formatLabel(key)}</p>
+                                    <p className="mt-1 break-all text-xs text-foreground">{value}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : null}
                           </div>
-
-                          {Object.keys(event.details).length > 0 ? (
-                            <div className="mt-4 grid gap-3 md:grid-cols-2">
-                              {Object.entries(event.details).map(([key, value]) => (
-                                <div key={key} className="rounded-[0.9rem] border border-border bg-card p-3">
-                                  <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">{formatLabel(key)}</p>
-                                  <p className="mt-2 text-sm text-foreground">{value}</p>
-                                </div>
-                              ))}
-                            </div>
-                          ) : null}
+                        </details>
+                      ) : (
+                        <div key={`${event.source}-${event.id}`} className="rounded-[1.25rem] border border-border bg-background px-4 py-3.5">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-sm font-medium text-foreground">{formatLabel(event.label)}</p>
+                            <Badge variant="outline" className="border-border bg-card text-muted-foreground">
+                              {event.source === "realm-event" ? "Realm" : "Admin"}
+                            </Badge>
+                            {event.error ? (
+                              <Badge variant="outline" className="border-rose-500/20 bg-rose-500/10 text-rose-600 dark:text-rose-300">
+                                Error
+                              </Badge>
+                            ) : null}
+                          </div>
+                          <p className="mt-1 text-xs text-muted-foreground">{formatTimestamp(event.occurredAt)}</p>
                         </div>
-                      ))
-                    )}
-                  </div>
-                </ScrollArea>
+                      )
+                    })
+                  )}
+                </div>
               </CardContent>
             </Card>
             </TabsContent>
           </Tabs>
         </div>
 
-        <aside className="md:w-80 md:shrink-0 md:self-stretch md:border-l md:border-border/70 md:bg-card/30">
-          <div className="rounded-sm border border-border/70 bg-card/92 p-4 md:sticky md:top-6 md:rounded-none md:border-0 md:bg-transparent md:p-6">
-            <div className="space-y-1 pb-4">
-              <h3 className="text-lg font-semibold text-foreground">Actions</h3>
-              <p className="text-sm text-muted-foreground">Direct account controls.</p>
-            </div>
-            <div className="grid gap-2">
-              <Button type="button" className="h-10 justify-start rounded-sm px-4" onClick={() => setIsEditOpen(true)} disabled={Boolean(pendingAction)}>
+        <aside className="md:w-72 md:shrink-0 md:self-stretch md:border-l md:border-border/70 md:bg-card/30">
+          <div className="rounded-2xl border border-border/70 bg-card p-5 shadow-sm md:sticky md:top-6 md:rounded-none md:border-0 md:bg-transparent md:p-6 md:shadow-none">
+            <p className="mb-4 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Actions</p>
+            <div className="space-y-1.5">
+              <Button type="button" className="h-10 w-full justify-start rounded-xl px-4" onClick={() => setIsEditOpen(true)} disabled={Boolean(pendingAction)}>
                 <UserPen className="h-4 w-4" />
                 Edit profile
               </Button>
               <Button
                 type="button"
                 variant="outline"
-                className="h-10 justify-start rounded-sm bg-transparent px-4"
+                className="h-10 w-full justify-start rounded-xl bg-transparent px-4"
                 onClick={() => {
                   void handleToggleEnabled(!data.user.enabled).catch(() => undefined)
                 }}
@@ -893,7 +955,7 @@ export function UserDetailContent({ userId }: { userId: string }) {
               <Button
                 type="button"
                 variant="outline"
-                className="h-10 justify-start rounded-sm bg-transparent px-4"
+                className="h-10 w-full justify-start rounded-xl bg-transparent px-4"
                 onClick={() => setIsPasswordOpen(true)}
                 disabled={Boolean(pendingAction)}
               >
@@ -903,7 +965,7 @@ export function UserDetailContent({ userId }: { userId: string }) {
               <Button
                 type="button"
                 variant="outline"
-                className="h-10 justify-start rounded-sm bg-transparent px-4"
+                className="h-10 w-full justify-start rounded-xl bg-transparent px-4"
                 onClick={() => {
                   void handleResetOtp().catch(() => undefined)
                 }}
@@ -912,10 +974,13 @@ export function UserDetailContent({ userId }: { userId: string }) {
                 <Shield className="h-4 w-4" />
                 Reset OTP
               </Button>
+              <div className="py-0.5">
+                <div className="h-px bg-border/60" />
+              </div>
               <Button
                 type="button"
                 variant="outline"
-                className="h-10 justify-start rounded-sm bg-transparent px-4"
+                className="h-10 w-full justify-start rounded-xl bg-transparent px-4 text-rose-600 hover:text-rose-600 dark:text-rose-400"
                 onClick={() => {
                   void handleLogoutSessions().catch(() => undefined)
                 }}
@@ -927,7 +992,7 @@ export function UserDetailContent({ userId }: { userId: string }) {
               <Button
                 type="button"
                 variant="outline"
-                className="h-10 justify-start rounded-sm bg-transparent px-4"
+                className="h-10 w-full justify-start rounded-xl bg-transparent px-4"
                 onClick={() => {
                   void handleClearLock().catch(() => undefined)
                 }}
@@ -936,6 +1001,25 @@ export function UserDetailContent({ userId }: { userId: string }) {
                 <LockOpen className="h-4 w-4" />
                 Clear lock
               </Button>
+              <div className="py-0.5">
+                <div className="h-px bg-border/60" />
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-10 w-full justify-start rounded-xl bg-transparent px-4 text-rose-600 hover:text-rose-600 dark:text-rose-400"
+                onClick={() => setIsOffboardOpen(true)}
+                disabled={Boolean(pendingAction) || isOffboarding}
+              >
+                <UserX className="h-4 w-4" />
+                Offboard user
+              </Button>
+              {pendingAction ? (
+                <div className="mt-2 flex items-center gap-2 rounded-xl border border-border bg-muted/30 px-4 py-2.5 text-xs text-muted-foreground">
+                  <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+                  {pendingAction}...
+                </div>
+              ) : null}
             </div>
           </div>
         </aside>
@@ -965,6 +1049,43 @@ export function UserDetailContent({ userId }: { userId: string }) {
         isSubmitting={pendingAction === "Group membership added"}
         onSubmit={handleAddGroup}
       />
+
+      <AlertDialog open={isOffboardOpen} onOpenChange={setIsOffboardOpen}>
+        <AlertDialogContent className="rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <UserX className="h-5 w-5 text-rose-500" />
+              Offboard {data.user.displayName || data.user.username}?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-1.5">
+              <span className="block">This will immediately:</span>
+              <ul className="ml-4 list-disc space-y-0.5 text-left text-sm">
+                <li>Disable the Keycloak account</li>
+                <li>Remove from all groups</li>
+                <li>Terminate all active sessions</li>
+                <li>Deny OpenVPN access (if applicable)</li>
+              </ul>
+              <span className="block pt-1 text-xs text-muted-foreground">
+                This action is logged to the audit trail. The account can be re-enabled manually.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isOffboarding}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-rose-600 text-white hover:bg-rose-700 focus-visible:ring-rose-600"
+              disabled={isOffboarding}
+              onClick={() => void handleOffboard()}
+            >
+              {isOffboarding ? (
+                <><LoaderCircle className="h-4 w-4 animate-spin" /> Offboarding…</>
+              ) : (
+                "Offboard user"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

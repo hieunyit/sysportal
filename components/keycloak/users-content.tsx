@@ -6,11 +6,13 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import {
   ArrowRight,
+  BookOpen,
   CheckCircle2,
   Download,
   FileDown,
   KeyRound,
   LoaderCircle,
+  Network,
   Plus,
   Search,
   ShieldAlert,
@@ -48,6 +50,7 @@ import { formatTimestamp } from "@/lib/email-template-utils"
 import { readApiErrorMessage, readApiSuccessMessage } from "@/lib/api-client"
 import { UserImportDialog } from "@/components/keycloak/user-import-dialog"
 import { UserEditorDialog } from "@/components/keycloak/user-management-dialogs"
+import { DirectoryOptionListsContent } from "@/components/settings/option-lists-content"
 
 interface UserListItem {
   id: string
@@ -182,6 +185,7 @@ export function UsersContent() {
   const [isLoading, setIsLoading] = useState(true)
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [isImportOpen, setIsImportOpen] = useState(false)
+  const [isCatalogsOpen, setIsCatalogsOpen] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
   const [createProfileMetadata, setCreateProfileMetadata] = useState<Record<string, unknown> | null>(null)
   const [isLoadingCreateMetadata, setIsLoadingCreateMetadata] = useState(false)
@@ -191,13 +195,22 @@ export function UsersContent() {
 
   const [isExporting, setIsExporting] = useState(false)
 
-  // Bulk selection
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  // Bulk selection — Map persists user data across page changes so export selected works correctly
+  const [selectedUsers, setSelectedUsers] = useState<Map<string, UserListItem>>(new Map())
   const [isBulkWorking, setIsBulkWorking] = useState(false)
   const [bulkResults, setBulkResults] = useState<BulkResult[] | null>(null)
   const [isGroupDialogOpen, setIsGroupDialogOpen] = useState(false)
   const [groupInput, setGroupInput] = useState("")
   const groupInputRef = useRef<HTMLInputElement>(null)
+
+  const [isVpnProvisionOpen, setIsVpnProvisionOpen] = useState(false)
+  const [vpnProvisionGroup, setVpnProvisionGroup] = useState("")
+  const [vpnGroups, setVpnGroups] = useState<string[]>([])
+  const [isVpnProvisioning, setIsVpnProvisioning] = useState(false)
+  const [vpnProvisionResults, setVpnProvisionResults] = useState<{
+    created: number; skipped: number; failed: number
+    results: { username: string; status: string; error: string | null }[]
+  } | null>(null)
 
   useEffect(() => {
     let isActive = true
@@ -215,7 +228,6 @@ export function UsersContent() {
         if (!isActive) return
 
         setData(payload as UsersResponse)
-        setSelectedIds(new Set())
         setError(null)
       } catch (loadError) {
         if (!isActive) return
@@ -308,8 +320,8 @@ export function UsersContent() {
     }
   }
 
-  async function runBulkAction(action: "enable" | "disable" | "assignGroup", groupId?: string) {
-    const userIds = Array.from(selectedIds)
+  async function runBulkAction(action: "enable" | "disable" | "assignGroup" | "clearRequiredActions", groupId?: string) {
+    const userIds = Array.from(selectedUsers.keys())
     if (userIds.length === 0) return
 
     try {
@@ -333,7 +345,7 @@ export function UsersContent() {
 
       setBulkResults(results.filter((r) => !r.success))
       setRefreshKey((c) => c + 1)
-      setSelectedIds(new Set())
+      setSelectedUsers(new Map())
 
       if (failureCount === 0) {
         toast.success("Bulk operation completed", {
@@ -356,7 +368,7 @@ export function UsersContent() {
   }
 
   function handleExportSelected() {
-    const selected = (data?.items ?? []).filter((u) => selectedIds.has(u.id))
+    const selected = Array.from(selectedUsers.values())
     if (selected.length === 0) return
     downloadCsv(
       `keycloak-users-selected-${new Date().toISOString().slice(0, 10)}.csv`,
@@ -397,32 +409,77 @@ export function UsersContent() {
     }
   }
 
-  const pageIds = data?.items.map((u) => u.id) ?? []
-  const allPageSelected = pageIds.length > 0 && pageIds.every((id) => selectedIds.has(id))
-  const somePageSelected = pageIds.some((id) => selectedIds.has(id)) && !allPageSelected
-
-  function toggleSelectAll() {
-    if (allPageSelected) {
-      setSelectedIds((prev) => {
-        const next = new Set(prev)
-        pageIds.forEach((id) => next.delete(id))
-        return next
-      })
-    } else {
-      setSelectedIds((prev) => new Set([...prev, ...pageIds]))
+  async function openVpnProvisionDialog() {
+    setVpnProvisionResults(null)
+    setVpnProvisionGroup("")
+    setIsVpnProvisionOpen(true)
+    try {
+      const response = await fetch("/api/openvpn/groups?pageSize=50", { cache: "no-store" })
+      const payload = (await response.json().catch(() => null)) as { items?: { name: string }[] } | null
+      setVpnGroups(payload?.items?.map((g) => g.name) ?? [])
+    } catch {
+      setVpnGroups([])
     }
   }
 
-  function toggleRow(id: string) {
-    setSelectedIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
+  async function handleVpnProvision() {
+    const userIds = Array.from(selectedUsers.keys())
+    if (userIds.length === 0) return
+    setIsVpnProvisioning(true)
+    try {
+      const response = await fetch("/api/keycloak/users/bulk-provision-openvpn", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userIds, vpnGroup: vpnProvisionGroup || null }),
+      })
+      const payload = (await response.json().catch(() => null)) as {
+        data?: { created: number; skipped: number; failed: number; results: { username: string; status: string; error: string | null }[] }
+        message?: string; error?: string
+      } | null
+      if (!response.ok) throw new Error(readApiErrorMessage(payload, "Provisioning failed"))
+      setVpnProvisionResults(payload?.data ?? { created: 0, skipped: 0, failed: 0, results: [] })
+      toast.success("VPN provisioning complete", {
+        description: readApiSuccessMessage(payload, `${payload?.data?.created ?? 0} user(s) provisioned.`),
+      })
+    } catch (err) {
+      toast.error("VPN provisioning failed", {
+        description: err instanceof Error ? err.message : "Unknown error",
+      })
+    } finally {
+      setIsVpnProvisioning(false)
+    }
+  }
+
+  const pageItems = data?.items ?? []
+  const allPageSelected = pageItems.length > 0 && pageItems.every((u) => selectedUsers.has(u.id))
+  const somePageSelected = pageItems.some((u) => selectedUsers.has(u.id)) && !allPageSelected
+
+  function toggleSelectAll() {
+    if (allPageSelected) {
+      setSelectedUsers((prev) => {
+        const next = new Map(prev)
+        pageItems.forEach((u) => next.delete(u.id))
+        return next
+      })
+    } else {
+      setSelectedUsers((prev) => {
+        const next = new Map(prev)
+        pageItems.forEach((u) => next.set(u.id, u))
+        return next
+      })
+    }
+  }
+
+  function toggleRow(user: UserListItem) {
+    setSelectedUsers((prev) => {
+      const next = new Map(prev)
+      if (next.has(user.id)) next.delete(user.id)
+      else next.set(user.id, user)
       return next
     })
   }
 
-  const selectionCount = selectedIds.size
+  const selectionCount = selectedUsers.size
 
   return (
     <div className="space-y-6">
@@ -589,6 +646,10 @@ export function UsersContent() {
                 {isExporting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                 Export CSV
               </Button>
+              <Button variant="outline" className="h-11 bg-transparent px-5" onClick={() => setIsCatalogsOpen(true)}>
+                <BookOpen className="h-4 w-4" />
+                Catalogs
+              </Button>
               <Button variant="outline" className="h-11 bg-transparent px-5" onClick={() => { setError(null); setCreateResult(null); setIsImportOpen(true) }}>
                 <Upload className="h-4 w-4" />
                 Import CSV
@@ -650,10 +711,30 @@ export function UsersContent() {
               </Button>
               <Button
                 size="sm"
+                variant="outline"
+                className="h-8 rounded-lg bg-transparent text-xs"
+                disabled={isBulkWorking}
+                onClick={() => void runBulkAction("clearRequiredActions")}
+              >
+                {isBulkWorking ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" /> : <UserCheck className="h-3.5 w-3.5" />}
+                Clear actions
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 rounded-lg bg-transparent text-xs"
+                disabled={isBulkWorking}
+                onClick={() => void openVpnProvisionDialog()}
+              >
+                <Network className="h-3.5 w-3.5" />
+                Provision VPN
+              </Button>
+              <Button
+                size="sm"
                 variant="ghost"
                 className="h-8 rounded-lg text-xs text-muted-foreground"
                 disabled={isBulkWorking}
-                onClick={() => setSelectedIds(new Set())}
+                onClick={() => setSelectedUsers(new Map())}
               >
                 Clear selection
               </Button>
@@ -699,12 +780,12 @@ export function UsersContent() {
                   {data.items.map((user) => (
                     <TableRow
                       key={user.id}
-                      className={`border-border ${selectedIds.has(user.id) ? "bg-indigo-50/50 dark:bg-indigo-950/20" : ""}`}
+                      className={`border-border ${selectedUsers.has(user.id) ? "bg-indigo-50/50 dark:bg-indigo-950/20" : ""}`}
                     >
                       <TableCell className="w-10 px-5 py-4 align-top">
                         <Checkbox
-                          checked={selectedIds.has(user.id)}
-                          onCheckedChange={() => toggleRow(user.id)}
+                          checked={selectedUsers.has(user.id)}
+                          onCheckedChange={() => toggleRow(user)}
                           aria-label={`Select ${user.displayName}`}
                         />
                       </TableCell>
@@ -861,6 +942,93 @@ export function UsersContent() {
         onOpenChange={setIsImportOpen}
         onImported={(count) => { if (count > 0) setRefreshKey((c) => c + 1) }}
       />
+
+      <Dialog open={isVpnProvisionOpen} onOpenChange={(open) => { setIsVpnProvisionOpen(open); if (!open) setVpnProvisionResults(null) }}>
+        <DialogContent className="max-w-lg rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Network className="h-5 w-5 text-primary" />
+              Provision to OpenVPN
+            </DialogTitle>
+            <DialogDescription>
+              Create OpenVPN accounts for the {selectedUsers.size} selected user(s). Existing accounts will be skipped.
+            </DialogDescription>
+          </DialogHeader>
+
+          {!vpnProvisionResults ? (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="vpn-group">VPN group <span className="text-muted-foreground">(optional)</span></Label>
+                {vpnGroups.length > 0 ? (
+                  <select
+                    id="vpn-group"
+                    value={vpnProvisionGroup}
+                    onChange={(e) => setVpnProvisionGroup(e.target.value)}
+                    className="flex h-9 w-full rounded-lg border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  >
+                    <option value="">No group assignment</option>
+                    {vpnGroups.map((g) => <option key={g} value={g}>{g}</option>)}
+                  </select>
+                ) : (
+                  <input
+                    id="vpn-group"
+                    value={vpnProvisionGroup}
+                    onChange={(e) => setVpnProvisionGroup(e.target.value)}
+                    placeholder="Enter group name (optional)"
+                    className="flex h-9 w-full rounded-lg border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  />
+                )}
+              </div>
+              <DialogFooter>
+                <Button variant="outline" className="bg-transparent" onClick={() => setIsVpnProvisionOpen(false)}>Cancel</Button>
+                <Button disabled={isVpnProvisioning} onClick={() => void handleVpnProvision()}>
+                  {isVpnProvisioning ? <><LoaderCircle className="h-4 w-4 animate-spin" /> Provisioning…</> : "Provision"}
+                </Button>
+              </DialogFooter>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="grid grid-cols-3 gap-3 text-center">
+                {[
+                  { label: "Created", value: vpnProvisionResults.created, color: "text-emerald-600 dark:text-emerald-400" },
+                  { label: "Skipped", value: vpnProvisionResults.skipped, color: "text-muted-foreground" },
+                  { label: "Failed", value: vpnProvisionResults.failed, color: "text-rose-600 dark:text-rose-400" },
+                ].map((s) => (
+                  <div key={s.label} className="rounded-xl border border-border/60 bg-muted/20 py-3">
+                    <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
+                    <p className="text-xs text-muted-foreground">{s.label}</p>
+                  </div>
+                ))}
+              </div>
+              {vpnProvisionResults.results.filter((r) => r.status === "failed").length > 0 && (
+                <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 dark:border-rose-900/40 dark:bg-rose-950/20 space-y-1">
+                  <p className="text-xs font-medium text-rose-700 dark:text-rose-400">Failed accounts</p>
+                  {vpnProvisionResults.results.filter((r) => r.status === "failed").map((r) => (
+                    <p key={r.username} className="text-xs text-rose-600 dark:text-rose-400">
+                      <span className="font-medium">{r.username}</span>: {r.error}
+                    </p>
+                  ))}
+                </div>
+              )}
+              <DialogFooter>
+                <Button onClick={() => { setIsVpnProvisionOpen(false); setVpnProvisionResults(null) }}>Done</Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isCatalogsOpen} onOpenChange={setIsCatalogsOpen}>
+        <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto rounded-2xl border-border/80 bg-card">
+          <DialogHeader>
+            <DialogTitle>Department &amp; Address catalogs</DialogTitle>
+            <DialogDescription>
+              Manage the department and work address option lists used when creating Keycloak users.
+            </DialogDescription>
+          </DialogHeader>
+          <DirectoryOptionListsContent className="border-0 shadow-none bg-transparent rounded-none" />
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

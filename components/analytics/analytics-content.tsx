@@ -1,8 +1,10 @@
 "use client"
 
 import { useDeferredValue, useEffect, useState } from "react"
-import { Activity, Clock3, Filter, LoaderCircle, PencilLine, Search, Wrench } from "lucide-react"
+import { Activity, Clock3, Download, Filter, LoaderCircle, PencilLine, Search, Wrench } from "lucide-react"
+import { toast } from "sonner"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import {
@@ -67,6 +69,7 @@ export function AnalyticsContent() {
   const [summary, setSummary] = useState<AuditSummary | null>(null)
   const [items, setItems] = useState<AuditItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isExporting, setIsExporting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState("")
   const [resourceType, setResourceType] = useState("all")
@@ -122,6 +125,56 @@ export function AnalyticsContent() {
       isActive = false
     }
   }, [deferredSearch, resourceType])
+
+  async function handleExportAll() {
+    try {
+      setIsExporting(true)
+      const allItems: AuditItem[] = []
+      const total = summary?.total ?? 0
+      const pageSize = 200
+      let offset = 0
+
+      while (offset === 0 || allItems.length < total) {
+        const params = new URLSearchParams({ limit: String(pageSize), offset: String(offset) })
+        if (resourceType !== "all") params.set("resourceType", resourceType)
+        if (deferredSearch.trim()) params.set("search", deferredSearch.trim())
+
+        const response = await fetch(`/api/audit?${params.toString()}`, { cache: "no-store" })
+        const payload = (await response.json().catch(() => null)) as { items?: AuditItem[] } | null
+        if (!response.ok) throw new Error("Unable to export audit log")
+
+        const page = payload?.items ?? []
+        allItems.push(...page)
+        offset += pageSize
+
+        if (page.length < pageSize) break
+      }
+
+      const escape = (v: unknown) => {
+        const s = String(v ?? "").replace(/"/g, '""')
+        return /[",\n\r]/.test(s) ? `"${s}"` : s
+      }
+      const headers = ["actorName", "action", "resourceType", "resourceName", "detail", "createdAt"]
+      const rows = allItems.map((item) =>
+        [item.actorName, item.action, item.resourceType, item.resourceName, item.detail, item.createdAt]
+          .map(escape)
+          .join(","),
+      )
+      const blob = new Blob([`﻿${[headers.join(","), ...rows].join("\r\n")}`], {
+        type: "text/csv;charset=utf-8;",
+      })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `audit-log-${new Date().toISOString().slice(0, 10)}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      toast.error("Export failed", { description: err instanceof Error ? err.message : "Unable to export audit log" })
+    } finally {
+      setIsExporting(false)
+    }
+  }
 
   const resourceTypeOptions = Array.from(new Set(items.map((item) => item.resourceType))).sort()
 
@@ -209,7 +262,7 @@ export function AnalyticsContent() {
                 </CardDescription>
               </div>
 
-              <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr),220px]">
+              <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr),220px,auto]">
                 <div className="relative">
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
@@ -233,6 +286,16 @@ export function AnalyticsContent() {
                     ))}
                   </SelectContent>
                 </Select>
+
+                <Button
+                  variant="outline"
+                  className="h-11 rounded-full bg-transparent px-5"
+                  disabled={isExporting || isLoading}
+                  onClick={() => void handleExportAll()}
+                >
+                  {isExporting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                  Export CSV
+                </Button>
               </div>
             </div>
           </CardHeader>

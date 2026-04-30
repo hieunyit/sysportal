@@ -805,6 +805,12 @@ export async function createKeycloakAdminClient(configInput?: KeycloakConnection
         expect: "void",
       })
     },
+    async deleteSession(sessionId: string) {
+      await keycloakRequest<void>(config, `/sessions/${encodeURIComponent(sessionId)}`, {
+        method: "DELETE",
+        expect: "void",
+      })
+    },
     async clearUserLoginFailures(userId: string) {
       await keycloakRequest<void>(
         config,

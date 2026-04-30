@@ -164,6 +164,7 @@ export interface AuditLogSummaryRecord {
 
 export interface AuditLogFilterOptions {
   limit?: number
+  offset?: number
   resourceType?: string
   resourceId?: string
   category?: AuditLogRecord["category"]
@@ -1195,7 +1196,7 @@ export function upsertSettingOption(kind: SettingsOptionKind, value: string) {
 }
 
 export function upsertAuthenticatedUser(
-  input: Omit<AuthenticatedUserRecord, "createdAt" | "updatedAt" | "lastLoginAt">,
+  input: Omit<AuthenticatedUserRecord, "createdAt" | "updatedAt" | "lastLoginAt" | "permissions">,
 ) {
   const database = getDatabase()
   const now = new Date().toISOString()
@@ -1770,6 +1771,43 @@ export function listAuthUsers(): AuthenticatedUserRecord[] {
   return rows.map(selectAuthUserRow)
 }
 
+export function getAuthUserBySubject(subject: string): AuthenticatedUserRecord | null {
+  const database = getDatabase()
+
+  const row = database
+    .prepare(`
+      SELECT
+        subject,
+        preferred_username AS preferredUsername,
+        full_name AS fullName,
+        email,
+        roles_json AS rolesJson,
+        permissions_json AS permissionsJson,
+        last_login_at AS lastLoginAt,
+        created_at AS createdAt,
+        updated_at AS updatedAt
+      FROM auth_users
+      WHERE subject = ?
+    `)
+    .get(subject) as {
+      subject: string
+      preferredUsername: string
+      fullName: string
+      email: string
+      rolesJson: string
+      permissionsJson: string
+      lastLoginAt: string
+      createdAt: string
+      updatedAt: string
+    } | undefined
+
+  if (!row) {
+    return null
+  }
+
+  return selectAuthUserRow(row)
+}
+
 export function updateAuthUserPermissions(
   subject: string,
   permissions: AuthUserPermission[],
@@ -1901,7 +1939,8 @@ function buildAuditQueryFilters(options?: Omit<AuditLogFilterOptions, "limit">) 
 export function listAuditLogs(options?: AuditLogFilterOptions) {
   const database = getDatabase()
   const { whereClause, params } = buildAuditQueryFilters(options)
-  const limit = Math.min(Math.max(options?.limit ?? 24, 1), 200)
+  const limit = Math.min(Math.max(options?.limit ?? 24, 1), 500)
+  const offset = Math.max(options?.offset ?? 0, 0)
 
   const rows = database
     .prepare(`
@@ -1919,9 +1958,9 @@ export function listAuditLogs(options?: AuditLogFilterOptions) {
       FROM audit_logs
       ${whereClause}
       ORDER BY created_at DESC
-      LIMIT ?
+      LIMIT ? OFFSET ?
     `)
-    .all(...params, limit) as Array<{
+    .all(...params, limit, offset) as Array<{
       id: string
       actorName: string
       category: "edit"

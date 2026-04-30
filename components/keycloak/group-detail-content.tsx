@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useEffect, useState } from "react"
-import { ArrowLeft, FolderTree, LoaderCircle, Pencil, Plus, ShieldAlert, Trash2, Users, Workflow } from "lucide-react"
+import { ArrowLeft, ChevronDown, FolderTree, LoaderCircle, Pencil, Plus, ShieldAlert, Trash2, Users, Workflow } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -240,7 +240,7 @@ export function GroupDetailContent({ groupId }: { groupId: string }) {
     <div className="space-y-6">
       <div className="flex flex-col gap-6 md:flex-row md:items-start md:gap-0">
         <div className="min-w-0 flex-1 space-y-6 md:pr-6">
-          <div className="space-y-4 px-1">
+          <div className="space-y-4">
             <Button asChild variant="ghost" className="h-8 rounded-xl px-3 text-muted-foreground">
               <Link href="/groups">
                 <ArrowLeft className="h-4 w-4" />
@@ -248,32 +248,37 @@ export function GroupDetailContent({ groupId }: { groupId: string }) {
               </Link>
             </Button>
 
-            <h2 className="text-[2rem] font-semibold tracking-[-0.04em] text-foreground">{data.group.name}</h2>
-
-            <div className="grid gap-3 xl:grid-cols-3">
-              <div className="rounded-md border border-border/70 bg-card/92 p-4">
-                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Path</p>
-                <p className="mt-2 text-sm font-medium text-foreground">{data.group.path}</p>
-              </div>
-              <div className="rounded-md border border-border/70 bg-card/92 p-4">
-                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Realm</p>
-                <p className="mt-2 text-sm font-medium text-foreground">{data.summary.realm}</p>
-              </div>
-              <div className="rounded-md border border-border/70 bg-card/92 p-4">
-                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Description</p>
-                <p className="mt-2 text-sm font-medium text-foreground">{data.group.description || "No description"}</p>
-              </div>
-              <div className="rounded-md border border-border/70 bg-card/92 p-4">
-                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Members</p>
-                <p className="mt-2 text-sm font-medium text-foreground">{data.members.length}</p>
-              </div>
-              <div className="rounded-md border border-border/70 bg-card/92 p-4">
-                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Subgroups</p>
-                <p className="mt-2 text-sm font-medium text-foreground">{data.group.subGroupCount}</p>
-              </div>
-              <div className="rounded-md border border-border/70 bg-card/92 p-4">
-                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Depth</p>
-                <p className="mt-2 text-sm font-medium text-foreground">{data.group.depth}</p>
+            <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+                <div className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-border bg-muted text-muted-foreground">
+                  <FolderTree className="h-7 w-7" />
+                </div>
+                <div className="min-w-0 flex-1 space-y-3">
+                  <div>
+                    <h2 className="text-2xl font-semibold tracking-tight text-foreground">{data.group.name}</h2>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {[data.group.path, data.summary.realm, data.group.description || null].filter(Boolean).join(" · ")}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-x-6 gap-y-2 border-t border-border pt-3">
+                    <div className="space-y-0.5">
+                      <p className="text-xs text-muted-foreground">Members</p>
+                      <p className="text-sm font-semibold text-foreground">{data.members.length}</p>
+                    </div>
+                    <div className="space-y-0.5">
+                      <p className="text-xs text-muted-foreground">Subgroups</p>
+                      <p className="text-sm font-semibold text-foreground">{data.group.subGroupCount}</p>
+                    </div>
+                    <div className="space-y-0.5">
+                      <p className="text-xs text-muted-foreground">Realm roles</p>
+                      <p className="text-sm font-semibold text-foreground">{realmRoleCount}</p>
+                    </div>
+                    <div className="space-y-0.5">
+                      <p className="text-xs text-muted-foreground">Depth</p>
+                      <p className="text-sm font-semibold text-foreground">{data.group.depth}</p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -293,16 +298,10 @@ export function GroupDetailContent({ groupId }: { groupId: string }) {
           ) : null}
 
           <Tabs defaultValue="overview" className="space-y-5">
-            <TabsList className="grid h-auto w-full grid-cols-3 rounded-md border border-border/70 bg-card/92 p-1">
-            <TabsTrigger value="overview" className="h-11 rounded-sm">
-              Overview
-            </TabsTrigger>
-            <TabsTrigger value="access" className="h-11 rounded-sm">
-              Access
-            </TabsTrigger>
-            <TabsTrigger value="activity" className="h-11 rounded-sm">
-              Activity
-            </TabsTrigger>
+            <TabsList className="inline-flex h-auto items-center rounded-full border border-border/70 bg-muted/40 p-1">
+              <TabsTrigger value="overview" className="h-9 rounded-full px-6 text-sm">Overview</TabsTrigger>
+              <TabsTrigger value="access" className="h-9 rounded-full px-6 text-sm">Access</TabsTrigger>
+              <TabsTrigger value="activity" className="h-9 rounded-full px-6 text-sm">Activity</TabsTrigger>
             </TabsList>
 
             <TabsContent value="overview" className="space-y-6">
@@ -542,17 +541,65 @@ export function GroupDetailContent({ groupId }: { groupId: string }) {
                 </div>
               </CardHeader>
               <CardContent>
-                <ScrollArea className="h-[680px] pr-4">
-                  <div className="space-y-4">
-                    {data.adminEvents.length === 0 ? (
-                      <div className="rounded-[1.25rem] border border-dashed border-border bg-background p-6 text-sm text-muted-foreground">
-                        No admin events were returned for this group.
-                      </div>
-                    ) : (
-                      data.adminEvents.map((event) => (
-                        <div key={event.id} className="rounded-[1.25rem] border border-border bg-background p-4">
+                <div className="space-y-1.5">
+                  {data.adminEvents.length === 0 ? (
+                    <div className="rounded-[1.25rem] border border-dashed border-border bg-background p-6 text-sm text-muted-foreground">
+                      No admin events were returned for this group.
+                    </div>
+                  ) : (
+                    data.adminEvents.map((event) => {
+                      const meta = [
+                        event.actorUsername ? `Actor ${event.actorUsername}` : null,
+                        event.ipAddress ? `IP ${event.ipAddress}` : null,
+                        event.resourcePath ? event.resourcePath : null,
+                        event.clientId ? `Client ${event.clientId}` : null,
+                      ].filter(Boolean) as string[]
+                      const hasDetails = Object.keys(event.details).length > 0
+                      const expandable = meta.length > 0 || hasDetails
+
+                      return expandable ? (
+                        <details key={event.id} className="group rounded-[1.25rem] border border-border bg-background">
+                          <summary className="flex cursor-pointer list-none items-start justify-between gap-3 px-4 py-3.5">
+                            <div className="space-y-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="text-sm font-medium text-foreground">{event.operationType ?? "Unknown operation"}</p>
+                                {event.resourceType ? (
+                                  <Badge variant="outline" className="border-border bg-card text-muted-foreground">
+                                    {event.resourceType}
+                                  </Badge>
+                                ) : null}
+                                {event.error ? (
+                                  <Badge variant="outline" className="border-rose-500/20 bg-rose-500/10 text-rose-600 dark:text-rose-300">
+                                    Error
+                                  </Badge>
+                                ) : null}
+                              </div>
+                              <p className="text-xs text-muted-foreground">{formatTimestamp(event.occurredAt)}</p>
+                            </div>
+                            <ChevronDown className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180" />
+                          </summary>
+                          <div className="space-y-3 border-t border-border px-4 pb-4 pt-3">
+                            {meta.length > 0 ? (
+                              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                                {meta.map((item, i) => <span key={i}>{item}</span>)}
+                              </div>
+                            ) : null}
+                            {hasDetails ? (
+                              <div className="grid gap-2 md:grid-cols-2">
+                                {Object.entries(event.details).map(([key, value]) => (
+                                  <div key={key} className="rounded-[0.75rem] border border-border bg-card p-2.5">
+                                    <p className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">{key}</p>
+                                    <p className="mt-1 break-all text-xs text-foreground">{value}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : null}
+                          </div>
+                        </details>
+                      ) : (
+                        <div key={event.id} className="rounded-[1.25rem] border border-border bg-background px-4 py-3.5">
                           <div className="flex flex-wrap items-center gap-2">
-                            <p className="font-medium text-foreground">{event.operationType ?? "Unknown operation"}</p>
+                            <p className="text-sm font-medium text-foreground">{event.operationType ?? "Unknown operation"}</p>
                             {event.resourceType ? (
                               <Badge variant="outline" className="border-border bg-card text-muted-foreground">
                                 {event.resourceType}
@@ -564,44 +611,42 @@ export function GroupDetailContent({ groupId }: { groupId: string }) {
                               </Badge>
                             ) : null}
                           </div>
-                          <div className="mt-2 flex flex-wrap gap-4 text-sm text-muted-foreground">
-                            <span>{formatTimestamp(event.occurredAt)}</span>
-                            {event.actorUsername ? <span>Actor {event.actorUsername}</span> : null}
-                            {event.ipAddress ? <span>IP {event.ipAddress}</span> : null}
-                            {event.resourcePath ? <span>{event.resourcePath}</span> : null}
-                          </div>
+                          <p className="mt-1 text-xs text-muted-foreground">{formatTimestamp(event.occurredAt)}</p>
                         </div>
-                      ))
-                    )}
-                  </div>
-                </ScrollArea>
+                      )
+                    })
+                  )}
+                </div>
               </CardContent>
             </Card>
             </TabsContent>
           </Tabs>
         </div>
 
-        <aside className="md:w-80 md:shrink-0 md:self-stretch md:border-l md:border-border/70 md:bg-card/30">
-          <div className="rounded-sm border border-border/70 bg-card/92 p-4 md:sticky md:top-6 md:rounded-none md:border-0 md:bg-transparent md:p-6">
-            <div className="space-y-1 pb-4">
-              <h3 className="text-lg font-semibold text-foreground">Actions</h3>
-              <p className="text-sm text-muted-foreground">Direct group controls.</p>
-            </div>
-            <div className="grid gap-2">
-              <Button type="button" className="h-10 justify-start rounded-sm px-4" onClick={() => setIsEditOpen(true)} disabled={Boolean(pendingAction)}>
+        <aside className="md:w-72 md:shrink-0 md:self-stretch md:border-l md:border-border/70 md:bg-card/30">
+          <div className="rounded-2xl border border-border/70 bg-card p-5 shadow-sm md:sticky md:top-6 md:rounded-none md:border-0 md:bg-transparent md:p-6 md:shadow-none">
+            <p className="mb-4 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Actions</p>
+            <div className="space-y-1.5">
+              <Button type="button" className="h-10 w-full justify-start rounded-xl px-4" onClick={() => setIsEditOpen(true)} disabled={Boolean(pendingAction)}>
                 <Pencil className="h-4 w-4" />
                 Edit group
               </Button>
               <Button
                 type="button"
                 variant="outline"
-                className="h-10 justify-start rounded-sm bg-transparent px-4"
+                className="h-10 w-full justify-start rounded-xl bg-transparent px-4"
                 onClick={() => setIsAddMemberOpen(true)}
                 disabled={Boolean(pendingAction)}
               >
                 <Plus className="h-4 w-4" />
                 Add member
               </Button>
+              {pendingAction ? (
+                <div className="mt-2 flex items-center gap-2 rounded-xl border border-border bg-muted/30 px-4 py-2.5 text-xs text-muted-foreground">
+                  <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+                  {pendingAction}...
+                </div>
+              ) : null}
             </div>
           </div>
         </aside>
