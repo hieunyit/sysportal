@@ -7,6 +7,8 @@ import { toast } from "sonner"
 import {
   ArrowRight,
   CheckCircle2,
+  Download,
+  FileDown,
   KeyRound,
   LoaderCircle,
   Plus,
@@ -106,6 +108,59 @@ interface BulkResult {
   error: string | null
 }
 
+function downloadCsv(filename: string, headers: string[], rows: string[]) {
+  const escape = (v: unknown) => {
+    const s = String(v ?? "").replace(/"/g, '""')
+    return /[",\n\r]/.test(s) ? `"${s}"` : s
+  }
+  const lines = [headers.map(escape).join(","), ...rows]
+  const blob = new Blob([`﻿${lines.join("\r\n")}`], { type: "text/csv;charset=utf-8;" })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement("a")
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+function keycloakUsersToCsvRows(users: UserListItem[]) {
+  const escape = (v: unknown) => {
+    const s = String(v ?? "").replace(/"/g, '""')
+    return /[",\n\r]/.test(s) ? `"${s}"` : s
+  }
+  return users.map((u) =>
+    [
+      u.username,
+      u.firstName,
+      u.lastName,
+      u.email,
+      u.enabled ? "true" : "false",
+      u.emailVerified ? "true" : "false",
+      u.groups.map((g) => g.path || g.name).join("|"),
+      u.createdAt ?? "",
+      u.passwordLastSetAt ?? "",
+      u.passwordTemporary ? "true" : "false",
+      u.requiredActions.join("|"),
+    ]
+      .map(escape)
+      .join(","),
+  )
+}
+
+const KEYCLOAK_USER_CSV_HEADERS = [
+  "username",
+  "firstName",
+  "lastName",
+  "email",
+  "enabled",
+  "emailVerified",
+  "groups",
+  "createdAt",
+  "passwordLastSetAt",
+  "passwordTemporary",
+  "requiredActions",
+]
+
 function getUserStatusClass(user: UserListItem) {
   if (!user.enabled) return "border-rose-500/20 bg-rose-500/10 text-rose-600 dark:text-rose-300"
   if (!user.emailVerified) return "border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-300"
@@ -133,6 +188,8 @@ export function UsersContent() {
   const [createResult, setCreateResult] = useState<CreateUserResultNotice | null>(null)
   const [error, setError] = useState<string | null>(null)
   const deferredSearch = useDeferredValue(search)
+
+  const [isExporting, setIsExporting] = useState(false)
 
   // Bulk selection
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -295,6 +352,48 @@ export function UsersContent() {
       setIsBulkWorking(false)
       setIsGroupDialogOpen(false)
       setGroupInput("")
+    }
+  }
+
+  function handleExportSelected() {
+    const selected = (data?.items ?? []).filter((u) => selectedIds.has(u.id))
+    if (selected.length === 0) return
+    downloadCsv(
+      `keycloak-users-selected-${new Date().toISOString().slice(0, 10)}.csv`,
+      KEYCLOAK_USER_CSV_HEADERS,
+      keycloakUsersToCsvRows(selected),
+    )
+  }
+
+  async function handleExportAll() {
+    try {
+      setIsExporting(true)
+      const allUsers: UserListItem[] = []
+      let currentPage = 1
+      let totalPages = 1
+
+      while (currentPage <= totalPages) {
+        const params = new URLSearchParams({ page: String(currentPage), pageSize: "200" })
+        if (deferredSearch.trim()) params.set("search", deferredSearch.trim())
+        const response = await fetch(`/api/keycloak/users?${params.toString()}`, { cache: "no-store" })
+        const payload = (await response.json().catch(() => null)) as UsersResponse | null
+        if (!response.ok) throw new Error(readApiErrorMessage(payload, "Unable to export users"))
+        allUsers.push(...(payload?.items ?? []))
+        totalPages = payload?.pageCount ?? 1
+        currentPage++
+      }
+
+      downloadCsv(
+        `keycloak-users-${new Date().toISOString().slice(0, 10)}.csv`,
+        KEYCLOAK_USER_CSV_HEADERS,
+        keycloakUsersToCsvRows(allUsers),
+      )
+    } catch (err) {
+      toast.error("Export failed", {
+        description: err instanceof Error ? err.message : "Unable to export users",
+      })
+    } finally {
+      setIsExporting(false)
     }
   }
 
@@ -486,6 +585,10 @@ export function UsersContent() {
                   className="h-11 pl-10"
                 />
               </div>
+              <Button variant="outline" className="h-11 bg-transparent px-5" disabled={isExporting || isLoading} onClick={() => void handleExportAll()}>
+                {isExporting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                Export CSV
+              </Button>
               <Button variant="outline" className="h-11 bg-transparent px-5" onClick={() => { setError(null); setCreateResult(null); setIsImportOpen(true) }}>
                 <Upload className="h-4 w-4" />
                 Import CSV
@@ -534,6 +637,16 @@ export function UsersContent() {
               >
                 <UserMinus className="h-3.5 w-3.5" />
                 Assign group
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 rounded-lg bg-transparent text-xs"
+                disabled={isBulkWorking}
+                onClick={handleExportSelected}
+              >
+                <FileDown className="h-3.5 w-3.5" />
+                Export selected
               </Button>
               <Button
                 size="sm"

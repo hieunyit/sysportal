@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { useDeferredValue, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { KeyRound, LoaderCircle, Plus, Search, ShieldAlert, ShieldCheck, UserRound } from "lucide-react"
+import { Download, KeyRound, LoaderCircle, Plus, Search, ShieldAlert, ShieldCheck, UserRound } from "lucide-react"
 import { toast } from "sonner"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
@@ -87,6 +87,23 @@ function renderPolicyBadges(item: OpenVpnUserListResponse["items"][number]) {
   )
 }
 
+function downloadCsv(filename: string, headers: string[], rows: string[]) {
+  const blob = new Blob([`﻿${[headers.join(","), ...rows].join("\r\n")}`], {
+    type: "text/csv;charset=utf-8;",
+  })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement("a")
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+function escapeCell(v: unknown) {
+  const s = String(v ?? "").replace(/"/g, '""')
+  return /[",\n\r]/.test(s) ? `"${s}"` : s
+}
+
 export function OpenVpnUsersContent() {
   const router = useRouter()
   const [data, setData] = useState<OpenVpnUserListResponse | null>(null)
@@ -96,6 +113,7 @@ export function OpenVpnUsersContent() {
   const [isLoading, setIsLoading] = useState(true)
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const deferredSearch = useDeferredValue(search)
 
@@ -148,6 +166,38 @@ export function OpenVpnUsersContent() {
       isActive = false
     }
   }, [deferredSearch, page, refreshKey])
+
+  async function handleExportAll() {
+    try {
+      setIsExporting(true)
+      const allItems: OpenVpnUserListResponse["items"] = []
+      let currentPage = 1
+      let totalPages = 1
+
+      while (currentPage <= totalPages) {
+        const params = new URLSearchParams({ page: String(currentPage), pageSize: "200" })
+        if (deferredSearch.trim()) params.set("search", deferredSearch.trim())
+        const response = await fetch(`/api/openvpn/users?${params.toString()}`, { cache: "no-store" })
+        const payload = (await response.json().catch(() => null)) as OpenVpnUserListResponse | null
+        if (!response.ok) throw new Error(readApiErrorMessage(payload, "Unable to export OpenVPN users"))
+        allItems.push(...(payload?.items ?? []))
+        totalPages = payload?.pageCount ?? 1
+        currentPage++
+      }
+
+      const headers = ["name", "group", "authMethod", "admin", "autologin", "denied", "denyWeb", "mfaStatus", "passwordDefined", "staticIpv4", "staticIpv6"]
+      const rows = allItems.map((u) =>
+        [u.name, u.group, u.authMethod, u.admin, u.autologin, u.denied, u.denyWeb, u.mfaStatus, u.passwordDefined, u.staticIpv4, u.staticIpv6]
+          .map(escapeCell)
+          .join(","),
+      )
+      downloadCsv(`openvpn-users-${new Date().toISOString().slice(0, 10)}.csv`, headers, rows)
+    } catch (err) {
+      toast.error("Export failed", { description: err instanceof Error ? err.message : "Unable to export" })
+    } finally {
+      setIsExporting(false)
+    }
+  }
 
   async function handleCreateUser(payload: EditableOpenVpnUserState) {
     try {
@@ -266,6 +316,10 @@ export function OpenVpnUsersContent() {
                   className="h-11 pl-10"
                 />
               </div>
+              <Button variant="outline" className="h-11 bg-transparent px-5" disabled={isExporting || isLoading} onClick={() => void handleExportAll()}>
+                {isExporting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                Export CSV
+              </Button>
               <Button className="h-11 px-5" onClick={() => setIsCreateOpen(true)}>
                 <Plus className="h-4 w-4" />
                 Create user

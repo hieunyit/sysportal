@@ -3,7 +3,8 @@
 import Link from "next/link"
 import { useDeferredValue, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { FolderTree, LoaderCircle, Plus, Search, ShieldAlert, ShieldCheck, Users } from "lucide-react"
+import { Download, FolderTree, LoaderCircle, Plus, Search, ShieldAlert, ShieldCheck, Users } from "lucide-react"
+import { toast } from "sonner"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -100,6 +101,26 @@ function renderPolicyBadges(item: OpenVpnGroupListResponse["items"][number]) {
   )
 }
 
+function downloadGroupsCsv(items: OpenVpnGroupListResponse["items"]) {
+  const escape = (v: unknown) => {
+    const s = String(v ?? "").replace(/"/g, '""')
+    return /[",\n\r]/.test(s) ? `"${s}"` : s
+  }
+  const headers = ["name", "authMethod", "admin", "autologin", "denied", "denyWeb", "memberCount", "subnetCount", "dynamicRangeCount"]
+  const rows = items.map((g) =>
+    [g.name, g.authMethod, g.admin, g.autologin, g.denied, g.denyWeb, g.memberCount, g.subnetCount, g.dynamicRangeCount]
+      .map(escape)
+      .join(","),
+  )
+  const blob = new Blob([`﻿${[headers.join(","), ...rows].join("\r\n")}`], { type: "text/csv;charset=utf-8;" })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement("a")
+  a.href = url
+  a.download = `openvpn-groups-${new Date().toISOString().slice(0, 10)}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 export function OpenVpnGroupsContent() {
   const router = useRouter()
   const [data, setData] = useState<OpenVpnGroupListResponse | null>(null)
@@ -109,6 +130,7 @@ export function OpenVpnGroupsContent() {
   const [isLoading, setIsLoading] = useState(true)
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const deferredSearch = useDeferredValue(search)
 
@@ -161,6 +183,32 @@ export function OpenVpnGroupsContent() {
       isActive = false
     }
   }, [deferredSearch, page, refreshKey])
+
+  async function handleExportAll() {
+    try {
+      setIsExporting(true)
+      const allItems: OpenVpnGroupListResponse["items"] = []
+      let currentPage = 1
+      let totalPages = 1
+
+      while (currentPage <= totalPages) {
+        const params = new URLSearchParams({ page: String(currentPage), pageSize: "200" })
+        if (deferredSearch.trim()) params.set("search", deferredSearch.trim())
+        const response = await fetch(`/api/openvpn/groups?${params.toString()}`, { cache: "no-store" })
+        const payload = (await response.json().catch(() => null)) as OpenVpnGroupListResponse | null
+        if (!response.ok) throw new Error(readErrorMessage(payload, "Unable to export OpenVPN groups"))
+        allItems.push(...(payload?.items ?? []))
+        totalPages = payload?.pageCount ?? 1
+        currentPage++
+      }
+
+      downloadGroupsCsv(allItems)
+    } catch (err) {
+      toast.error("Export failed", { description: err instanceof Error ? err.message : "Unable to export" })
+    } finally {
+      setIsExporting(false)
+    }
+  }
 
   async function handleCreateGroup(payload: EditableOpenVpnGroupState) {
     try {
@@ -276,6 +324,10 @@ export function OpenVpnGroupsContent() {
                   className="h-11 pl-10"
                 />
               </div>
+              <Button variant="outline" className="h-11 bg-transparent px-5" disabled={isExporting || isLoading} onClick={() => void handleExportAll()}>
+                {isExporting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                Export CSV
+              </Button>
               <Button className="h-11 px-5" onClick={() => setIsCreateOpen(true)}>
                 <Plus className="h-4 w-4" />
                 Create group

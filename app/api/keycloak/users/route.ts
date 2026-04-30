@@ -12,6 +12,7 @@ import { sendSmtpEmail } from "@/lib/connection-tests"
 import {
   appendAuditLog,
   getEmailTemplate,
+  getNotificationSetting,
   getSystemConnection,
   upsertSettingOption,
 } from "@/lib/settings-store"
@@ -39,6 +40,38 @@ import type { SmtpSettingsRecord } from "@/lib/settings-store"
 export const runtime = "nodejs"
 const DEFAULT_CREATE_REQUIRED_ACTIONS = ["UPDATE_PASSWORD", "CONFIGURE_TOTP"] as const
 const DEFAULT_EMPLOYEE_GROUP_NAME = "jira-servicedesk-users"
+const WELCOME_EMAIL_NOTIFICATION_BY_USER_TYPE = {
+  employee: "pref-1",
+  partner: "pref-2",
+  outsource: "pref-3",
+} as const
+
+function resolveWelcomeEmailNotificationId(userType: string) {
+  const normalizedUserType = userType.trim().toLowerCase()
+
+  if (!normalizedUserType) {
+    return null
+  }
+
+  if (normalizedUserType in WELCOME_EMAIL_NOTIFICATION_BY_USER_TYPE) {
+    return WELCOME_EMAIL_NOTIFICATION_BY_USER_TYPE[
+      normalizedUserType as keyof typeof WELCOME_EMAIL_NOTIFICATION_BY_USER_TYPE
+    ]
+  }
+
+  return normalizedUserType === "employee" ? "pref-1" : "pref-2"
+}
+
+function isWelcomeEmailEnabledForUserType(userType: string) {
+  const notificationId = resolveWelcomeEmailNotificationId(userType)
+
+  if (!notificationId) {
+    return true
+  }
+
+  const setting = getNotificationSetting(notificationId)
+  return setting?.enabled ?? true
+}
 
 function toDisplayName(user: KeycloakUserRepresentation) {
   const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ").trim()
@@ -356,26 +389,28 @@ export async function GET(request: Request) {
     const client = await createKeycloakAdminClient()
     const configuredRealm = (getSystemConnection("keycloak").config as { realm: string }).realm
 
-    const [realm, totalUsers, enabledUsers, emailVerifiedUsers, filteredTotal, users] = await Promise.all([
+    const [realm, totalUsers, enabledUsers, emailVerifiedUsers, users, filteredTotalFromSearch] = await Promise.all([
       client.getRealm(),
       client.countUsers(),
       client.countUsers({ enabled: true }),
       client.countUsers({ emailVerified: true }),
-      search ? client.countUsers({ search }) : client.countUsers(),
       client.listUsers({
         search: search || undefined,
         first,
         max: pageSize,
         briefRepresentation: false,
       }),
+      search ? client.countUsers({ search }) : Promise.resolve<number | null>(null),
     ])
+    const filteredTotal = search ? (filteredTotalFromSearch ?? 0) : totalUsers
 
     const items = await Promise.all(
       users.map(async (user) => {
         const userId = user.id ?? ""
-        const [credentials, groups] = await Promise.all([
+        const [credentials, groupCount, groupsPreview] = await Promise.all([
           client.getUserCredentials(userId),
-          client.getUserGroups(userId),
+          client.getUserGroupsCount(userId),
+          client.listUserGroups(userId, { first: 0, max: 4 }),
         ])
         const passwordCredential = getPasswordCredential(credentials)
 
@@ -395,8 +430,8 @@ export async function GET(request: Request) {
           passwordLastSetAt: epochToIso(passwordCredential?.createdDate) ?? null,
           passwordTemporary: Boolean(passwordCredential?.temporary),
           credentialTypes: credentials.map((credential) => credential.type).filter(Boolean),
-          groupCount: groups.length,
-          groups: groups.slice(0, 4).map(mapGroupSummary),
+          groupCount,
+          groups: groupsPreview.map(mapGroupSummary),
         }
       }),
     )
@@ -510,7 +545,8 @@ export async function POST(request: Request) {
       userType === "employee"
         ? parsed.data.welcomeRecipientEmail.trim()
         : (createPayload.email ?? "").trim()
-    const shouldSendWelcomeEmail = true
+    const welcomeEmailNotificationId = resolveWelcomeEmailNotificationId(userType)
+    const shouldSendWelcomeEmail = isWelcomeEmailEnabledForUserType(userType)
     const formattedWorkStartDate = formatWorkStartDateForEmail(workStartDate)
     const allGroups =
       userType === "employee" || requestedGroupIdentifiers.length > 0
@@ -521,13 +557,13 @@ export async function POST(request: Request) {
         ? resolveRequestedGroups(allGroups, requestedGroupIdentifiers)
         : { resolvedGroups: [], unresolvedGroups: [] }
 
-    if (userType === "employee" && !welcomeRecipientEmail) {
+    if (userType === "employee" && shouldSendWelcomeEmail && !welcomeRecipientEmail) {
       return apiValidationError({
         error: "Invalid Keycloak user payload",
         issues: [
           {
             path: "welcomeRecipientEmail",
-            message: "Welcome recipient email is required for employee accounts",
+            message: "Welcome recipient email is required for employee accounts when welcome email is enabled",
           },
         ],
         source: "keycloak",
@@ -612,50 +648,52 @@ export async function POST(request: Request) {
     })
 
     if (resolvedCustomGroups.length > 0) {
-      try {
-        for (const resolvedGroup of resolvedCustomGroups) {
+      const assignmentResults = await Promise.all(
+        resolvedCustomGroups.map(async (resolvedGroup) => {
           try {
             await client.addUserToGroup(created.userId, resolvedGroup.groupId)
 
-            customGroupAssignments.push({
+            return {
               groupId: resolvedGroup.groupId,
               groupName: resolvedGroup.groupName,
               assigned: true,
               error: null,
-            })
+            }
           } catch (singleGroupError) {
-            customGroupAssignments.push({
+            return {
               groupId: resolvedGroup.groupId,
               groupName: resolvedGroup.groupName,
               assigned: false,
               error: getErrorDetail(singleGroupError, "Unable to assign group"),
-            })
+            }
           }
-        }
-      } catch {
-        // Error handling for group iteration is done per-group
-      }
+        }),
+      )
+
+      customGroupAssignments.push(...assignmentResults)
     }
 
-    let welcomeEmail:
-      | {
-          sent: boolean
-          recipient: string
-          error: string | null
-        }
-      | null = null
+    const shouldCreateOpenVpnUser = parsed.data.createOpenVpnUser
+    const vpnUsername = user.username ?? parsed.data.username.trim()
+    const vpnGroup = parsed.data.openVpnGroup.trim() || null
 
-    if (shouldSendWelcomeEmail && welcomeRecipientEmail) {
-      const templateName = userType === "employee" ? "new-joiner-welcome" : "account-notification"
-      const welcomeTemplate = getEmailTemplate(templateName)
-
-      if (!welcomeTemplate) {
-        welcomeEmail = {
-          sent: false,
-          recipient: welcomeRecipientEmail,
-          error: `Welcome email template (${templateName}) is not configured`,
+    const [welcomeEmail, vpnUser] = await Promise.all([
+      (async () => {
+        if (!shouldSendWelcomeEmail || !welcomeRecipientEmail) {
+          return null
         }
-      } else {
+
+        const templateName = userType === "employee" ? "new-joiner-welcome" : "account-notification"
+        const welcomeTemplate = getEmailTemplate(templateName)
+
+        if (!welcomeTemplate) {
+          return {
+            sent: false,
+            recipient: welcomeRecipientEmail,
+            error: `Welcome email template (${templateName}) is not configured`,
+          }
+        }
+
         const smtpWelcomeConfig = getSystemConnection("smtp-welcome").config as SmtpSettingsRecord
         const templateData = {
           ...welcomeTemplate.sampleData,
@@ -681,20 +719,50 @@ export async function POST(request: Request) {
             html: renderTemplateText(welcomeTemplate.html, templateData),
           })
 
-          welcomeEmail = {
+          return {
             sent: true,
             recipient: welcomeRecipientEmail,
             error: null,
           }
         } catch (welcomeEmailError) {
-          welcomeEmail = {
+          return {
             sent: false,
             recipient: welcomeRecipientEmail,
             error: getErrorDetail(welcomeEmailError, "Welcome email delivery failed"),
           }
         }
-      }
-    }
+      })(),
+      (async () => {
+        if (!shouldCreateOpenVpnUser) {
+          return null
+        }
+
+        try {
+          const vpnClient = await createOpenVpnAdminClient()
+          await vpnClient.createUser({ name: vpnUsername, group: vpnGroup })
+
+          appendAuditLog({
+            actorName: auth.actorName,
+            category: "edit",
+            action: "openvpn.user.created",
+            resourceType: "openvpn-user",
+            resourceId: vpnUsername,
+            resourceName: vpnUsername,
+            detail: `Created OpenVPN user ${vpnUsername} (via Keycloak user creation)`,
+            metadata: { group: vpnGroup },
+          })
+
+          return { created: true, name: vpnUsername, group: vpnGroup, error: null }
+        } catch (vpnError) {
+          return {
+            created: false,
+            name: vpnUsername,
+            group: vpnGroup,
+            error: getErrorDetail(vpnError, "OpenVPN user creation failed"),
+          }
+        }
+      })(),
+    ])
 
     appendAuditLog({
       actorName: auth.actorName,
@@ -720,6 +788,8 @@ export async function POST(request: Request) {
         customGroupAssignments: customGroupAssignments.length > 0 ? customGroupAssignments : null,
         welcomeEmailSent: welcomeEmail?.sent ?? false,
         welcomeEmailError: welcomeEmail?.error ?? null,
+        welcomeEmailNotificationId,
+        welcomeEmailNotificationEnabled: shouldSendWelcomeEmail,
         openVpnCreateRequested: parsed.data.createOpenVpnUser,
       },
     })
@@ -730,45 +800,6 @@ export async function POST(request: Request) {
 
     if (workAddress) {
       upsertSettingOption("workAddress", workAddress)
-    }
-
-    let vpnUser: {
-      created: boolean
-      name: string
-      group: string | null
-      error: string | null
-    } | null = null
-
-    const shouldCreateOpenVpnUser = parsed.data.createOpenVpnUser
-
-    if (shouldCreateOpenVpnUser) {
-      const vpnUsername = user.username ?? parsed.data.username.trim()
-      const vpnGroup = parsed.data.openVpnGroup.trim() || null
-
-      try {
-        const vpnClient = await createOpenVpnAdminClient()
-        await vpnClient.createUser({ name: vpnUsername, group: vpnGroup })
-
-        appendAuditLog({
-          actorName: auth.actorName,
-          category: "edit",
-          action: "openvpn.user.created",
-          resourceType: "openvpn-user",
-          resourceId: vpnUsername,
-          resourceName: vpnUsername,
-          detail: `Created OpenVPN user ${vpnUsername} (via Keycloak user creation)`,
-          metadata: { group: vpnGroup },
-        })
-
-        vpnUser = { created: true, name: vpnUsername, group: vpnGroup, error: null }
-      } catch (vpnError) {
-        vpnUser = {
-          created: false,
-          name: vpnUsername,
-          group: vpnGroup,
-          error: getErrorDetail(vpnError, "OpenVPN user creation failed"),
-        }
-      }
     }
 
     return apiSuccess(
@@ -783,6 +814,8 @@ export async function POST(request: Request) {
         requiredActions: [...DEFAULT_CREATE_REQUIRED_ACTIONS],
         defaultGroupAssignment,
         customGroupAssignments: customGroupAssignments.length > 0 ? customGroupAssignments : null,
+        welcomeEmailNotificationId,
+        welcomeEmailNotificationEnabled: shouldSendWelcomeEmail,
         welcomeEmail,
         vpnUser,
         userType,

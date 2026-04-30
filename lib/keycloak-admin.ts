@@ -1,3 +1,5 @@
+import { request as httpRequest, type IncomingHttpHeaders } from "node:http"
+import { request as httpsRequest } from "node:https"
 import { getSystemConnection, type KeycloakConnectionRecord } from "@/lib/settings-store"
 
 type KeycloakQueryValue = string | number | boolean | null | undefined
@@ -9,6 +11,13 @@ interface KeycloakTokenResponse {
   token_type?: string
   error?: string
   error_description?: string
+}
+
+interface KeycloakHttpResponse<T = unknown> {
+  statusCode: number
+  headers: IncomingHttpHeaders
+  text: string
+  json: T | null
 }
 
 export interface KeycloakRealmRepresentation {
@@ -284,6 +293,110 @@ function readErrorDetail(payload: unknown, fallback: string) {
   return response.error_description ?? response.detail ?? response.error ?? response.message ?? fallback
 }
 
+function describeNetworkError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return "Unknown connection error"
+  }
+
+  const code =
+    typeof (error as NodeJS.ErrnoException).code === "string"
+      ? (error as NodeJS.ErrnoException).code
+      : null
+
+  return code ? `${code}: ${error.message}` : error.message
+}
+
+function getHeaderValue(headers: IncomingHttpHeaders, name: string) {
+  const value = headers[name.toLowerCase()]
+
+  if (Array.isArray(value)) {
+    return value.find((entry) => entry.trim()) ?? null
+  }
+
+  return typeof value === "string" ? value : null
+}
+
+function requestKeycloakHttp<T = unknown>(
+  config: KeycloakConnectionRecord,
+  url: string,
+  {
+    method = "GET",
+    headers,
+    body,
+    timeoutMs,
+  }: {
+    method?: KeycloakRequestMethod
+    headers?: Record<string, string>
+    body?: string
+    timeoutMs?: number
+  } = {},
+) {
+  return new Promise<KeycloakHttpResponse<T>>((resolve, reject) => {
+    const target = new URL(url)
+    const isHttps = target.protocol === "https:"
+    const requestImpl = isHttps ? httpsRequest : httpRequest
+    const resolvedTimeoutMs = timeoutMs ?? Math.max(config.timeoutSeconds, 1) * 1000
+    const requestHeaders = {
+      Accept: "application/json",
+      ...(headers ?? {}),
+    } as Record<string, string>
+
+    if (body !== undefined && !requestHeaders["Content-Length"]) {
+      requestHeaders["Content-Length"] = String(Buffer.byteLength(body))
+    }
+
+    const request = requestImpl(
+      {
+        protocol: target.protocol,
+        hostname: target.hostname,
+        port: target.port ? Number(target.port) : undefined,
+        path: `${target.pathname}${target.search}`,
+        method,
+        headers: requestHeaders,
+        rejectUnauthorized: config.verifyTls,
+      },
+      (response) => {
+        const chunks: Buffer[] = []
+
+        response.on("data", (chunk) => {
+          chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
+        })
+
+        response.on("end", () => {
+          const text = Buffer.concat(chunks).toString("utf8")
+          let json: T | null = null
+
+          if (text) {
+            try {
+              json = JSON.parse(text) as T
+            } catch {
+              json = null
+            }
+          }
+
+          resolve({
+            statusCode: response.statusCode ?? 0,
+            headers: response.headers,
+            text,
+            json,
+          })
+        })
+      },
+    )
+
+    request.setTimeout(resolvedTimeoutMs, () => {
+      request.destroy(new Error(`Request timed out after ${resolvedTimeoutMs}ms`))
+    })
+    request.on("error", reject)
+
+    if (body !== undefined) {
+      request.write(body)
+    }
+
+    request.end()
+  })
+}
+
 function toNumberFromUnknown(value: unknown) {
   if (typeof value === "number" && Number.isFinite(value)) {
     return value
@@ -329,19 +442,33 @@ async function requestAccessToken(config: KeycloakConnectionRecord) {
     throw new Error("Keycloak connection is incomplete. Server URL, realm, client ID, and client secret are required.")
   }
 
-  const discoveryResponse = await fetch(`${baseUrl}/realms/${realm}/.well-known/openid-configuration`, {
-    cache: "no-store",
-    signal: AbortSignal.timeout(timeoutMs),
-  })
+  const discoveryUrl = `${baseUrl}/realms/${realm}/.well-known/openid-configuration`
+  let discoveryResponse: KeycloakHttpResponse<{ token_endpoint?: string }>
 
-  const discoveryPayload = (await discoveryResponse.json().catch(() => null)) as
-    | { token_endpoint?: string }
-    | null
-
-  if (!discoveryResponse.ok || !discoveryPayload?.token_endpoint) {
+  try {
+    discoveryResponse = await requestKeycloakHttp<{ token_endpoint?: string }>(config, discoveryUrl, {
+      method: "GET",
+      timeoutMs,
+    })
+  } catch (error) {
     throw new KeycloakApiError(
       "Unable to discover the Keycloak token endpoint.",
-      discoveryResponse.status,
+      502,
+      `Discovery request failed for ${discoveryUrl}: ${describeNetworkError(error)}`,
+      { url: discoveryUrl, error: describeNetworkError(error) },
+    )
+  }
+
+  const discoveryPayload = discoveryResponse.json ?? discoveryResponse.text
+
+  if (
+    discoveryResponse.statusCode < 200 ||
+    discoveryResponse.statusCode >= 300 ||
+    !discoveryResponse.json?.token_endpoint
+  ) {
+    throw new KeycloakApiError(
+      "Unable to discover the Keycloak token endpoint.",
+      discoveryResponse.statusCode || 502,
       readErrorDetail(discoveryPayload, "OIDC discovery failed."),
       discoveryPayload,
     )
@@ -353,35 +480,53 @@ async function requestAccessToken(config: KeycloakConnectionRecord) {
     client_secret: config.clientSecret,
   })
 
-  const tokenResponse = await fetch(discoveryPayload.token_endpoint, {
-    method: "POST",
-    cache: "no-store",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      Accept: "application/json",
-    },
-    body: tokenBody.toString(),
-    signal: AbortSignal.timeout(timeoutMs),
-  })
+  let tokenResponse: KeycloakHttpResponse<KeycloakTokenResponse>
 
-  const tokenPayload = (await tokenResponse.json().catch(() => null)) as KeycloakTokenResponse | null
-
-  if (!tokenResponse.ok || !tokenPayload?.access_token) {
+  try {
+    tokenResponse = await requestKeycloakHttp<KeycloakTokenResponse>(
+      config,
+      discoveryResponse.json.token_endpoint,
+      {
+        method: "POST",
+        timeoutMs,
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Accept: "application/json",
+        },
+        body: tokenBody.toString(),
+      },
+    )
+  } catch (error) {
     throw new KeycloakApiError(
       "Unable to obtain a Keycloak admin access token.",
-      tokenResponse.status,
+      502,
+      `Token request failed for ${discoveryResponse.json.token_endpoint}: ${describeNetworkError(error)}`,
+      { url: discoveryResponse.json.token_endpoint, error: describeNetworkError(error) },
+    )
+  }
+
+  const tokenPayload = tokenResponse.json ?? tokenResponse.text
+
+  if (
+    tokenResponse.statusCode < 200 ||
+    tokenResponse.statusCode >= 300 ||
+    !tokenResponse.json?.access_token
+  ) {
+    throw new KeycloakApiError(
+      "Unable to obtain a Keycloak admin access token.",
+      tokenResponse.statusCode || 502,
       readErrorDetail(tokenPayload, "Client credentials flow failed."),
       tokenPayload,
     )
   }
 
-  const expiresAt = Date.now() + Math.max((tokenPayload.expires_in ?? 60) - 15, 15) * 1000
+  const expiresAt = Date.now() + Math.max((tokenResponse.json.expires_in ?? 60) - 15, 15) * 1000
   getTokenCache().set(cacheKey, {
-    accessToken: tokenPayload.access_token,
+    accessToken: tokenResponse.json.access_token,
     expiresAt,
   })
 
-  return tokenPayload.access_token
+  return tokenResponse.json.access_token
 }
 
 async function keycloakRequestResponse<T>(
@@ -398,39 +543,45 @@ async function keycloakRequestResponse<T>(
   const timeoutMs = Math.max(config.timeoutSeconds, 1) * 1000
   const accessToken = await requestAccessToken(config)
   const query = getQueryString(options?.query)
-  const headers = new Headers({
+  const headers: Record<string, string> = {
     Accept: "application/json",
     Authorization: `Bearer ${accessToken}`,
-  })
+  }
 
   if (options?.body !== undefined) {
-    headers.set("Content-Type", "application/json")
+    headers["Content-Type"] = "application/json"
   }
 
-  const response = await fetch(`${baseUrl}/admin/realms/${realm}${path}${query}`, {
-    method: options?.method ?? "GET",
-    cache: "no-store",
-    headers,
-    body: options?.body !== undefined ? JSON.stringify(options.body) : undefined,
-    signal: AbortSignal.timeout(timeoutMs),
-  })
+  const requestUrl = `${baseUrl}/admin/realms/${realm}${path}${query}`
+  let response: KeycloakHttpResponse<T>
 
-  const rawPayload = await response.text().catch(() => "")
-  let payload: T | string | null = null
-
-  if (rawPayload.trim()) {
-    try {
-      payload = JSON.parse(rawPayload) as T
-    } catch {
-      payload = rawPayload
-    }
-  }
-
-  if (!response.ok) {
+  try {
+    response = await requestKeycloakHttp<T>(config, requestUrl, {
+      method: options?.method ?? "GET",
+      headers,
+      body: options?.body !== undefined ? JSON.stringify(options.body) : undefined,
+      timeoutMs,
+    })
+  } catch (error) {
     throw new KeycloakApiError(
       `Keycloak request failed for ${path}.`,
-      response.status,
-      readErrorDetail(payload, `HTTP ${response.status}`),
+      502,
+      `Request to ${requestUrl} failed: ${describeNetworkError(error)}`,
+      {
+        path,
+        url: requestUrl,
+        error: describeNetworkError(error),
+      },
+    )
+  }
+
+  const payload = response.json ?? (response.text.trim() ? response.text : null)
+
+  if (response.statusCode < 200 || response.statusCode >= 300) {
+    throw new KeycloakApiError(
+      `Keycloak request failed for ${path}.`,
+      response.statusCode,
+      readErrorDetail(payload, `HTTP ${response.statusCode}`),
       payload,
     )
   }
@@ -586,7 +737,7 @@ export async function createKeycloakAdminClient(configInput?: KeycloakConnection
         method: "POST",
         body: payload,
       })
-      const location = response.headers.get("location")
+      const location = getHeaderValue(response.headers, "location")
       const userId = location?.split("/").filter(Boolean).pop() ?? null
 
       return {
@@ -664,25 +815,37 @@ export async function createKeycloakAdminClient(configInput?: KeycloakConnection
         },
       )
     },
-    async getUserGroups(userId: string) {
+    async getUserGroupsCount(userId: string) {
       const groupsCountPayload = await keycloakRequest<unknown>(
         config,
         `/users/${encodeURIComponent(userId)}/groups/count`,
       )
-      const total = toNumberFromUnknown(groupsCountPayload)
+
+      return toNumberFromUnknown(groupsCountPayload)
+    },
+    async listUserGroups(
+      userId: string,
+      options?: {
+        first?: number
+        max?: number
+      },
+    ) {
+      return keycloakRequest<KeycloakGroupRepresentation[]>(
+        config,
+        `/users/${encodeURIComponent(userId)}/groups`,
+        {
+          query: {
+            first: options?.first,
+            max: options?.max,
+          },
+        },
+      )
+    },
+    async getUserGroups(userId: string) {
+      const total = await this.getUserGroupsCount(userId)
 
       return listAllPages<KeycloakGroupRepresentation>(
-        (first, max) =>
-          keycloakRequest<KeycloakGroupRepresentation[]>(
-            config,
-            `/users/${encodeURIComponent(userId)}/groups`,
-            {
-              query: {
-                first,
-                max,
-              },
-            },
-          ),
+        (first, max) => this.listUserGroups(userId, { first, max }),
         100,
         total,
       )
@@ -836,7 +999,7 @@ export async function createKeycloakAdminClient(configInput?: KeycloakConnection
         method: "POST",
         body: payload,
       })
-      const location = response.headers.get("location")
+      const location = getHeaderValue(response.headers, "location")
       const groupId = location?.split("/").filter(Boolean).pop() ?? null
 
       return {

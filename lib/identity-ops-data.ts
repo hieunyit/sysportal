@@ -970,21 +970,21 @@ export const directoryWorkAddressOptions = [
 export const notificationSettings = [
   {
     id: "pref-1",
-    label: "Privileged access alerts",
-    description: "Notify on admin access, break-glass events, and sensitive role changes.",
+    label: "Employee account welcome email",
+    description: "Send onboarding/welcome email when creating Keycloak users with user type employee.",
     enabled: true,
   },
   {
     id: "pref-2",
-    label: "Identity sync failures",
-    description: "Notify when HR Sync, Keycloak sync, or role mapping jobs fail.",
+    label: "Partner account notification email",
+    description: "Send account notification email when creating Keycloak users with user type partner (and other non-employee types by default).",
     enabled: true,
   },
   {
     id: "pref-3",
-    label: "Expiring VPN certificates",
-    description: "Remind operations 72 hours before vendor and external certificates expire.",
-    enabled: false,
+    label: "Outsource account notification email",
+    description: "Send account notification email when creating Keycloak users with user type outsource.",
+    enabled: true,
   },
 ] as const
 

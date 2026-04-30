@@ -1,12 +1,9 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { BellRing, Building2, LoaderCircle, MoonStar, RefreshCcw, Shield } from "lucide-react"
+import { BellRing, LoaderCircle, MoonStar, RefreshCcw, UserCog } from "lucide-react"
 import { toast } from "sonner"
-import {
-  DirectoryOptionListsContent,
-  ProfileOptionListsContent,
-} from "@/components/settings/option-lists-content"
+import { AccessControlContent } from "@/components/settings/access-control-content"
 import { useTheme } from "@/components/theme-provider"
 import { Button } from "@/components/ui/button"
 import {
@@ -53,16 +50,9 @@ const appearancePreviewClasses = {
 }
 
 function formatTimestamp(value?: string) {
-  if (!value) {
-    return "Not saved yet"
-  }
-
+  if (!value) return "Not saved yet"
   const date = new Date(value)
-
-  if (Number.isNaN(date.getTime())) {
-    return value
-  }
-
+  if (Number.isNaN(date.getTime())) return value
   return date.toLocaleString()
 }
 
@@ -106,9 +96,7 @@ export function SettingsContent() {
           throw new Error(readApiErrorMessage(appearancePayload, "Unable to load workspace settings"))
         }
 
-        if (!isActive) {
-          return
-        }
+        if (!isActive) return
 
         setNotifications(notificationsPayload?.items ?? [])
         setAppearance(appearancePayload ?? { theme: "dark" })
@@ -116,28 +104,18 @@ export function SettingsContent() {
         setNotificationMessage(null)
         setAppearanceMessage(null)
       } catch (error) {
-        if (!isActive) {
-          return
-        }
-
+        if (!isActive) return
         const message = error instanceof Error ? error.message : "Unable to load workspace settings"
         setNotificationMessage(message)
         setAppearanceMessage(message)
-        toast.error("Unable to load workspace settings", {
-          description: message,
-        })
+        toast.error("Unable to load workspace settings", { description: message })
       } finally {
-        if (isActive) {
-          setIsLoading(false)
-        }
+        if (isActive) setIsLoading(false)
       }
     }
 
     void loadSettings()
-
-    return () => {
-      isActive = false
-    }
+    return () => { isActive = false }
   }, [setTheme])
 
   const currentTheme = mounted ? (resolvedTheme ?? theme ?? appearance.theme) : appearance.theme
@@ -154,9 +132,7 @@ export function SettingsContent() {
     try {
       const response = await fetch(`/api/settings/notifications/${notificationId}`, {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ enabled }),
       })
 
@@ -167,22 +143,17 @@ export function SettingsContent() {
       }
 
       const updated = payload as NotificationSetting
-
       setNotifications((current) =>
         current.map((item) => (item.id === updated.id ? updated : item)),
       )
       const nextMessage = `Updated "${updated.label}" at ${formatTimestamp(updated.updatedAt)}`
       setNotificationMessage(nextMessage)
-      toast.success("Notification preference updated", {
-        description: nextMessage,
-      })
+      toast.success("Notification preference updated", { description: nextMessage })
     } catch (error) {
       setNotifications(previous)
       const message = error instanceof Error ? error.message : "Unable to update notification setting"
       setNotificationMessage(message)
-      toast.error("Unable to update notification setting", {
-        description: message,
-      })
+      toast.error("Unable to update notification setting", { description: message })
     } finally {
       setIsUpdatingNotificationId(null)
     }
@@ -198,9 +169,7 @@ export function SettingsContent() {
     try {
       const response = await fetch("/api/settings/appearance", {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ theme: nextTheme }),
       })
 
@@ -222,9 +191,7 @@ export function SettingsContent() {
       setAppearance((current) => ({ ...current, theme: previousTheme }))
       const message = error instanceof Error ? error.message : "Unable to update appearance settings"
       setAppearanceMessage(message)
-      toast.error("Unable to update appearance settings", {
-        description: message,
-      })
+      toast.error("Unable to update appearance settings", { description: message })
     } finally {
       setIsSavingAppearance(false)
     }
@@ -232,22 +199,18 @@ export function SettingsContent() {
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full gap-5">
-      <TabsList className="grid h-auto w-full grid-cols-1 gap-2 rounded-2xl border border-border/80 bg-card p-2 md:grid-cols-2 xl:grid-cols-4">
+      <TabsList className="grid h-auto w-full grid-cols-1 gap-2 rounded-2xl border border-border/80 bg-card p-2 sm:grid-cols-3">
         <TabsTrigger value="notifications" className="h-10 rounded-lg">
           <BellRing className="h-4 w-4" />
-          Notification preferences
+          Notifications
         </TabsTrigger>
         <TabsTrigger value="appearance" className="h-10 rounded-lg">
           <MoonStar className="h-4 w-4" />
           Appearance
         </TabsTrigger>
-        <TabsTrigger value="profile-options" className="h-10 rounded-lg">
-          <Shield className="h-4 w-4" />
-          Role and team
-        </TabsTrigger>
-        <TabsTrigger value="directory-options" className="h-10 rounded-lg">
-          <Building2 className="h-4 w-4" />
-          Department and address
+        <TabsTrigger value="access" className="h-10 rounded-lg">
+          <UserCog className="h-4 w-4" />
+          Access control
         </TabsTrigger>
       </TabsList>
 
@@ -272,7 +235,7 @@ export function SettingsContent() {
                     <div className="flex items-start justify-between gap-4">
                       <div className="space-y-2 pr-4">
                         <div className="flex items-center gap-2">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
                             <BellRing className="h-4 w-4" />
                           </div>
                           <p className="font-medium text-foreground">{item.label}</p>
@@ -294,7 +257,7 @@ export function SettingsContent() {
                       <span
                         className={cn(
                           "rounded-full px-2.5 py-1 font-medium",
-                        item.enabled ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground",
+                          item.enabled ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground",
                         )}
                       >
                         {item.enabled ? "Enabled" : "Disabled"}
@@ -412,12 +375,8 @@ export function SettingsContent() {
         </Card>
       </TabsContent>
 
-      <TabsContent value="profile-options" className="w-full">
-        <ProfileOptionListsContent />
-      </TabsContent>
-
-      <TabsContent value="directory-options" className="w-full">
-        <DirectoryOptionListsContent />
+      <TabsContent value="access" className="w-full">
+        <AccessControlContent />
       </TabsContent>
     </Tabs>
   )

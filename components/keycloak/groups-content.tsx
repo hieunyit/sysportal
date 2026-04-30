@@ -2,7 +2,8 @@
 
 import Link from "next/link"
 import { useDeferredValue, useEffect, useState } from "react"
-import { ArrowRight, FolderTree, LoaderCircle, Plus, Search, ShieldCheck, Users } from "lucide-react"
+import { ArrowRight, Download, FolderTree, LoaderCircle, Plus, Search, ShieldCheck, Users } from "lucide-react"
+import { toast } from "sonner"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -57,6 +58,7 @@ export function GroupsContent() {
   const [page, setPage] = useState(1)
   const [refreshKey, setRefreshKey] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
+  const [isExporting, setIsExporting] = useState(false)
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [feedback, setFeedback] = useState<string | null>(null)
@@ -110,6 +112,48 @@ export function GroupsContent() {
       isActive = false
     }
   }, [deferredSearch, page, refreshKey])
+
+  async function handleExportAll() {
+    try {
+      setIsExporting(true)
+      const allItems: GroupListItem[] = []
+      let currentPage = 1
+      let totalPages = 1
+
+      while (currentPage <= totalPages) {
+        const params = new URLSearchParams({ page: String(currentPage), pageSize: "200" })
+        if (deferredSearch.trim()) params.set("search", deferredSearch.trim())
+        const response = await fetch(`/api/keycloak/groups?${params.toString()}`, { cache: "no-store" })
+        const payload = (await response.json().catch(() => null)) as GroupsResponse | null
+        if (!response.ok) throw new Error(readErrorMessage(payload, "Unable to export Keycloak groups"))
+        allItems.push(...(payload?.items ?? []))
+        totalPages = payload?.pageCount ?? 1
+        currentPage++
+      }
+
+      const headers = ["id", "name", "path", "description", "parentPath", "depth", "subGroupCount", "attributeCount", "realmRoleCount", "clientRoleCount"]
+      const escape = (v: unknown) => {
+        const s = String(v ?? "").replace(/"/g, '""')
+        return /[",\n\r]/.test(s) ? `"${s}"` : s
+      }
+      const rows = allItems.map((g) =>
+        [g.id, g.name, g.path, g.description, g.parentPath, g.depth, g.subGroupCount, g.attributeCount, g.realmRoleCount, g.clientRoleCount]
+          .map(escape)
+          .join(","),
+      )
+      const blob = new Blob([`﻿${[headers.join(","), ...rows].join("\r\n")}`], { type: "text/csv;charset=utf-8;" })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `keycloak-groups-${new Date().toISOString().slice(0, 10)}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      toast.error("Export failed", { description: err instanceof Error ? err.message : "Unable to export" })
+    } finally {
+      setIsExporting(false)
+    }
+  }
 
   async function handleCreateGroup(payload: { name: string; description: string }) {
     try {
@@ -234,6 +278,10 @@ export function GroupsContent() {
                   className="h-11 pl-10"
                 />
               </div>
+              <Button variant="outline" className="h-11 bg-transparent px-5" disabled={isExporting || isLoading} onClick={() => void handleExportAll()}>
+                {isExporting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                Export CSV
+              </Button>
               <Button className="h-11 px-5" onClick={() => setIsCreateOpen(true)}>
                 <Plus className="h-4 w-4" />
                 Create group

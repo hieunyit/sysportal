@@ -264,6 +264,10 @@ function isOpenVpnEntry(entry: AttributeEntry) {
   return openVpnAttributeNames.has(entry.name)
 }
 
+function isOpenVpnGroupName(value: string) {
+  return value.trim().toLowerCase().includes("openvpn")
+}
+
 function shouldHideEntryForCreate(entry: AttributeEntry, selectedUserType: string) {
   if (entry.name === userTypeFieldName) {
     return false
@@ -958,6 +962,15 @@ export function UserEditorDialog({
     return Array.from(groups.entries())
   }, [mode, resolvedVisibleAttributeEntries])
 
+  const openVpnProvisionGroupIndex = useMemo(
+    () =>
+      groupedAttributeEntries.findIndex(
+        ([groupName, entries]) =>
+          isOpenVpnGroupName(groupName) || entries.some((entry) => isOpenVpnEntry(entry)),
+      ),
+    [groupedAttributeEntries],
+  )
+
   const coreFieldRules = useMemo(() => {
     const usernameMetadata = getMetadataAttributeByName(profileMetadata, "username")
     const emailMetadata = getMetadataAttributeByName(profileMetadata, "email")
@@ -1021,10 +1034,6 @@ export function UserEditorDialog({
 
       if (mode === "create" && !selectedUserType) {
         throw new Error("User type is required")
-      }
-
-      if (mode === "create" && selectedUserType === "employee" && !welcomeRecipientEmail.trim()) {
-        throw new Error("Welcome recipient email is required for employee accounts")
       }
 
       const normalizedEntries = attributeEntries.map((entry) => {
@@ -1225,7 +1234,7 @@ export function UserEditorDialog({
                             id="create-work-address"
                             value={workAddress}
                             onChange={(event) => setWorkAddress(event.target.value)}
-                            placeholder="38 Phan Dinh Phung, Ba Dinh, Ha Noi"
+                            placeholder="Địa chỉ làm việc"
                             disabled={isSubmitting}
                           />
                         )}
@@ -1250,79 +1259,6 @@ export function UserEditorDialog({
                     </div>
                   ) : null}
 
-                </div>
-              ) : null}
-
-              {mode === "create" ? (
-                <div className="rounded-[1rem] border border-border bg-background p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-medium text-foreground">Create OpenVPN account</p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Create an OpenVPN user with the same username.
-                      </p>
-                    </div>
-                    <Switch
-                      checked={createOpenVpnUser}
-                      onCheckedChange={(checked) => {
-                        setCreateOpenVpnUser(checked)
-                        if (checked && availableVpnGroups.length === 0 && !vpnGroupsLoading) {
-                          void loadVpnGroups()
-                        }
-                      }}
-                      disabled={isSubmitting}
-                    />
-                  </div>
-
-                  {createOpenVpnUser ? (
-                    <div className="mt-4 space-y-2">
-                      <Label>OpenVPN group</Label>
-                      {vpnGroupsLoading ? (
-                        <p className="text-xs text-muted-foreground">Loading OpenVPN groups...</p>
-                      ) : (
-                        <div className="max-h-[200px] space-y-2 overflow-y-auto rounded-[0.85rem] border border-border bg-card p-3">
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="radio"
-                              id="vpn-group-none"
-                              name="vpn-group"
-                              value=""
-                              checked={openVpnGroup === ""}
-                              onChange={() => setOpenVpnGroup("")}
-                              disabled={isSubmitting}
-                              className="h-4 w-4"
-                            />
-                            <Label htmlFor="vpn-group-none" className="cursor-pointer text-sm font-normal text-muted-foreground">
-                              No group
-                            </Label>
-                          </div>
-                          {availableVpnGroups.map((vpnGroup) => (
-                            <div key={vpnGroup} className="flex items-center gap-2">
-                              <input
-                                type="radio"
-                                id={`vpn-group-${vpnGroup}`}
-                                name="vpn-group"
-                                value={vpnGroup}
-                                checked={openVpnGroup === vpnGroup}
-                                onChange={() => setOpenVpnGroup(vpnGroup)}
-                                disabled={isSubmitting}
-                                className="h-4 w-4"
-                              />
-                              <Label htmlFor={`vpn-group-${vpnGroup}`} className="cursor-pointer text-sm font-normal">
-                                {vpnGroup}
-                              </Label>
-                            </div>
-                          ))}
-                          {availableVpnGroups.length === 0 ? (
-                            <p className="text-xs text-muted-foreground">No OpenVPN groups found.</p>
-                          ) : null}
-                        </div>
-                      )}
-                      <p className="text-xs text-muted-foreground">
-                        OpenVPN users belong to one group. Leave on &ldquo;No group&rdquo; to create without a group.
-                      </p>
-                    </div>
-                  ) : null}
                 </div>
               ) : null}
 
@@ -1579,7 +1515,7 @@ export function UserEditorDialog({
                       No profile attributes are defined for this user yet.
                     </div>
                   ) : (
-                    groupedAttributeEntries.map(([groupName, entries]) => (
+                    groupedAttributeEntries.map(([groupName, entries], groupIndex) => (
                       <div key={groupName} className="space-y-4">
                         <div>
                           <h4 className="text-sm font-semibold uppercase tracking-[0.16em] text-muted-foreground">
@@ -1633,10 +1569,153 @@ export function UserEditorDialog({
                               }
                             />
                           ))}
+
+                          {mode === "create" && groupIndex === openVpnProvisionGroupIndex ? (
+                            <div className="rounded-[1rem] border border-border bg-background p-4">
+                              <div className="flex items-center justify-between gap-3">
+                                <div>
+                                  <p className="text-sm font-medium text-foreground">Create OpenVPN account</p>
+                                  <p className="mt-1 text-xs text-muted-foreground">
+                                    Create an OpenVPN user with the same username.
+                                  </p>
+                                </div>
+                                <Switch
+                                  checked={createOpenVpnUser}
+                                  onCheckedChange={(checked) => {
+                                    setCreateOpenVpnUser(checked)
+                                    if (checked && availableVpnGroups.length === 0 && !vpnGroupsLoading) {
+                                      void loadVpnGroups()
+                                    }
+                                  }}
+                                  disabled={isSubmitting}
+                                />
+                              </div>
+
+                              {createOpenVpnUser ? (
+                                <div className="mt-4 space-y-2">
+                                  <Label>OpenVPN group</Label>
+                                  {vpnGroupsLoading ? (
+                                    <p className="text-xs text-muted-foreground">Loading OpenVPN groups...</p>
+                                  ) : (
+                                    <div className="max-h-[200px] space-y-2 overflow-y-auto rounded-[0.85rem] border border-border bg-card p-3">
+                                      <div className="flex items-center gap-2">
+                                        <input
+                                          type="radio"
+                                          id="vpn-group-none"
+                                          name="vpn-group"
+                                          value=""
+                                          checked={openVpnGroup === ""}
+                                          onChange={() => setOpenVpnGroup("")}
+                                          disabled={isSubmitting}
+                                          className="h-4 w-4"
+                                        />
+                                        <Label htmlFor="vpn-group-none" className="cursor-pointer text-sm font-normal text-muted-foreground">
+                                          No group
+                                        </Label>
+                                      </div>
+                                      {availableVpnGroups.map((vpnGroup) => (
+                                        <div key={vpnGroup} className="flex items-center gap-2">
+                                          <input
+                                            type="radio"
+                                            id={`vpn-group-${vpnGroup}`}
+                                            name="vpn-group"
+                                            value={vpnGroup}
+                                            checked={openVpnGroup === vpnGroup}
+                                            onChange={() => setOpenVpnGroup(vpnGroup)}
+                                            disabled={isSubmitting}
+                                            className="h-4 w-4"
+                                          />
+                                          <Label htmlFor={`vpn-group-${vpnGroup}`} className="cursor-pointer text-sm font-normal">
+                                            {vpnGroup}
+                                          </Label>
+                                        </div>
+                                      ))}
+                                      {availableVpnGroups.length === 0 ? (
+                                        <p className="text-xs text-muted-foreground">No OpenVPN groups found.</p>
+                                      ) : null}
+                                    </div>
+                                  )}
+                                  <p className="text-xs text-muted-foreground">
+                                    OpenVPN users belong to one group. Leave on &ldquo;No group&rdquo; to create without a group.
+                                  </p>
+                                </div>
+                              ) : null}
+                            </div>
+                          ) : null}
                         </div>
                       </div>
                     ))
                   )}
+
+                  {mode === "create" && attributeEntries.length > 0 && openVpnProvisionGroupIndex === -1 ? (
+                    <div className="rounded-[1rem] border border-border bg-background p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-medium text-foreground">Create OpenVPN account</p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            OpenVPN attributes were not found in metadata, so provisioning is shown here.
+                          </p>
+                        </div>
+                        <Switch
+                          checked={createOpenVpnUser}
+                          onCheckedChange={(checked) => {
+                            setCreateOpenVpnUser(checked)
+                            if (checked && availableVpnGroups.length === 0 && !vpnGroupsLoading) {
+                              void loadVpnGroups()
+                            }
+                          }}
+                          disabled={isSubmitting}
+                        />
+                      </div>
+
+                      {createOpenVpnUser ? (
+                        <div className="mt-4 space-y-2">
+                          <Label>OpenVPN group</Label>
+                          {vpnGroupsLoading ? (
+                            <p className="text-xs text-muted-foreground">Loading OpenVPN groups...</p>
+                          ) : (
+                            <div className="max-h-[200px] space-y-2 overflow-y-auto rounded-[0.85rem] border border-border bg-card p-3">
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="radio"
+                                  id="vpn-group-none-fallback"
+                                  name="vpn-group"
+                                  value=""
+                                  checked={openVpnGroup === ""}
+                                  onChange={() => setOpenVpnGroup("")}
+                                  disabled={isSubmitting}
+                                  className="h-4 w-4"
+                                />
+                                <Label htmlFor="vpn-group-none-fallback" className="cursor-pointer text-sm font-normal text-muted-foreground">
+                                  No group
+                                </Label>
+                              </div>
+                              {availableVpnGroups.map((vpnGroup) => (
+                                <div key={`fallback-${vpnGroup}`} className="flex items-center gap-2">
+                                  <input
+                                    type="radio"
+                                    id={`vpn-group-fallback-${vpnGroup}`}
+                                    name="vpn-group"
+                                    value={vpnGroup}
+                                    checked={openVpnGroup === vpnGroup}
+                                    onChange={() => setOpenVpnGroup(vpnGroup)}
+                                    disabled={isSubmitting}
+                                    className="h-4 w-4"
+                                  />
+                                  <Label htmlFor={`vpn-group-fallback-${vpnGroup}`} className="cursor-pointer text-sm font-normal">
+                                    {vpnGroup}
+                                  </Label>
+                                </div>
+                              ))}
+                              {availableVpnGroups.length === 0 ? (
+                                <p className="text-xs text-muted-foreground">No OpenVPN groups found.</p>
+                              ) : null}
+                            </div>
+                          )}
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
               </div>
             </div>

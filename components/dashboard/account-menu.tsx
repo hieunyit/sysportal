@@ -84,21 +84,37 @@ export function AccountMenu() {
     async function loadProfile() {
       try {
         setIsLoading(true)
-        const [profileResponse, sessionResponse] = await Promise.all([
-          fetch("/api/settings/profile", { cache: "no-store" }),
-          fetch("/api/auth/session", { cache: "no-store" }),
-        ])
+        const sessionResponse = await fetch("/api/auth/session", { cache: "no-store" })
+        const sessionData = (await (sessionResponse.ok
+          ? sessionResponse.json()
+          : Promise.resolve({ authenticated: false, user: null }))) as AuthSessionResponse
 
-        if (!profileResponse.ok) {
-          throw new Error("Unable to load profile")
-        }
-
-        const [profileData, sessionData] = (await Promise.all([
-          profileResponse.json(),
-          sessionResponse.ok ? sessionResponse.json() : Promise.resolve({ authenticated: false, user: null }),
-        ])) as [ProfileSettingsResponse, AuthSessionResponse]
+        const profileResponse = await fetch("/api/settings/profile", { cache: "no-store" })
+        const profileData = (await (profileResponse.ok
+          ? profileResponse.json()
+          : Promise.resolve(null))) as ProfileSettingsResponse | null
 
         if (!isActive) {
+          return
+        }
+
+        if (!profileData) {
+          const fallbackProfile =
+            sessionData.authenticated && sessionData.user
+              ? {
+                  ...defaultProfile,
+                  fullName: sessionData.user.name || sessionData.user.preferredUsername || defaultProfile.fullName,
+                  email: sessionData.user.email || defaultProfile.email,
+                }
+              : defaultProfile
+
+          setOptions({
+            roles: [defaultProfile.role],
+            teams: [defaultProfile.team],
+          })
+          setSessionUser(sessionData.authenticated ? sessionData.user : null)
+          setProfile(fallbackProfile)
+          setDraft(fallbackProfile)
           return
         }
 

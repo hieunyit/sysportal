@@ -100,58 +100,6 @@ const csvHeaders = [
   "openVpnGroup",
 ] as const
 
-const csvTemplateRows = [
-  [
-    "test.employee1",
-    "An",
-    "Nguyen",
-    "an.nguyen@mobifonesolutions.vn",
-    "Nguyen An",
-    "employee",
-    "0912345678",
-    "Văn phòng",
-    "hai.cu@mbfs.vn",
-    "12345",
-    "",
-    "Nhân viên",
-    "",
-    "",
-    "",
-    "",
-    "true",
-    "manager@mobifonesolutions.vn",
-    "38 Phan Dinh Phung, Ba Dinh, Ha Noi",
-    "true",
-    "true",
-    "Employees",
-  ],
-  [
-    "partner.demo1",
-    "Linh",
-    "Tran",
-    "linh.tran.partner@example.com",
-    "Tran Linh",
-    "partner",
-    "",
-    "",
-    "",
-    "",
-    "",
-    "",
-    "Partner Co., Ltd",
-    "2026-05-30",
-    "vpn-uuid-001|vpn-uuid-002",
-    "",
-    "true",
-    "",
-    "",
-    "",
-    "true",
-    "false",
-    "",
-  ],
-]
-
 const normalizedCsvTemplateRows = [
   [
     "test.employee1",
@@ -422,10 +370,6 @@ function buildPayloadFromRow(
 
   const isEmployee = userType === "employee"
 
-  if (isEmployee && !(row.values.welcomeRecipientEmail?.trim() ?? "")) {
-    throw new Error("welcomeRecipientEmail is required for employee accounts")
-  }
-
   const openVpnSettings = resolveOpenVpnCreateSettings(row, defaults)
 
   return {
@@ -490,11 +434,19 @@ function getOpenVpnPreviewValue(
   }
 
   return openVpnSettings.openVpnGroup
-    ? `Enabled · ${openVpnSettings.openVpnGroup}`
-    : "Enabled · No group"
+    ? `Enabled - ${openVpnSettings.openVpnGroup}`
+    : "Enabled - No group"
 }
 
 function buildCsvTemplate() {
+  const invalidTemplateRow = normalizedCsvTemplateRows.find((row) => row.length !== csvHeaders.length)
+
+  if (invalidTemplateRow) {
+    throw new Error(
+      `CSV template mismatch: expected ${csvHeaders.length} columns but got ${invalidTemplateRow.length}.`,
+    )
+  }
+
   const rows = [csvHeaders.join(",")]
 
   normalizedCsvTemplateRows.forEach((row) => {
@@ -639,7 +591,7 @@ export function UserImportDialog({
               const vpn = (responsePayload as { vpnUser?: { created?: boolean; group?: string | null; error?: string | null } | null })?.vpnUser
               if (!vpn) return null
               return vpn.created
-                ? `Created${vpn.group ? ` · ${vpn.group}` : ""}`
+                ? `Created${vpn.group ? ` - ${vpn.group}` : ""}`
                 : `Failed: ${vpn.error ?? "Unknown error"}`
             })(),
             welcomeEmailStatus:
@@ -677,15 +629,15 @@ export function UserImportDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] max-w-6xl overflow-hidden rounded-[1.5rem] border-border/70 bg-card p-0">
-        <DialogHeader className="border-b border-border px-6 py-5">
+      <DialogContent className="flex max-h-[90vh] max-w-6xl flex-col overflow-hidden rounded-[1.5rem] border-border/70 bg-card p-0">
+        <DialogHeader className="shrink-0 border-b border-border px-6 py-5">
           <DialogTitle>Import users from CSV</DialogTitle>
           <DialogDescription>
             Upload a CSV file, review the rows, then create users in batch using the same Keycloak API flow as the single-user form.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6 overflow-y-auto px-6 py-5">
+        <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-6 py-5">
           {error ? (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
@@ -925,7 +877,7 @@ export function UserImportDialog({
           ) : null}
         </div>
 
-        <DialogFooter className="border-t border-border px-6 py-5">
+        <DialogFooter className="shrink-0 border-t border-border px-6 py-5">
           <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-between">
             <Button type="button" variant="outline" className="rounded-full bg-transparent" onClick={() => onOpenChange(false)} disabled={isImporting}>
               Close

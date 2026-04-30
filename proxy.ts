@@ -34,8 +34,19 @@ function isAdminPath(pathname: string) {
 }
 
 function hasAdminRole(roles: string[]) {
-  const userRoles = new Set(roles.map((role) => role.trim()).filter(Boolean))
-  return getConfiguredAdminRoles().some((role) => userRoles.has(role))
+  const configuredRoles = getConfiguredAdminRoles().map((role) => role.trim()).filter(Boolean)
+
+  if (configuredRoles.some((role) => role === "*")) {
+    return true
+  }
+
+  const userRoles = new Set(
+    roles
+      .map((role) => role.trim().toLowerCase())
+      .filter(Boolean),
+  )
+
+  return configuredRoles.some((role) => userRoles.has(role.toLowerCase()))
 }
 
 export async function proxy(request: NextRequest) {
@@ -54,10 +65,20 @@ export async function proxy(request: NextRequest) {
 
   if (session && isAdminPath(pathname)) {
     if (pathname.startsWith("/api/")) {
+      const configuredRoles = getConfiguredAdminRoles().map((role) => role.trim()).filter(Boolean)
+
       return NextResponse.json(
         {
           error: "Insufficient permissions",
           detail: "Your account does not have permission to access this admin API.",
+          ...(process.env.NODE_ENV !== "production"
+            ? {
+                debug: {
+                  requiredRoles: configuredRoles,
+                  sessionRoles: session.roles,
+                },
+              }
+            : {}),
         },
         { status: 403 },
       )

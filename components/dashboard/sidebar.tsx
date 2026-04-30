@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation"
 import {
   Activity,
   BarChart3,
+  Building2,
   FileCode2,
   KeyRound,
   LayoutDashboard,
@@ -31,6 +32,7 @@ const navigationSections = [
       { icon: KeyRound, label: "Users", href: "/users" },
       { icon: Users, label: "Groups", href: "/groups" },
       { icon: Activity, label: "Sessions", href: "/sessions" },
+      { icon: Building2, label: "Catalogs", href: "/users/catalogs" },
     ],
   },
   {

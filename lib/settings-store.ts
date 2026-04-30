@@ -99,12 +99,16 @@ export interface ProfileSettingsBundleRecord {
   options: ProfileOptionsRecord
 }
 
+export const authUserPermissions = ["view", "edit", "delete"] as const
+export type AuthUserPermission = (typeof authUserPermissions)[number]
+
 export interface AuthenticatedUserRecord {
   subject: string
   preferredUsername: string
   fullName: string
   email: string
   roles: string[]
+  permissions: AuthUserPermission[]
   lastLoginAt: string
   createdAt: string
   updatedAt: string
@@ -556,6 +560,12 @@ function ensureSchema(database: SqliteDatabase) {
   if (!emailTemplateColumns.has("updated_at")) {
     database.exec(`ALTER TABLE email_templates ADD COLUMN updated_at TEXT NOT NULL DEFAULT ''`)
   }
+
+  const authUserColumns = getTableColumnNames(database, "auth_users")
+
+  if (!authUserColumns.has("permissions_json")) {
+    database.exec(`ALTER TABLE auth_users ADD COLUMN permissions_json TEXT NOT NULL DEFAULT '[]'`)
+  }
 }
 
 function countSettingOptionsByKind(database: SqliteDatabase, kind: SettingsOptionKind) {
@@ -722,20 +732,19 @@ function seedDefaults(database: SqliteDatabase) {
     `)
     .run("primary", JSON.stringify(defaultSystemSettings), now)
 
-  const notificationCount = database
-    .prepare(`SELECT COUNT(*) AS total FROM settings_notifications`)
-    .get() as { total: number }
+  const upsertNotification = database.prepare(`
+    INSERT INTO settings_notifications (id, label, description, enabled, sort_order, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      label = excluded.label,
+      description = excluded.description,
+      sort_order = excluded.sort_order,
+      updated_at = excluded.updated_at
+  `)
 
-  if (notificationCount.total === 0) {
-    const insertNotification = database.prepare(`
-      INSERT INTO settings_notifications (id, label, description, enabled, sort_order, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `)
-
-    defaultNotificationSettings.forEach((item, index) => {
-      insertNotification.run(item.id, item.label, item.description, item.enabled ? 1 : 0, index, now)
-    })
-  }
+  defaultNotificationSettings.forEach((item, index) => {
+    upsertNotification.run(item.id, item.label, item.description, item.enabled ? 1 : 0, index, now)
+  })
 
   database
     .prepare(`
@@ -1231,6 +1240,7 @@ export function upsertAuthenticatedUser(
         full_name AS fullName,
         email,
         roles_json AS rolesJson,
+        permissions_json AS permissionsJson,
         last_login_at AS lastLoginAt,
         created_at AS createdAt,
         updated_at AS updatedAt
@@ -1244,6 +1254,7 @@ export function upsertAuthenticatedUser(
         fullName: string
         email: string
         rolesJson: string
+        permissionsJson: string
         lastLoginAt: string
         createdAt: string
         updatedAt: string
@@ -1254,16 +1265,7 @@ export function upsertAuthenticatedUser(
     throw new Error("Authenticated user was not persisted")
   }
 
-  return {
-    subject: row.subject,
-    preferredUsername: row.preferredUsername,
-    fullName: row.fullName,
-    email: row.email,
-    roles: parseRolesJson(row.rolesJson),
-    lastLoginAt: row.lastLoginAt,
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt,
-  } as AuthenticatedUserRecord
+  return selectAuthUserRow(row)
 }
 
 export function getSystemSettings() {
@@ -1696,6 +1698,132 @@ export function deleteEmailTemplate(templateId: string) {
     .run(templateId)
 
   return existing
+}
+
+function parsePermissionsJson(value: string): AuthUserPermission[] {
+  try {
+    const parsed = JSON.parse(value) as unknown
+    if (!Array.isArray(parsed)) return []
+    return parsed
+      .map((item) => String(item).trim())
+      .filter((item): item is AuthUserPermission =>
+        (authUserPermissions as readonly string[]).includes(item),
+      )
+  } catch {
+    return []
+  }
+}
+
+function selectAuthUserRow(row: {
+  subject: string
+  preferredUsername: string
+  fullName: string
+  email: string
+  rolesJson: string
+  permissionsJson: string
+  lastLoginAt: string
+  createdAt: string
+  updatedAt: string
+}): AuthenticatedUserRecord {
+  return {
+    subject: row.subject,
+    preferredUsername: row.preferredUsername,
+    fullName: row.fullName,
+    email: row.email,
+    roles: parseRolesJson(row.rolesJson),
+    permissions: parsePermissionsJson(row.permissionsJson),
+    lastLoginAt: row.lastLoginAt,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  }
+}
+
+export function listAuthUsers(): AuthenticatedUserRecord[] {
+  const database = getDatabase()
+  const rows = database
+    .prepare(`
+      SELECT
+        subject,
+        preferred_username AS preferredUsername,
+        full_name AS fullName,
+        email,
+        roles_json AS rolesJson,
+        permissions_json AS permissionsJson,
+        last_login_at AS lastLoginAt,
+        created_at AS createdAt,
+        updated_at AS updatedAt
+      FROM auth_users
+      ORDER BY last_login_at DESC
+    `)
+    .all() as Array<{
+      subject: string
+      preferredUsername: string
+      fullName: string
+      email: string
+      rolesJson: string
+      permissionsJson: string
+      lastLoginAt: string
+      createdAt: string
+      updatedAt: string
+    }>
+
+  return rows.map(selectAuthUserRow)
+}
+
+export function updateAuthUserPermissions(
+  subject: string,
+  permissions: AuthUserPermission[],
+): AuthenticatedUserRecord | null {
+  const database = getDatabase()
+  const normalized = Array.from(
+    new Set(permissions.filter((p) => (authUserPermissions as readonly string[]).includes(p))),
+  )
+  const updatedAt = new Date().toISOString()
+
+  const result = database
+    .prepare(`
+      UPDATE auth_users
+      SET permissions_json = ?, updated_at = ?
+      WHERE subject = ?
+    `)
+    .run(JSON.stringify(normalized), updatedAt, subject) as { changes: number }
+
+  if (result.changes === 0) {
+    return null
+  }
+
+  const row = database
+    .prepare(`
+      SELECT
+        subject,
+        preferred_username AS preferredUsername,
+        full_name AS fullName,
+        email,
+        roles_json AS rolesJson,
+        permissions_json AS permissionsJson,
+        last_login_at AS lastLoginAt,
+        created_at AS createdAt,
+        updated_at AS updatedAt
+      FROM auth_users
+      WHERE subject = ?
+    `)
+    .get(subject) as {
+      subject: string
+      preferredUsername: string
+      fullName: string
+      email: string
+      rolesJson: string
+      permissionsJson: string
+      lastLoginAt: string
+      createdAt: string
+      updatedAt: string
+    } | undefined
+
+  if (!row) {
+    return null
+  }
+
+  return selectAuthUserRow(row)
 }
 
 export function appendAuditLog(input: Omit<AuditLogRecord, "id" | "createdAt" | "metadata"> & {

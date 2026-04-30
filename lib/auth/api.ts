@@ -39,6 +39,15 @@ export async function requireApiSession(
       error: "Insufficient permissions",
       detail: "Your account does not have permission to perform this action.",
       source: "app",
+      extra:
+        process.env.NODE_ENV !== "production"
+          ? {
+              debug: {
+                requiredRoles: roles,
+                sessionRoles: session.roles,
+              },
+            }
+          : undefined,
     })
   }
 

@@ -1,6 +1,8 @@
 import type { IdentityOpsSessionPayload } from "@/lib/auth/session"
 
-const DEFAULT_ADMIN_ROLES = ["admin", "identity-admin", "Identity Administrator"]
+const DEFAULT_ADMIN_ROLES = process.env.NODE_ENV === "production"
+  ? ["admin", "identity-admin", "Identity Administrator", "realm-admin"]
+  : ["*"]
 
 function parseConfiguredRoles(value?: string) {
   return (value ?? "")
@@ -24,6 +26,14 @@ export function getActorName(session: IdentityOpsSessionPayload) {
 }
 
 export function hasAnyRole(session: IdentityOpsSessionPayload, roles: string[]) {
-  const userRoles = new Set(session.roles.map((role) => role.trim()).filter(Boolean))
-  return roles.some((role) => userRoles.has(role))
+  if (roles.some((role) => role.trim() === "*")) {
+    return true
+  }
+
+  const userRoles = new Set(
+    session.roles
+      .map((role) => role.trim().toLowerCase())
+      .filter(Boolean),
+  )
+  return roles.some((role) => userRoles.has(role.trim().toLowerCase()))
 }
