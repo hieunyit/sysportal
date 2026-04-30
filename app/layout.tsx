@@ -10,9 +10,9 @@ const plusJakartaSans = Plus_Jakarta_Sans({ subsets: ["latin"], variable: "--fon
 const ibmPlexMono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-ibm-plex-mono" })
 
 export const metadata: Metadata = {
-  title: "IdentityOps Console",
+  title: "ITOps Console",
   description:
-    "Unified operations console for Keycloak, OpenVPN, connector health, audit visibility, and notification workflows.",
+    "Unified IT Support operations console for Keycloak, OpenVPN, connector health, audit visibility, and notification workflows.",
   generator: "v0.app",
   icons: {
     icon: [
@@ -41,7 +41,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning className={`${plusJakartaSans.variable} ${ibmPlexMono.variable}`}>
       <body className="font-sans antialiased">
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} storageKey="identityops-theme">
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} storageKey="itops-theme">
           {children}
           <Toaster />
         </ThemeProvider>

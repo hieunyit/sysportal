@@ -1,12 +1,12 @@
-export const AUTH_SESSION_COOKIE_NAME = "identityops_session"
-export const AUTH_STATE_COOKIE_NAME = "identityops_auth_state"
+export const AUTH_SESSION_COOKIE_NAME = "itops_session"
+export const AUTH_STATE_COOKIE_NAME = "itops_auth_state"
 export const AUTH_SESSION_DURATION_SECONDS = 8 * 60 * 60
 export const AUTH_STATE_DURATION_SECONDS = 10 * 60
 
-const DEFAULT_AUTH_SECRET = "identityops-local-dev-secret-change-me"
+const DEFAULT_AUTH_SECRET = "itops-local-dev-secret-change-me"
 const MIN_AUTH_SECRET_LENGTH = 32
 
-export interface IdentityOpsSessionPayload {
+export interface ITOpsSessionPayload {
   sub: string
   name: string
   email: string
@@ -167,25 +167,25 @@ export function parseJwtPayload<TPayload>(token?: string | null) {
   }
 }
 
-export async function createIdentityOpsSessionToken(
-  payload: Omit<IdentityOpsSessionPayload, "iat" | "exp">,
+export async function createITOpsSessionToken(
+  payload: Omit<ITOpsSessionPayload, "iat" | "exp">,
   durationSeconds = AUTH_SESSION_DURATION_SECONDS,
 ) {
   const issuedAt = Math.floor(Date.now() / 1000)
 
-  return signJwt<IdentityOpsSessionPayload>({
+  return signJwt<ITOpsSessionPayload>({
     ...payload,
     iat: issuedAt,
     exp: issuedAt + durationSeconds,
   })
 }
 
-export async function verifyIdentityOpsSessionToken(token?: string | null) {
+export async function verifyITOpsSessionToken(token?: string | null) {
   if (!token) {
     return null
   }
 
-  const payload = await verifyJwt<IdentityOpsSessionPayload>(token)
+  const payload = await verifyJwt<ITOpsSessionPayload>(token)
 
   if (!payload?.sub) {
     return null
@@ -237,7 +237,7 @@ export function getCookieValue(cookieHeader: string | null, cookieName: string) 
 
 export async function getSessionFromRequest(request: Request) {
   const cookieToken = getCookieValue(request.headers.get("cookie"), AUTH_SESSION_COOKIE_NAME)
-  return verifyIdentityOpsSessionToken(cookieToken)
+  return verifyITOpsSessionToken(cookieToken)
 }
 
 export function getSessionCookieOptions(maxAge = AUTH_SESSION_DURATION_SECONDS) {

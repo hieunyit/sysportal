@@ -612,7 +612,7 @@ async function openSmtpSession(config: SmtpSettingsRecord, timeoutMs: number): P
     throw new Error(`SMTP server greeting failed: ${greeting.message}`)
   }
 
-  await writeCommand(socket, "EHLO identityops.local")
+  await writeCommand(socket, "EHLO itops.local")
   let capabilities = await reader.readResponse()
 
   if (capabilities.code !== 250) {
@@ -646,7 +646,7 @@ async function openSmtpSession(config: SmtpSettingsRecord, timeoutMs: number): P
     })
     reader = createSocketReader(socket, timeoutMs)
 
-    await writeCommand(socket, "EHLO identityops.local")
+    await writeCommand(socket, "EHLO itops.local")
     capabilities = await reader.readResponse()
 
     if (capabilities.code !== 250) {

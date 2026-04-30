@@ -6,12 +6,12 @@ import {
 } from "@/lib/auth/access"
 import {
   getSessionFromRequest,
-  type IdentityOpsSessionPayload,
+  type ITOpsSessionPayload,
 } from "@/lib/auth/session"
 import { getAuthUserBySubject, type AuthUserPermission } from "@/lib/settings-store"
 
 export interface ApiAuthResult {
-  session: IdentityOpsSessionPayload
+  session: ITOpsSessionPayload
   actorName: string
 }
 

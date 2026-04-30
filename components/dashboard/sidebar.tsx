@@ -109,8 +109,8 @@ export function Sidebar() {
             <ShieldCheck className="w-4 h-4 text-white" />
           </div>
           <div>
-            <p className="font-semibold text-white text-sm leading-tight">IdentityOps</p>
-            <p className="text-slate-500 text-xs">Operations Console</p>
+            <p className="font-semibold text-white text-sm leading-tight">ITOps</p>
+            <p className="text-slate-500 text-xs">IT Support Console</p>
           </div>
         </div>
       </div>

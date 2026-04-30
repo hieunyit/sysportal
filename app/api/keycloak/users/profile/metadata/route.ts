@@ -10,7 +10,7 @@ declare global {
   var __identityOpsKeycloakProfileMetadataCache__:
     | {
         realm: string
-        profileMetadata: Record<string, unknown>
+        profileMetadata: unknown
         expiresAt: number
       }
     | undefined

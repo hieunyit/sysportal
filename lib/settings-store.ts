@@ -1739,6 +1739,24 @@ function selectAuthUserRow(row: {
   }
 }
 
+export function countAuthUsers(): number {
+  const database = getDatabase()
+  const row = database
+    .prepare(`SELECT COUNT(*) AS count FROM auth_users`)
+    .get() as { count: number }
+  return row.count
+}
+
+export function getBootstrapAdminSubject(): string | null {
+  const database = getDatabase()
+  return getSettingsMetaValue(database, "bootstrap_admin_subject")
+}
+
+export function setBootstrapAdminSubject(subject: string) {
+  const database = getDatabase()
+  setSettingsMetaValue(database, "bootstrap_admin_subject", subject)
+}
+
 export function listAuthUsers(): AuthenticatedUserRecord[] {
   const database = getDatabase()
   const rows = database

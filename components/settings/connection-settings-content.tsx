@@ -141,7 +141,7 @@ const emptySystem: SystemSettings = {
   keycloak: {
     serverUrl: "https://sso.example.com",
     realm: "master",
-    clientId: "identityops-admin",
+    clientId: "itops-admin",
     clientSecret: "",
     ldapProviderId: "",
     verifyTls: true,
@@ -159,10 +159,10 @@ const emptySystem: SystemSettings = {
   smtp: {
     host: "smtp.example.com",
     port: 587,
-    username: "identityops-notify",
+    username: "itops-notify",
     password: "",
-    fromAddress: "identityops@example.com",
-    fromName: "IdentityOps Notifications",
+    fromAddress: "itops@example.com",
+    fromName: "ITOps Notifications",
     tlsMode: "starttls",
     insecureSkipVerify: false,
     requireAuth: true,
@@ -170,7 +170,7 @@ const emptySystem: SystemSettings = {
   smtpWelcome: {
     host: "smtp.example.com",
     port: 587,
-    username: "identityops-welcome",
+    username: "itops-welcome",
     password: "",
     fromAddress: "welcome@example.com",
     fromName: "People Operations Welcome",

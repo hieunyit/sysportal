@@ -1,10 +1,7 @@
 import { request as httpRequest } from "node:http"
 import { request as httpsRequest } from "node:https"
 import { getErrorDetail } from "@/lib/error-utils"
-import {
-  getSystemConnection,
-  type KeycloakConnectionRecord,
-} from "@/lib/settings-store"
+import { getSystemConnection, type KeycloakConnectionRecord } from "@/lib/settings-store"
 import { parseJwtPayload } from "@/lib/auth/session"
 
 interface KeycloakTokenResponse {
@@ -145,10 +142,31 @@ function requestOidcJson<T = unknown>(
 }
 
 export function getKeycloakAuthConfig() {
+  // Env vars take priority; fall back to DB connection settings if not set
+  const envServerUrl = process.env.KEYCLOAK_SERVER_URL?.trim()
+  const envRealm = process.env.KEYCLOAK_REALM?.trim()
+  const envClientId = process.env.KEYCLOAK_CLIENT_ID?.trim()
+
+  if (envServerUrl && envRealm && envClientId) {
+    const verifyTls = process.env.KEYCLOAK_VERIFY_TLS !== "false"
+    const timeoutRaw = parseInt(process.env.KEYCLOAK_TIMEOUT_SECONDS ?? "10", 10)
+    return {
+      serverUrl: trimTrailingSlash(envServerUrl),
+      realm: envRealm,
+      clientId: envClientId,
+      clientSecret: process.env.KEYCLOAK_CLIENT_SECRET?.trim() ?? "",
+      verifyTls,
+      timeoutSeconds: isNaN(timeoutRaw) ? 10 : timeoutRaw,
+    }
+  }
+
+  // Fall back to DB connection
   const config = getSystemConnection("keycloak").config as KeycloakConnectionRecord
 
   if (!config.serverUrl.trim() || !config.realm.trim() || !config.clientId.trim()) {
-    throw new Error("Keycloak authentication is not configured. Review the Keycloak connection settings.")
+    throw new Error(
+      "Keycloak login is not configured. Set KEYCLOAK_SERVER_URL, KEYCLOAK_REALM, and KEYCLOAK_CLIENT_ID in .env, or configure the Keycloak connection in Settings → Connections.",
+    )
   }
 
   return {
@@ -288,18 +306,18 @@ export function buildAuthenticatedUser(tokens: KeycloakTokenResponse): KeycloakA
       resolvedClaims.sub?.trim() ||
       resolvedClaims.preferred_username?.trim() ||
       resolvedClaims.email?.trim() ||
-      "identityops-user",
+      "itops-user",
     email: resolvedClaims.email?.trim() || "",
     name:
       resolvedClaims.name?.trim() ||
       resolvedClaims.preferred_username?.trim() ||
       resolvedClaims.email?.trim() ||
-      "IdentityOps User",
+      "ITOps User",
     preferredUsername:
       resolvedClaims.preferred_username?.trim() ||
       resolvedClaims.email?.trim() ||
       resolvedClaims.sub?.trim() ||
-      "identityops-user",
+      "itops-user",
     roles: resolvedRoles,
     idToken: tokens.id_token?.trim() || undefined,
   }

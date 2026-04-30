@@ -22,7 +22,7 @@ export default async function LoginPage({
           </div>
           <div>
             <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-              Operations Console
+              ITOps Console
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
               Sign in with your Keycloak account to continue.
@@ -39,11 +39,6 @@ export default async function LoginPage({
           )}
 
           <div className="px-6 py-8 space-y-6">
-            <div className="rounded-xl border border-border/60 bg-muted/30 px-4 py-3 text-xs text-muted-foreground space-y-1">
-              <p className="font-medium text-foreground/70">Protected systems</p>
-              <p>Keycloak · OpenVPN · Email templates · Audit log · Admin APIs</p>
-            </div>
-
             <Link href={`/api/auth/login?next=${encodeURIComponent(nextPath)}`} className="block">
               <Button className="h-11 w-full rounded-xl text-sm font-semibold">
                 Login with Keycloak

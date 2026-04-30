@@ -73,7 +73,7 @@ Identity Operations`)
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault()
-    console.log("[identityops] Template draft:", { title, description, category, tags, content })
+    console.log("[itops] Template draft:", { title, description, category, tags, content })
   }
 
   return (

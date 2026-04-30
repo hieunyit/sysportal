@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server"
 import {
   AUTH_SESSION_COOKIE_NAME,
-  verifyIdentityOpsSessionToken,
+  verifyITOpsSessionToken,
 } from "@/lib/auth/session"
 import { getConfiguredAdminRoles } from "@/lib/auth/access"
 
@@ -57,7 +57,7 @@ export async function proxy(request: NextRequest) {
   }
 
   const cookieToken = request.cookies.get(AUTH_SESSION_COOKIE_NAME)?.value ?? null
-  const session = await verifyIdentityOpsSessionToken(cookieToken)
+  const session = await verifyITOpsSessionToken(cookieToken)
 
   if (session && (!isAdminPath(pathname) || hasAdminRole(session.roles))) {
     return NextResponse.next()
