@@ -1247,7 +1247,7 @@ export function UserEditorDialog({
                         <Label htmlFor="create-work-start-date">Work start date</Label>
                         <Input
                           id="create-work-start-date"
-                          type="datetime-local"
+                          type="date"
                           value={workStartDate}
                           onChange={(event) => setWorkStartDate(event.target.value)}
                           disabled={isSubmitting}

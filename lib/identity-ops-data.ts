@@ -728,19 +728,7 @@ export const emailTemplates = [
           <tr>
             <td style="padding:24px 38px 14px; background:radial-gradient(circle at top right,#dbeafe 0%,#eff6ff 35%,#ffffff 75%); border-top:1px solid #d8e7f6;">
               <p style="margin:0 0 8px; font-size:15px; line-height:1.8; color:#334155;">Trân trọng,</p>
-              <p style="margin:0; font-size:15px; line-height:1.8; font-weight:700; color:#0f2747;">Công ty Cổ phần Giải pháp Số MobiFone(MobiFone Solutions)</p>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:16px 38px 22px; background:radial-gradient(circle at top right,#dbeafe 0%,#eff6ff 35%,#ffffff 75%); border-top:1px solid #d8e7f6;">
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-                <tr>
-                  <td style="font-size:14px; line-height:1.8; color:#36506e; text-align:left;">Số 38 Phố Phan Đình Phùng, Phường Ba Đình, TP Hà Nội</td>
-                </tr>
-                <tr>
-                  <td style="font-size:14px; line-height:1.8; color:#36506e; text-align:left;">hr@mobifonesolutions.vn | 0932325002</td>
-                </tr>
-              </table>
+              <p style="margin:0; font-size:15px; line-height:1.8; font-weight:700; color:#0f2747;">Phòng nhân sự MobiFone Solutions</p>
             </td>
           </tr>
         </table>

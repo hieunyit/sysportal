@@ -9,20 +9,19 @@ export interface KeycloakValidationIssue {
   message: string
 }
 
-function hasAdminPermission(roles?: string[]) {
-  if (!roles || roles.length === 0) {
-    return true
+function isRequired(required?: boolean | { roles?: string[] } | null) {
+  // null / undefined → not required
+  if (required === null || required === undefined) {
+    return false
   }
-
-  return roles.includes("admin")
-}
-
-function isRequired(required?: boolean | { roles?: string[] }) {
   if (typeof required === "boolean") {
     return required
   }
-
-  return hasAdminPermission(required?.roles)
+  // Object form: { roles: [...] } means "required for users WITH those roles".
+  // We don't know the target user's roles at creation time, so treat as optional.
+  // Only { roles: [] } with no specific roles could mean required-for-all, but
+  // we stay lenient here and let Keycloak enforce it on the actual API call.
+  return false
 }
 
 function getFieldPath(name: string) {

@@ -93,22 +93,13 @@ function getFirstAttributeValue(value: string[] | undefined) {
 function formatWorkStartDateForEmail(value: string) {
   const trimmedValue = value.trim()
 
-  if (!trimmedValue) {
-    return ""
-  }
+  if (!trimmedValue) return ""
 
-  const dateOnlyMatch = trimmedValue.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  const match = trimmedValue.match(/^(\d{4})-(\d{2})-(\d{2})/)
 
-  if (dateOnlyMatch) {
-    const [, year, month, day] = dateOnlyMatch
+  if (match) {
+    const [, year, month, day] = match
     return `${day}/${month}/${year}`
-  }
-
-  const dateTimeMatch = trimmedValue.match(/^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}:\d{2})(?::\d{2})?/)
-
-  if (dateTimeMatch) {
-    const [, year, month, day, time] = dateTimeMatch
-    return `${time} ${day}/${month}/${year}`
   }
 
   return trimmedValue
@@ -525,7 +516,6 @@ export async function POST(request: Request) {
     if (metadataIssues.length > 0) {
       return apiValidationError({
         error: "Keycloak user validation failed",
-        detail: "The payload does not satisfy the current Keycloak user profile policy.",
         issues: metadataIssues,
         source: "keycloak",
       })

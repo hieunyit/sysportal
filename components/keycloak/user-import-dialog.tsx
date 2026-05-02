@@ -121,7 +121,7 @@ const normalizedCsvTemplateRows = [
     "true",
     "manager@mobifonesolutions.vn",
     "38 Phan Dinh Phung, Ba Dinh, Ha Noi",
-    "2026-04-22T08:30",
+    "2026-04-22",
     "/jira-servicedesk-users|/Organization",
     "true",
     "true",
