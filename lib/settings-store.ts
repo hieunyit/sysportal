@@ -1656,7 +1656,7 @@ export function updateEmailTemplate(templateId: string, input: Omit<EmailTemplat
   const database = getDatabase()
   const updatedAt = new Date().toISOString()
 
-  database
+  const result = database
     .prepare(`
       UPDATE email_templates
       SET
@@ -1680,7 +1680,38 @@ export function updateEmailTemplate(templateId: string, input: Omit<EmailTemplat
       templateId,
     )
 
-  return getEmailTemplate(templateId)
+  if ((result as { changes: number }).changes === 0) {
+    return null
+  }
+
+  const row = database
+    .prepare(`
+      SELECT
+        id,
+        name,
+        category,
+        subject,
+        description,
+        html_content AS html,
+        sample_data_json AS sampleDataJson,
+        updated_at AS updatedAt
+      FROM email_templates
+      WHERE id = ?
+    `)
+    .get(templateId) as
+    | {
+        id: string
+        name: string
+        category: string
+        subject: string
+        description: string
+        html: string
+        sampleDataJson: string
+        updatedAt: string
+      }
+    | undefined
+
+  return row ? toEmailTemplateRecord(row) : null
 }
 
 export function deleteEmailTemplate(templateId: string) {
